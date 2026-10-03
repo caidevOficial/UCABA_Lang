@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.class
+
+# PyInstaller / Build artifacts
+build/
+dist/
+payload/
+*.manifest
+
+# Node / Extension packaging
+node_modules/
+*.log
+
+# Windows thumbnail cache
+Thumbs.db
+ehthumbs.db
