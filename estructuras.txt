@@ -1,0 +1,174 @@
+// GNU General Public License v3.0 or later (GPL-3.0-or-later)
+//
+// Copyright (c) 2026 [Facu Falcone](a.facundo.falcone@gmail.com) All rights reserved.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+// Ciclo FOR 
+PARA(ENTERO vueltas = 0; vueltas < 10; vueltas++)
+    IMPRIMIR(vueltas)
+FIN PARA
+
+// Ciclo WHILE 
+MIENTRAS (condicion)
+    // bloque
+FIN MIENTRAS
+
+// Ciclo DO WHILE 
+HACER
+    // bloque
+MIENTRAS (condicion)
+FIN HACER
+
+// CONDICIONAL
+SI (condicion)
+    // bloque
+FIN SI
+
+// CONDICIONAL ELSE
+SI (condicion)
+    // bloque
+SINO
+    // bloque
+FIN SI
+
+// CONDICIONAL ELSE IF
+SI (condicion)
+    // bloque
+SINO SI (condicion)
+    // bloque
+FIN SI
+
+// CONDICIONAL ANIDADO
+SI (condicion1)
+    SI (condicion2)
+        // bloque
+    SINO
+        // bloque
+    FIN SI
+FIN SI
+
+// VECTORES
+// declaration 
+REAL vector[size]
+
+// declaration y asignacion
+REAL vector[size] = [valor1, valor2, valor3, ...]
+
+// acceso a elementos
+vector[indice]
+
+// cantidad de elementos (longitud)
+ENTERO cantidad = vector.largo
+
+// MATRICES
+// declaration tipe REAL 
+REAL matriz[filas][columnas]
+
+// declaration tipe ENTERO
+ENTERO matriz[filas][columnas]
+
+// declaration tipe CADENA
+CADENA matriz[filas][columnas]
+
+// declaration tipe BOOLEANO
+BOOLEANO matriz[filas][columnas]
+
+// declaration tipe CARACTER
+CARACTER matriz[filas][columnas]
+
+// declaration y asignacion
+REAL matriz[filas][columnas] = [ [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...]]
+
+// declaration y asignacion tipe ENTERO
+ENTERO matriz[filas][columnas] = [ [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...]]
+
+// declaration y asignacion tipe CADENA
+CADENA matriz[filas][columnas] = [ [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...]]
+
+// declaration y asignacion tipe BOOLEANO
+BOOLEANO matriz[filas][columnas] = [ [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...]]
+
+// declaration y asignacion tipe CARACTER
+CARACTER matriz[filas][columnas] = [ [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...], [valor1, valor2, valor3, ...]]
+
+// acceso a elementos
+matriz[indice_fila][indice_columna]
+
+// SINTAXIS CODIGO
+INICIO
+    // inicio del programa
+FIN // fin del programa
+
+// SINTAXIS FUNCIONES
+// los tipos de RETORNAR seran: ENTERO, FLOTANTE, REAL, BOOLEANO, CADENA, ARCHIVO Y CARACTER. Si lo que retorna es un vector, se pondra: TIPO_VECTOR[]
+FUNCION nombre_funcion(parametro1: tipo, parametro2: tipo, ...): tipo_RETORNAR
+    // cuerpo de la funcion
+    RETORNAR valor
+FIN FUNCION
+
+// SINTAXIS PROCEDIMIENTOS
+PROCEDIMIENTO nombre_procedimiento(parametro1: tipo, parametro2: tipo, ...)
+    // cuerpo del procedimiento
+FIN PROCEDIMIENTO
+
+// SINTAXIS DE LLAMADAS
+// llamada a funcion
+variable = nombre_funcion(parametro1, parametro2, ...)
+
+// llamada a procedimiento
+nombre_procedimiento(parametro1, parametro2, ...)
+
+// OPERADORES
+// suma
++ 
+// resta
+- 
+// multiplicacion
+* 
+// division
+/ 
+// modulo
+% 
+// mod
+MOD()
+
+// es par
+ESPAR(numero)
+
+// es impar
+ESIMPAR(numero)
+
+// CONCATENAR CADENAS Y NUMEROS
+// Puede ser entero, real, flotante, booleano, caracter e incluso otra CADENA
+ENTERO mi_numero = 1
+REAL mi_real = 2.5
+BOOLEANO mi_booleano = VERDADERO
+CARACTER mi_caracter = 'a'
+CADENA mi_cadena = "hola"
+
+"El valor es: " + mi_numero
+"El valor es: " + mi_real
+"El valor es: " + mi_booleano
+"El valor es: " + mi_caracter
+"El valor es: " + mi_cadena
+
+// concatenar VECTORES
+ENTERO mi_vector = [1, 2, 3, 4, 5]
+REAL mi_vector_2 = [1.1, 2.2, 3.3, 4.4, 5.5]
+BOOLEANO mi_vector_3 = [VERDADERO, FALSO, VERDADERO, FALSO, VERDADERO]
+CARACTER mi_vector_4 = ['a', 'b', 'c', 'd', 'e']
+CADENA mi_vector_5 = ["hola", "adios", "buenos", "dias", "tardes", "noches"]
+
+mi_vector_concatenado = mi_vector + mi_vector_2 + mi_vector_3 + mi_vector_4 + mi_vector_5

@@ -1,0 +1,98 @@
+{
+  "name": "ucaba-language-support",
+  "displayName": "UCABA",
+  "description": "Soporte oficial para el lenguaje UCABA (.ucaba): coloreado de sintaxis, diagnósticos en tiempo real, autocompletado y ejecución.",
+  "version": "1.2.0",
+  "author": "Facu Falcone <a.facundo.falcone@gmail.com>",
+  "license": "GPL-3.0-or-later",
+  "icon": "icon.png",
+  "publisher": "ucaba",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:ucaba"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ucaba",
+        "aliases": [
+          "UCABA",
+          "ucaba"
+        ],
+        "extensions": [
+          ".ucaba"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ucaba",
+        "scopeName": "source.ucaba",
+        "path": "./syntaxes/ucaba.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "ucaba",
+        "path": "./snippets/snippets.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "ucaba.runFile",
+        "title": "UCABA: Ejecutar archivo actual",
+        "category": "UCABA"
+      },
+      {
+        "command": "ucaba.checkFile",
+        "title": "UCABA: Verificar sintaxis y tipos del archivo",
+        "category": "UCABA"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "ucaba.runFile",
+          "when": "resourceExtname == .ucaba",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "ucaba.runFile",
+          "when": "resourceExtname == .ucaba",
+          "group": "1_modification"
+        },
+        {
+          "command": "ucaba.checkFile",
+          "when": "resourceExtname == .ucaba",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "UCABA Pseudocode",
+      "properties": {
+        "ucaba.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Ruta al ejecutable 'ucaba.exe' (detectado automáticamente si está instalado)."
+        },
+        "ucaba.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Ruta al ejecutable de Python (por defecto usa 'python' en PATH o el intérprete configurado)."
+        }
+      }
+    }
+  }
+}

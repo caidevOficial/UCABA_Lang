@@ -1,0 +1,196 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "UCABA Pseudocode",
+  "scopeName": "source.ucaba",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#function_definition" },
+    { "include": "#control_flow" },
+    { "include": "#storage_types" },
+    { "include": "#constants" },
+    { "include": "#builtins" },
+    { "include": "#properties" },
+    { "include": "#function_calls" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.triple-quote.ucaba",
+          "begin": "\"\"\"",
+          "end": "\"\"\""
+        },
+        {
+          "name": "comment.block.c-style.ucaba",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "name": "comment.line.double-slash.ucaba",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.ucaba",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.ucaba",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.ucaba",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.ucaba",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "function_definition": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(FUNCION|PROCEDIMIENTO)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.function.ucaba" },
+            "2": { "name": "entity.name.function.ucaba" }
+          }
+        }
+      ]
+    },
+    "control_flow": {
+      "patterns": [
+        {
+          "name": "keyword.control.structure.ucaba",
+          "match": "(?i)\\b(ALGORITMO|PROGRAMA|INICIO|FIN(\\s+(SI|MIENTRAS|PARA|FUNCION|PROCEDIMIENTO))?)\\b"
+        },
+        {
+          "name": "keyword.control.flow.return.ucaba",
+          "match": "(?i)\\b(RETORNAR|RETORNO)\\b"
+        },
+        {
+          "name": "keyword.control.conditional.ucaba",
+          "match": "(?i)\\b(SI|ENTONCES|SINO(\\s+SI)?)\\b"
+        },
+        {
+          "name": "keyword.control.repeat.ucaba",
+          "match": "(?i)\\b(MIENTRAS|PARA|HASTA|PASO|HACER)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.ucaba",
+          "match": "(?i)\\b(Y|O|NO)\\b"
+        },
+        {
+          "name": "keyword.operator.arithmetic.ucaba",
+          "match": "(?i)\\b(MOD|ESPAR|ESIMPAR)\\b"
+        }
+      ]
+    },
+    "storage_types": {
+      "patterns": [
+        {
+          "name": "storage.type.primitive.ucaba",
+          "match": "(?i)\\b(ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|VACIO|SIN_RETORNO)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.ucaba",
+          "match": "(?i)\\b(VERDADERO|FALSO|TRUE|FALSE)\\b"
+        },
+        {
+          "name": "constant.numeric.float.ucaba",
+          "match": "\\b\\d+\\.\\d+([eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.ucaba",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.io.ucaba",
+          "match": "(?i)\\b(MOSTRAR|LEER|IMPRIMIR)\\b"
+        },
+        {
+          "name": "support.function.builtin.file.ucaba",
+          "match": "(?i)\\b(ABRIR_ARCHIVO|CERRAR_ARCHIVO|LEER_LINEA|ESCRIBIR_LINEA)\\b"
+        }
+      ]
+    },
+    "properties": {
+      "patterns": [
+        {
+          "match": "(\\.)\\s*([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "punctuation.separator.period.ucaba" },
+            "2": { "name": "variable.other.property.ucaba" }
+          }
+        }
+      ]
+    },
+    "function_calls": {
+      "patterns": [
+        {
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.call.ucaba" }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.ucaba",
+          "match": "(<-|:=)"
+        },
+        {
+          "name": "keyword.operator.comparison.ucaba",
+          "match": "(==|!=|<>|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.assignment.simple.ucaba",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arithmetic.ucaba",
+          "match": "(\\+|-|\\*|/|\\^)"
+        },
+        {
+          "name": "punctuation.delimiter.ucaba",
+          "match": "(\\,|\\;|\\:)"
+        },
+        {
+          "name": "punctuation.bracket.ucaba",
+          "match": "(\\[|\\]|\\(|\\)|\\{|\\})"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.ucaba",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

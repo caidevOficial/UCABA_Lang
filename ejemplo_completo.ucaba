@@ -1,0 +1,58 @@
+// GNU General Public License v3.0 or later (GPL-3.0-or-later)
+//
+// Copyright (c) 2026 [Facu Falcone](a.facundo.falcone@gmail.com) All rights reserved.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+// Ejemplo completo ejecutable del algoritmo de sueldos y empleados (.ucaba)
+
+FUNCION sumar_vector(vec[]: REAL): REAL
+    REAL total = 0
+    PARA(ENTERO i = 0; i < vec.largo; i++)
+        total = total + vec[i]
+    FIN PARA
+    RETORNAR total
+FIN FUNCION
+
+FUNCION calcular_porcentaje(porcion: REAL, total: REAL): REAL
+    SI (total == 0)
+        RETORNAR 0
+    FIN SI
+    RETORNAR porcion * 100 / total
+FIN FUNCION
+
+PROCEDIMIENTO mostrar_resumen(nombres[]: CADENA, montos[]: REAL)
+    REAL total = sumar_vector(montos)
+    IMPRIMIR("TOTAL ABONADO: $" + total)
+
+    PARA(ENTERO i = 0; i < nombres.largo; i++)
+        REAL porc = calcular_porcentaje(montos[i], total)
+        IMPRIMIR("Empleado: " + nombres[i] + " -> $" + montos[i] + " (" + porc + "%)")
+    FIN PARA
+FIN PROCEDIMIENTO
+
+INICIO
+    IMPRIMIR("=== SISTEMA DE SUELDOS EN PSEUDOCODIGO (UCABA) ===")
+    
+    CADENA empleados[3] = ["Juan Perez", "Maria Lopez", "Carlos Gomez"]
+    REAL sueldos[3] = [450000.0, 520000.0, 390000.0]
+
+    mostrar_resumen(empleados, sueldos)
+
+    IMPRIMIR("")
+    IMPRIMIR("Validacion de Built-ins y Operadores:")
+    IMPRIMIR("ESPAR(4): " + ESPAR(4))
+    IMPRIMIR("ESIMPAR(7): " + ESIMPAR(7))
+    IMPRIMIR("MOD(14, 3): " + MOD(14, 3))
+FIN

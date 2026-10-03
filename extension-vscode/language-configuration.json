@@ -1,0 +1,37 @@
+{
+  "comments": {
+    "lineComment": "//",
+    "blockComment": ["/*", "*/"]
+  },
+  "brackets": [
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"]
+  ],
+  "autoClosingPairs": [
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "{", "close": "}" },
+    { "open": "\"", "close": "\"", "notIn": ["string"] },
+    { "open": "'", "close": "'", "notIn": ["string", "comment"] },
+    { "open": "/*", "close": "*/", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"],
+    ["\"", "\""],
+    ["'", "'"]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*(?i)(INICIO|FUNCION|PROCEDIMIENTO|SI|MIENTRAS|PARA|HACER)\\b",
+      "end": "^\\s*(?i)(FIN|FIN\\s+SI|FIN\\s+MIENTRAS|FIN\\s+PARA|FIN\\s+FUNCION|FIN\\s+PROCEDIMIENTO)\\b"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(?i)(INICIO|FUNCION\\b.*|PROCEDIMIENTO\\b.*|SI\\b.*|SINO|SINO\\s+SI\\b.*|MIENTRAS\\b.*|PARA\\b.*|HACER)\\s*$",
+    "decreaseIndentPattern": "^\\s*(?i)(FIN|FIN\\s+SI|FIN\\s+MIENTRAS|FIN\\s+PARA|FIN\\s+FUNCION|FIN\\s+PROCEDIMIENTO|SINO|SINO\\s+SI\\b.*)\\s*$"
+  },
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>/\\?\\s]+)"
+}

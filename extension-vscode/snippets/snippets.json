@@ -1,0 +1,119 @@
+{
+  "Programa Principal": {
+    "prefix": "algoritmo",
+    "body": [
+      "ALGORITMO ${1:MiAlgoritmo}",
+      "",
+      "INICIO",
+      "\t${0:// Escribe tu código aquí}",
+      "FIN"
+    ],
+    "description": "Estructura principal de un programa UCABA"
+  },
+  "Definición de Función": {
+    "prefix": "funcion",
+    "body": [
+      "FUNCION ${1:nombre_funcion}(${2:param1: ENTERO}): ${3:ENTERO}",
+      "\t${0}",
+      "\tRETORNAR ${4:resultado}",
+      "FIN FUNCION"
+    ],
+    "description": "Declaración de una función con tipo de retorno"
+  },
+  "Definición de Procedimiento": {
+    "prefix": "procedimiento",
+    "body": [
+      "PROCEDIMIENTO ${1:nombre_procedimiento}(${2:param1: CADENA})",
+      "\t${0}",
+      "FIN PROCEDIMIENTO"
+    ],
+    "description": "Declaración de un procedimiento sin retorno"
+  },
+  "Estructura Condicional Si": {
+    "prefix": "si",
+    "body": [
+      "SI ${1:condicion} ENTONCES",
+      "\t${0}",
+      "FIN SI"
+    ],
+    "description": "Condicional SI ... ENTONCES ... FIN SI"
+  },
+  "Estructura Condicional Si - Sino": {
+    "prefix": "sisino",
+    "body": [
+      "SI ${1:condicion} ENTONCES",
+      "\t${2}",
+      "SINO",
+      "\t${0}",
+      "FIN SI"
+    ],
+    "description": "Condicional SI ... ENTONCES ... SINO ... FIN SI"
+  },
+  "Bucle Para": {
+    "prefix": "para",
+    "body": [
+      "PARA ${1:i} <- ${2:1} HASTA ${3:limite} PASO ${4:1} HACER",
+      "\t${0}",
+      "FIN PARA"
+    ],
+    "description": "Bucle PARA ... HASTA ... PASO ... HACER"
+  },
+  "Bucle Mientras": {
+    "prefix": "mientras",
+    "body": [
+      "MIENTRAS ${1:condicion} HACER",
+      "\t${0}",
+      "FIN MIENTRAS"
+    ],
+    "description": "Bucle MIENTRAS ... HACER"
+  },
+  "Bucle Hacer Mientras": {
+    "prefix": "hacer",
+    "body": [
+      "HACER",
+      "\t${0}",
+      "MIENTRAS (${1:condicion})"
+    ],
+    "description": "Bucle HACER ... MIENTRAS"
+  },
+  "Declaración de Vector": {
+    "prefix": "vector",
+    "body": [
+      "${1|ENTERO,FLOTANTE,REAL,CADENA,BOOLEANO|} ${2:mi_vector}[] = [${3:valores}]"
+    ],
+    "description": "Declaración e inicialización de un vector"
+  },
+  "Declaración de Matriz": {
+    "prefix": "matriz",
+    "body": [
+      "${1|ENTERO,FLOTANTE,REAL,CADENA|} ${2:mi_matriz}[][] = [${3:[1, 2], [3, 4]}]"
+    ],
+    "description": "Declaración e inicialización de una matriz 2D"
+  },
+  "Propiedad Largo": {
+    "prefix": "largo",
+    "body": [
+      "${1:vector}.largo"
+    ],
+    "description": "Propiedad .largo de vectores, matrices y cadenas"
+  },
+  "Lectura de Archivo": {
+    "prefix": "leer_archivo",
+    "body": [
+      "ENTERO ${1:archivo} = ABRIR_ARCHIVO(\"${2:datos.txt}\", \"r\")",
+      "MIENTRAS NO findearchivo(${1:archivo}) HACER",
+      "\tCADENA linea = LEER_LINEA(${1:archivo})",
+      "\t${0:MOSTRAR linea}",
+      "FIN MIENTRAS",
+      "CERRAR_ARCHIVO(${1:archivo})"
+    ],
+    "description": "Lectura línea por línea de un archivo con ABRIR_ARCHIVO"
+  },
+  "Mostrar en Pantalla": {
+    "prefix": "mostrar",
+    "body": [
+      "MOSTRAR ${1:\"Mensaje: \", variable}"
+    ],
+    "description": "Imprimir datos por pantalla (MOSTRAR)"
+  }
+}
