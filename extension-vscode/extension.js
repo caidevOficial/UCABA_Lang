@@ -81,6 +81,76 @@ function getWorkingDirectory(document) {
 }
 
 /**
+ * Determina si una terminal activa o el entorno actual de VS Code está ejecutando PowerShell.
+ * @param {vscode.Terminal} [terminal]
+ * @returns {boolean}
+ */
+function isPowerShellTerminal(terminal) {
+    if (process.platform !== 'win32') {
+        return false;
+    }
+
+    if (terminal && terminal.name) {
+        const name = terminal.name.toLowerCase();
+        if (name.includes('pwsh') || name.includes('powershell')) {
+            return true;
+        }
+        if (name.includes('cmd') || name.includes('command') || name.includes('bash') || name.includes('zsh') || name.includes('git')) {
+            return false;
+        }
+    }
+
+    if (terminal && terminal.creationOptions) {
+        const shell = (terminal.creationOptions.shellPath || '').toLowerCase();
+        if (shell.includes('pwsh') || shell.includes('powershell')) {
+            return true;
+        }
+        if (shell.includes('cmd.exe') || shell.includes('bash') || shell.includes('zsh')) {
+            return false;
+        }
+    }
+
+    const envShell = (vscode.env.shell || '').toLowerCase();
+    if (envShell.includes('pwsh') || envShell.includes('powershell')) {
+        return true;
+    }
+    if (envShell.includes('cmd.exe') || envShell.includes('bash') || envShell.includes('zsh')) {
+        return false;
+    }
+
+    // En Windows el terminal integrado predeterminado de VS Code es PowerShell
+    return true;
+}
+
+/**
+ * Genera la cadena de comando lista para enviarse a la terminal de VS Code,
+ * asegurando compatibilidad con PowerShell (operador de invocación &) y CMD/Bash.
+ *
+ * @param {vscode.Terminal} terminal
+ * @param {string} executable Ruta o nombre del ejecutable
+ * @param {string[]} args Argumentos del comando
+ * @returns {string}
+ */
+function buildTerminalCommand(terminal, executable, args) {
+    const isPs = isPowerShellTerminal(terminal);
+    const isWin = process.platform === 'win32';
+
+    // En PowerShell o Windows, si el ejecutable contiene espacios o es ruta absoluta, se entrecomilla
+    const needsQuotes = executable.includes(' ') || isWin;
+    const exeFormatted = needsQuotes ? `"${executable}"` : executable;
+    const prefix = isPs ? '& ' : '';
+
+    const formattedArgs = args.map(arg => {
+        if (arg.includes(' ') || arg.includes('\t') || arg.includes('\\') || arg.includes('/')) {
+            return `"${arg}"`;
+        }
+        return arg;
+    }).join(' ');
+
+    return `${prefix}${exeFormatted} ${formattedArgs}`;
+}
+
+/**
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
@@ -589,11 +659,8 @@ function activate(context) {
                 const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('UCABA');
                 terminal.show();
                 const runner = getUcabaRunner();
-                if (runner.isCli) {
-                    terminal.sendText(`"${runner.executable}" run "${filePath}"`);
-                } else {
-                    terminal.sendText(`${runner.executable} -m pseudocode run "${filePath}"`);
-                }
+                const args = runner.isCli ? ['run', filePath] : ['-m', 'pseudocode', 'run', filePath];
+                terminal.sendText(buildTerminalCommand(terminal, runner.executable, args));
             });
         })
     );
@@ -615,11 +682,8 @@ function activate(context) {
                 const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('UCABA');
                 terminal.show();
                 const runner = getUcabaRunner();
-                if (runner.isCli) {
-                    terminal.sendText(`"${runner.executable}" check "${filePath}"`);
-                } else {
-                    terminal.sendText(`${runner.executable} -m pseudocode check "${filePath}"`);
-                }
+                const args = runner.isCli ? ['check', filePath] : ['-m', 'pseudocode', 'check', filePath];
+                terminal.sendText(buildTerminalCommand(terminal, runner.executable, args));
             });
         })
     );

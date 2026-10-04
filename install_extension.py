@@ -30,11 +30,21 @@ def install():
 
     user_home = os.path.expanduser("~")
     destinations = [
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
         os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
     ]
+
+    # Detectar dinámicamente cualquier carpeta ucaba existente en extensiones
+    for base_dir in [os.path.join(user_home, ".vscode", "extensions"), os.path.join(user_home, ".antigravity-ide", "extensions")]:
+        if os.path.exists(base_dir):
+            for item in os.listdir(base_dir):
+                if "ucaba" in item.lower():
+                    cand = os.path.join(base_dir, item)
+                    if cand not in destinations:
+                        destinations.append(cand)
 
     for dst in destinations:
         parent = os.path.dirname(dst)
@@ -42,7 +52,7 @@ def install():
             os.makedirs(parent, exist_ok=True)
         if os.path.exists(dst):
             shutil.rmtree(dst, ignore_errors=True)
-        shutil.copytree(ext_src, dst, dirs_exist_ok=True)
+        shutil.copytree(ext_src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.vsix"))
         print(f"[OK] Archivos copiados a: {dst}")
 
     # Si existe el archivo VSIX y el comando 'code', instalar directamente
