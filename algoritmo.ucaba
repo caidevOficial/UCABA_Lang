@@ -1,0 +1,371 @@
+"""
+una empresa de productos alimenticios posee 30 empleados, quienes mensualmente cobran un sueldo basandonos en las horas trabajdas. la empresa tiene un registro de los sueldos abonados a cada empleado en cada mes del año, en planillas mensuales con la siguiente forma: Numero de empleado, cantidad de horas, valor de la hora.
+a- Obtener del archivo nómina.txt el nombre de los 30 empleados y guardarlo en vector llamado empleados.
+b- Calcular el sueldo anual de cada empleado.
+c calcular y mostrar el total de sueldos pagados cada mes.
+d- Calcular y mostrar el maximo sueldo pagado en cada mes.
+e- Porcentaje quie representa cada sueldo sobre el total de un mes en especifico.
+f- Nombre del empleado que haya cobrado en menor sueldo en el primer semestre.
+g- Cantidad de meses en los que se haya pagado menos de $4millones en total de sueldos.
+h- Guardar en el archivo liquidacion.txt todos los sueldos anuales en forma ascendentes.
+"""
+INICIO
+
+    FUNCION obtener_largo_archivo(ruta: CADENA, modo: CADENA): ENTERO
+        ENTERO cant_lineas = 0
+        ARCHIVO file = ABRIR_ARCHIVO(ruta, modo)
+        MIENTRAS NO file.findearchivo
+            cant_lineas++
+        FIN MIENTRAS
+        file.CERRAR_ARCHIVO()
+        RETORNAR cant_lineas
+    FIN FUNCION
+
+    FUNCION leer_archivo_numerico(ruta: CADENA, modo: CADENA): REAL[]
+        ARCHIVO file = ABRIR_ARCHIVO(ruta, modo)
+        ENTERO lineas = obtener_largo_archivo(ruta, modo)
+        REAL valores[lineas]
+        ENTERO indice = 0
+        MIENTRAS NO file.findearchivo
+            valores[indice] = file.LEER_LINEA()
+            indice++
+        FIN MIENTRAS
+        file.CERRAR_ARCHIVO()
+        RETORNAR valores
+    FIN FUNCION
+
+    FUNCION leer_archivo_texto(ruta: CADENA, modo: CADENA): CADENA[]
+        ARCHIVO file = ABRIR_ARCHIVO(ruta, modo)
+        ENTERO lineas = obtener_largo_archivo(ruta, modo)
+        CADENA valores[lineas]
+        ENTERO indice = 0
+        MIENTRAS NO file.findearchivo
+            valores[indice] = file.LEER_LINEA()
+            indice++
+        FIN MIENTRAS
+        file.CERRAR_ARCHIVO()
+        RETORNAR valores
+    FIN FUNCION
+
+    FUNCION obtener_vector_real(ruta: CADENA): REAL[]
+        REAL file_vector = leer_archivo_numerico(ruta, "lectura")
+        RETORNAR file_vector
+    FIN FUNCION
+
+    FUNCION obtener_vector_cadena(ruta: CADENA): CADENA[]
+        CADENA file_vector[] = leer_archivo_texto(ruta, "lectura")
+        RETORNAR file_vector
+    FIN FUNCION
+
+    FUNCION trasponer_matriz(matriz[][]: REAL): REAL[][]
+        ENTERO columnas = matriz[0].largo
+        ENTERO filas = matriz.largo
+        REAL matriz_t[columnas][filas]
+
+        PARA(ENTERO columna = 0;columna < columnas; columna++)
+            PARA(ENTERO fila = 0; fila < filas; fila++)
+                matriz_t[columna][fila] = matriz[fila][columna]
+            FIN PARA
+        FIN PARA
+        RETORNAR matriz_t
+    FIN FUNCION
+
+    FUNCION calcular_sueldo_anual(matriz[][]: ENTERO, vEmpleados[]: CADENA)
+        IMPRIMIR("====== SUELDOS ANUALES ======")
+        PARA(ENTERO columna = 0; columna<matriz[0].largo;columna++)
+            ENTERO sueldo_anual = 0
+            PARA(ENTERO fila = 0; fila<matriz.largo;fila++)
+                sueldo_anual = sueldo_anual + matriz[fila][columna]
+            FIN PARA
+
+            IMPRIMIR("SUELDO ANUAL DE " + vEmpleados[columna] + ": $" + sueldo_anual)
+        FIN PARA
+        IMPRIMIR("====== FIN SUELDOS ANUALES ======")
+    FIN FUNCION
+
+    FUNCION sumar_vector(matriz[][]: ENTERO, indice_fila: ENTERO): REAL
+        REAL total = 0
+        PARA(ENTERO indice = 0; indice<matriz[indice_fila].largo;indice++)
+            total = total + matriz[indice_fila][indice]
+        FIN PARA
+        RETORNAR total
+    FIN FUNCION
+
+    FUNCION calcular_total_sueldos_mensuales(matriz[][]: ENTERO)
+        REAL matriz_t[][] = trasponer_matriz(matriz)
+        IMPRIMIR("====== TOTALES SUELDOS MENSUALES ======")
+        PARA(ENTERO indice_fila = 0; indice_fila<matriz_t.largo;indice_fila++)
+            REAL total = sumar_vector(matriz_t, indice_fila)
+            IMPRIMIR("TOTAL DE MES " + (indice_fila + 1) + " ES: $" + total)
+        FIN PARA
+        IMPRIMIR("====== FIN TOTALES SUELDOS MENSUALES ======")
+    FIN FUNCION
+
+    FUNCION obtener_indice_mayor_sueldo_mes(matriz[][]: ENTERO, indice_fila: ENTERO): ENTERO
+        ENTERO indice_maximo_sueldo = 0
+        PARA(ENTERO columna = 0; columna<(matriz[indice_fila].largo - 1);columna++)
+            SI(matriz[indice_fila][indice_maximo_sueldo] < matriz[indice_fila][columna])
+                indice_maximo_sueldo = columna
+            FIN SI
+        FIN PARA
+        RETORNAR indice_maximo_sueldo
+    FIN FUNCION
+
+    FUNCION calcular_mayor_sueldo_mes(matriz[][]: ENTERO, vEmpleados[]: CADENA)
+        REAL matriz_t[][] = trasponer_matriz(matriz)
+        IMPRIMIR("====== MAYOR SUELDO MENSUAL ======")
+        PARA(ENTERO fila = 0; fila< matriz_t.largo; fila++)
+            ENTERO indice_maximo_sueldo = obtener_indice_mayor_sueldo_mes(matriz_t, fila)
+            IMPRIMIR("MAYOR SUELDO DE MES " + (fila + 1) + " ES: " + vEmpleados[indice_maximo_sueldo] + " $" + matriz_t[fila][indice_maximo_sueldo])
+        FIN PARA
+        IMPRIMIR("====== FIN MAYOR SUELDO MENSUAL ======")
+    FIN FUNCION
+
+    FUNCION calcular_porcentaje(porcion: ENTERO, total: ENTERO): REAL
+        REAL porcentaje = porcion * 100 / total
+        RETORNAR porcentaje
+    FIN FUNCION
+
+    FUNCION mostrar_porcentajes_sueldos_por_mes(matriz[][]: ENTERO, vEmpleados[]: CADENA)
+        REAL total_mes = 0
+        REAL porcentaje = 0
+        CADENA nombre
+        REAL matriz_t[][] = trasponer_matriz(matriz)
+        IMPRIMIR("====== PORCENTAJES DE SUELDOS POR MES ======")
+        PARA(ENTERO indice_mes = 0;indice_mes<matriz_t.largo:indice_mes++)
+            total_mes = sumar_vector(matriz_t, indice_mes)
+            IMPRIMIR("====== MES: " + (indice_mes + 1) + " ======")
+            PARA(ENTERO indice_sueldo = 1; indice_sueldo<matriz_t[indice_mes].largo;indice_sueldo++)
+                porcentaje = calcular_porcentaje(matriz_t[indice_mes][indice_sueldo], total_mes)
+                nombre = vEmpleados[indice_mes]
+
+                IMPRIMIR("SUELDO DE " + nombre + " REPRESENTA EL " + porcentaje + "% DE " + total_mes)
+            FIN PARA
+            IMPRIMIR("====== FIN MES: " + (indice_mes + 1) + " ======")
+        FIN PARA
+        IMPRIMIR("====== FIN PORCENTAJES DE SUELDOS POR MES ======")
+    FIN FUNCION
+
+    FUNCION obtener_indice_sueldo_mes(matriz[][]: ENTERO, indice_fila: ENTERO, modo: CADENA): ENTERO
+        ENTERO indice_sueldo = 0
+        PARA(ENTERO columna = 0; columna<matriz[indice_fila].largo;columna++)
+            SI(modo == "mayor" Y matriz[indice_fila][indice_sueldo] < matriz[indice_fila][columna]) O
+            SI(modo == "menor" Y matriz[indice_fila][indice_sueldo] > matriz[indice_fila][columna])
+                indice_sueldo = columna
+            FIN SI
+        FIN PARA
+        RETORNAR indice_sueldo
+    FIN FUNCION
+
+    FUNCION obtener_indice_menor_sueldo_semestre(matriz[][]: ENTERO, cant_meses_evaluar: ENTERO): ENTERO
+        ENTERO indice_minimo_sueldo = 0
+        ENTERO indice_minimo_sueldo_mes = 0
+        // REAL min_sueldo_semestre
+        // REAL suma_sueldo_semestre = 0
+        
+        PARA(ENTERO columna = 0; columna < matriz[0].largo; columna++)
+
+            // PARA(ENTERO fila = 0; fila<cant_meses_evaluar; fila++)
+            //     suma_sueldo_semestre = suma_sueldo_semestre + matriz[columna][fila]
+            // FIN PARA
+
+            // SI(NO min_sueldo_semestre) O SI(min_sueldo_semestre) > suma_sueldo_semestre
+            //     min_sueldo_semestre = suma_sueldo_semestre
+            //     indice_minimo_sueldo = columna
+            // FIN SI
+            indice_minimo_sueldo_mes = obtener_indice_sueldo_mes(matriz, columna, "menor")
+            SI(matriz[columna][indice_minimo_sueldo_mes] < matriz[columna][indice_minimo_sueldo])
+                indice_minimo_sueldo = indice_minimo_sueldo_mes
+            FIN SI
+        FIN PARA
+
+        RETORNAR indice_minimo_sueldo
+    FIN FUNCION
+
+    FUNCION obtener_nombre_menor_sueldo_semestre(matriz[][]: ENTERO, vEmpleados[]: CADENA)
+        //REAL matriz_t[][] = trasponer_matriz(matriz)
+        ENTERO indice_menor_sueldo = obtener_indice_menor_sueldo_semestre(matriz, 6)
+        IMPRIMIR("====== MENOR SUELDO SEMESTRE ======")
+        IMPRIMIR("QUIEN COBRO MENOS ESTE SEMESTRE ES: " + vEmpleados[indice_menor_sueldo])
+        IMPRIMIR("====== FIN MENOR SUELDO SEMESTRE ======")
+    FIN FUNCION
+
+    FUNCION calcular_menor_sueldo_mes(matriz[][]: ENTERO, vEmpleados[]: CADENA)
+        IMPRIMIR("====== MENOR SUELDO POR MES ======")
+        PARA(ENTERO fila = 0; fila<matriz.largo;fila++)
+            ENTERO indice_minimo_sueldo = obtener_indice_sueldo_mes(matriz, fila, "menor")
+            IMPRIMIR("MENOR SUELDO DE MES " + (fila + 1) + "ES: " + vEmpleados[indice_minimo_sueldo] + " $" + matriz[fila][indice_minimo_sueldo])
+        FIN PARA
+        IMPRIMIR("====== FIN MENOR SUELDO POR MES ======")
+    FIN FUNCION
+
+    FUNCION calcular_cantidad_meses_menos_cuatro_mill(matriz[][]: ENTERO)
+        ENTERO cantidad_meses = 0
+        REAL total_mes = 0
+        
+        IMPRIMIR("====== CANTIDAD DE MESES CON MENOS DE 4 MILLONES ======")
+        PARA(ENTERO indice_mes = 0; indice_mes < matriz.largo; indice_mes++)
+            total_mes = sumar_vector(matriz, indice_mes)
+            SI(total_mes < 4000000)
+                cantidad_meses++
+            FIN SI
+        FIN PARA
+        IMPRIMIR("El total de meses que se abono menos de $4.000.000 es: " + cantidad_meses)
+        IMPRIMIR("====== FIN CANTIDAD DE MESES CON MENOS DE 4 MILLONES ======")
+    FIN FUNCION
+
+    FUNCION ordenar_vector_asc(vector[]: ENTERO): REAL[]
+        REAL aux
+        IMPRIMIR("====== ORDENAR VECTOR ASCENDENTE ======")
+        PARA(ENTERO indice_inicial = 0; indice_inicial < vector.largo - 1; indice_inicial++)
+            ENTERO indice_minimo = indice_inicial
+
+            PARA(ENTERO indice_siguiente = indice_inicial + 1; indice_siguiente < vector.largo; indice_siguiente++)
+                SI(vector[indice_minimo] > vector[indice_siguiente])
+                    indice_minimo = indice_siguiente
+                FIN SI
+            FIN PARA
+
+            SI(indice_minimo != indice_inicial)
+                aux = vector[indice_minimo]
+                vector[indice_minimo] = vector[indice_inicial]
+                vector[indice_inicial] = aux
+            FIN SI
+        FIN PARA
+        RETORNAR vector
+        IMPRIMIR("====== FIN ORDENAR VECTOR ASCENDENTE ======")
+    FIN FUNCION
+
+    FUNCION contar_elementos(vector[]: ENTERO, comparar_con: ENTERO, modo_comparacion: CADENA): ENTERO
+        ENTERO cantidad = 0
+        IMPRIMIR("====== CONTAR ELEMENTOS ======")
+        PARA(ENTERO indice = 0; indice < vector.largo; indice++)
+            SI(modo_comparacion == 'mayor' && vector[indice] > comparar_con) ||
+            SI(modo_comparacion == 'menor' && vector[indice] <= comparar_con)
+                cantidad++
+            FIN SI
+        FIN PARA
+        IMPRIMIR("====== FIN CONTAR ELEMENTOS ======")
+        RETORNAR cantidad
+    FIN FUNCION
+
+    FUNCION ordenar_vector_asc_quick(vector[]: ENTERO): ENTERO[]
+        IMPRIMIR("====== ORDENAR VECTOR ASCENDENTE QUICK ======")
+        SI(vector.largo < 2)
+            RETORNAR vector
+        
+        ENTERO pivot[1] = vector[0]
+        ENTERO cant_menores = contar_elementos(vector, pivot[0], 'menor')
+        ENTERO cant_mayores = contar_elementos(vector, pivot[0], 'mayor')
+        ENTERO menores[cant_menores]
+        ENTERO mayores[cant_mayores]
+        ENTERO indice_menor = 0
+        ENTERO indice_mayor = 0
+
+        PARA(ENTERO indice = 0; indice<vector.largo; indice++)
+            SI(vector[indice] < pivot[0])
+                menores[indice_menor]
+                indice_menor++
+            SINO
+                mayores[indice_mayor]
+                indice_mayor++
+            FIN SI
+        FIN PARA
+
+        RETORNAR ordenar_vector_asc_quick(menores) + pivot + ordenar_vector_asc_quick(mayores)
+        IMPRIMIR("====== FIN ORDENAR VECTOR ASCENDENTE QUICK ======")
+    FIN FUNCION
+
+    FUNCION guardar_liquidacion_anual(matriz[][]: ENTERO, ruta: CADENA)
+        ENTERO filas = matriz.largo
+        ENTERO columnas = matriz[0].largo
+        REAL matriz_n[columnas][filas]
+        REAL vector_sueldos[12]
+        REAL suma_liquidacion = 0
+        ARCHIVO file = ABRIR_ARCHIVO(ruta, "escritura")
+
+        matriz_n = trasponer_matriz(matriz)
+        // recorrer matriz 30X12
+        PARA(ENTERO fila = 0; fila < matriz_n.largo; fila++)
+            suma_liquidacion = sumar_vector(matriz_n, fila)
+            vector_sueldos[fila] = suma_liquidacion
+        FIN PARA
+
+        vector_sueldos = ordenar_vector_asc(vector_sueldos)
+
+        PARA(ENTERO indice_elemento = 0; indice_elemento < vector_sueldos.largo; indice_elemento++)
+            file.ESCRIBIR_LINEA(vector_sueldos[indice_elemento])
+        FIN PARA
+        file.CERRAR_ARCHIVO()
+        IMPRIMIR("LIQUIDACION GUARDADA EN: " + ruta)
+    FIN FUNCION
+
+    //----------------------------------------------------------------------------------
+
+
+
+    FUNCION procesar(nombre_archivos[]: CADENA):
+        ENTERO matriz_sueldo[12][30]
+        ENTERO matriz_t[30][12]
+
+        // EJERCICIO A
+        CADENA empleados[30] = obtener_vector_cadena("nomina.txt")
+
+
+        // proceso la matriz de 12 filas y 30 columnas
+        PARA (ENTERO indice_fila = 0; indice_fila < matriz_sueldo.largo; indice_fila++)
+            matriz_sueldo[indice_fila] = obtener_vector_real(nombre_archivos[indice_fila])
+        FIN PARA
+        
+        matriz_t = trasponer_matriz(matriz_sueldo)
+        
+        // EJERCICIO B
+        // calcular_sueldo_anual(matriz_t, empleados)
+        
+        // EJERCICIO C
+        // calcular_total_sueldos_mensuales(matriz_t)
+
+        // // EJERCICIO D
+        // calcular_mayor_sueldo_mes(matriz_t, empleados)
+
+        // // EJERCICIO E
+        // mostrar_porcentajes_sueldos_por_mes(matriz_t, empleados)
+
+        // // EJERCICIO F
+        // obtener_nombre_menor_sueldo_semestre(matriz_t, empleados)
+
+        // // EJERCICIO G
+        calcular_cantidad_meses_menos_cuatro_mill(matriz_t)
+
+        // // EJERCICIO H
+        // guardar_liquidacion_anual(matriz_t, "liquidacion.txt")
+    FIN FUNCION
+
+    //----------------------------------------------------------------------------------
+    """
+    REFERENCIAS
+    ASI ESPERO LA MATRIZ INICIAL
+    matriz_inicial = [
+        ENERO       |   FEBRERO     |   MARZO
+        EMPLEADO 1  |   EMPLEADO 1  |   EMPLEADO 1
+        EMPLEADO 2  |   EMPLEADO 2  |   EMPLEADO 2
+        EMPLEADO 3  |   EMPLEADO 3  |   EMPLEADO 3
+    ]
+
+    ASI QUEDARA AL TRASPONER
+    matriz_t = [
+        EMPLEADO 1  |   EMPLEADO 2  |   EMPLEADO 3
+        ENERO       |   ENERO       |   ENERO
+        FEBRERO     |   FEBRERO     |   FEBRERO
+        MARZO       |   MARZO       |   MARZO
+    ]
+
+    """
+
+    CADENA archivos[12] = [
+        "sueldos_1.txt", "sueldos_2.txt", "sueldos_3.txt", "sueldos_4.txt", "sueldos_5.txt", "sueldos_6.txt", 
+        "sueldos_7.txt", "sueldos_8.txt", "sueldos_9.txt", "sueldos_10.txt", "sueldos_11.txt", "sueldos_12.txt" 
+    ]
+
+    procesar(archivos)
+FIN

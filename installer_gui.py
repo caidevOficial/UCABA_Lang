@@ -612,6 +612,15 @@ class InstallerApp:
                     ext_src = get_resource_path(os.path.join("payload", "extension-vscode"))
 
                 user_home = os.path.expanduser("~")
+                # Limpiar versiones previas obsoletas para evitar conflictos en el editor
+                for old_dir in [
+                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
+                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
+                    os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
+                ]:
+                    if os.path.exists(old_dir):
+                        shutil.rmtree(old_dir, ignore_errors=True)
+
                 targets = [
                     os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
                     os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
@@ -773,6 +782,14 @@ def run_cli_install():
         ext_src = get_resource_path(os.path.join("payload", "extension-vscode"))
 
     user_home = os.path.expanduser("~")
+    for old_dir in [
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
+    ]:
+        if os.path.exists(old_dir):
+            shutil.rmtree(old_dir, ignore_errors=True)
+
     targets = [
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
         os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")

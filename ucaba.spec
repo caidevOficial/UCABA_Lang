@@ -35,6 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='./version_info_ucaba.txt',
-    icon=['./ucaba_icon.ico'],
+    version='version_info_ucaba.txt',
+    icon=['ucaba_icon.ico'],
 )

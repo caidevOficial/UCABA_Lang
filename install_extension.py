@@ -29,22 +29,25 @@ def install():
     vsix_path = sorted(vsix_files, key=os.path.getmtime, reverse=True)[0] if vsix_files else None
 
     user_home = os.path.expanduser("~")
-    destinations = [
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+    
+    # Limpiar versiones previas obsoletas para evitar colisiones
+    obsolete_paths = [
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
+    ]
+    for old_path in obsolete_paths:
+        if os.path.exists(old_path):
+            shutil.rmtree(old_path, ignore_errors=True)
+            print(f"[CLEANUP] Eliminada versión obsoleta: {old_path}")
+
+    destinations = [
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
         os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
     ]
-
-    # Detectar dinámicamente cualquier carpeta ucaba existente en extensiones
-    for base_dir in [os.path.join(user_home, ".vscode", "extensions"), os.path.join(user_home, ".antigravity-ide", "extensions")]:
-        if os.path.exists(base_dir):
-            for item in os.listdir(base_dir):
-                if "ucaba" in item.lower():
-                    cand = os.path.join(base_dir, item)
-                    if cand not in destinations:
-                        destinations.append(cand)
+    cursor_ext = os.path.join(user_home, ".cursor", "extensions")
+    if os.path.exists(cursor_ext):
+        destinations.append(os.path.join(cursor_ext, "ucaba.ucaba-language-support-1.2.0"))
 
     for dst in destinations:
         parent = os.path.dirname(dst)

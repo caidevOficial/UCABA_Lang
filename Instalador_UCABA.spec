@@ -5,7 +5,7 @@ a = Analysis(
     ['installer_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('./payload', 'payload'), ('./ucaba_icon.ico', '.'), ('./ucaba_logo_header.png', '.')],
+    datas=[('payload', 'payload'), ('ucaba_icon.ico', '.'), ('ucaba_logo_header.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,6 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='./version_info_installer.txt',
-    icon=['./ucaba_icon.ico'],
+    version='version_info_installer.txt',
+    icon=['ucaba_icon.ico'],
 )
