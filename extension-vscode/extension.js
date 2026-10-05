@@ -432,35 +432,237 @@ function activate(context) {
     // -------------------------------------------------------------
     // Información sobre el Cursor (HoverProvider)
     // -------------------------------------------------------------
+    // Documentación de palabras reservadas, tipos, built-ins (clave en MAYÚSCULAS).
     const hoverDocs = {
-        'ENTERO': '```ucaba\nENTERO variable = 0\n```\nTipo numérico entero con signo de 32 bits (-2,147,483,648 a 2,147,483,647).',
+        'ENTERO': '```ucaba\nENTERO variable = 0\n```\nTipo numérico entero con signo (64 bits).',
         'FLOTANTE': '```ucaba\nFLOTANTE variable = 0.0\n```\nTipo coma flotante de 32 bits (IEEE-754 Single Precision).',
         'REAL': '```ucaba\nREAL variable = 0.0\n```\nTipo coma flotante de 64 bits (IEEE-754 Double Precision).',
         'CADENA': '```ucaba\nCADENA texto = "Hola"\n```\nTipo de texto / cadena de caracteres.',
         'CARACTER': '```ucaba\nCARACTER letra = \'A\'\n```\nTipo para un único carácter alfanumérico.',
         'BOOLEANO': '```ucaba\nBOOLEANO flag = VERDADERO\n```\nTipo lógico booleano (`VERDADERO` o `FALSO`).',
-        'ARCHIVO': '```ucaba\nENTERO archivo = ABRIR_ARCHIVO("datos.txt", "r")\n```\nManejador de archivos para lectura o escritura.',
+        'ARCHIVO': '```ucaba\nARCHIVO f = ABRIR_ARCHIVO("datos.txt", "r")\n```\nManejador de archivos para lectura o escritura.',
         'RETORNAR': '```ucaba\nRETORNAR valor\n```\nDevuelve un valor desde una función o finaliza la ejecución de un procedimiento.',
-        'largo': '```ucaba\nENTERO n = vector.largo\n```\nPropiedad nativa que devuelve la cantidad de elementos de un vector o caracteres de una cadena.',
+        'FUNCION': '```ucaba\nFUNCION nombre(p1: tipo): tipo_retorno\n    RETORNAR valor\nFIN FUNCION\n```\nDefine una función que devuelve un valor.',
+        'PROCEDIMIENTO': '```ucaba\nPROCEDIMIENTO nombre(p1: tipo)\n    // bloque\nFIN PROCEDIMIENTO\n```\nDefine un procedimiento (sin valor de retorno).',
         'MOSTRAR': '```ucaba\nMOSTRAR "Mensaje", variable\n```\nImprime valores en la consola de salida estándar.',
+        'IMPRIMIR': '```ucaba\nIMPRIMIR("Mensaje" + variable)\n```\nImprime valores en la consola de salida estándar.',
         'LEER': '```ucaba\nLEER variable\n```\nLee un dato ingresado por el usuario por teclado y lo almacena en la variable.',
         'MOD': '```ucaba\nresultado = a MOD b\n```\nCalcula el resto de la división entera entre dos números.',
         'ESPAR': '```ucaba\nESPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es par, `FALSO` si no.',
-        'ESIMPAR': '```ucaba\nESIMPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es impar, `FALSO` si no.'
+        'ESIMPAR': '```ucaba\nESIMPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es impar, `FALSO` si no.',
+        'ABRIR_ARCHIVO': '```ucaba\nABRIR_ARCHIVO(ruta: CADENA, modo: CADENA): ARCHIVO\n```\nAbre un archivo y devuelve su manejador.',
+        'INICIO': 'Marca el comienzo del programa principal.',
+        'FIN': 'Cierra un bloque (`FIN SI`, `FIN PARA`, `FIN MIENTRAS`, `FIN FUNCION`, `FIN PROCEDIMIENTO`) o el programa.',
+        'SI': '```ucaba\nSI (condicion)\n    // bloque\nSINO\n    // bloque\nFIN SI\n```\nEstructura condicional.',
+        'SINO': 'Rama alternativa de una estructura condicional `SI`.',
+        'MIENTRAS': '```ucaba\nMIENTRAS (condicion)\n    // bloque\nFIN MIENTRAS\n```\nRepite el bloque mientras la condición sea verdadera.',
+        'PARA': '```ucaba\nPARA(ENTERO i = 0; i < 10; i++)\n    // bloque\nFIN PARA\n```\nBucle con contador.',
+        'HACER': 'Inicio de un bucle `HACER ... MIENTRAS`.',
+        'VERDADERO': 'Constante lógica verdadera (`BOOLEANO`).',
+        'FALSO': 'Constante lógica falsa (`BOOLEANO`).',
+        'Y': 'Operador lógico AND.',
+        'O': 'Operador lógico OR.',
+        'NO': 'Operador lógico NOT.'
     };
 
-    const hoverProvider = vscode.languages.registerHoverProvider('ucaba', {
-        provideHover(document, position, token) {
-            const wordRange = document.getWordRangeAtPosition(position);
-            if (!wordRange) return null;
-            const word = document.getText(wordRange);
+    // Propiedades / métodos accedidos con punto (clave en minúsculas).
+    const propertyDocs = {
+        'largo': '(propiedad) `ENTERO`\n\nCantidad de elementos de un vector, filas de una matriz o caracteres de una cadena.\n\n```ucaba\nENTERO n = vector.largo\nENTERO columnas = matriz[0].largo\n```',
+        'findearchivo': '(propiedad) `BOOLEANO`\n\nDevuelve `VERDADERO` si se alcanzó el fin del archivo.\n\n```ucaba\nMIENTRAS NO file.findearchivo\n```',
+        'leer_linea': '(método) `LEER_LINEA(): CADENA`\n\nLee la siguiente línea de un archivo abierto.',
+        'escribir_linea': '(método) `ESCRIBIR_LINEA(texto: CADENA)`\n\nEscribe una línea de texto en el archivo abierto.',
+        'cerrar_archivo': '(método) `CERRAR_ARCHIVO()`\n\nCierra el archivo abierto liberando su descriptor.'
+    };
 
-            if (hoverDocs[word]) {
-                return new vscode.Hover(new vscode.MarkdownString(hoverDocs[word]));
+    const TYPE_KEYWORDS = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO';
+    const FN_HEADER_RE = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?::\s*([A-Za-z]+(?:\s*\[\s*\])*))?/i;
+    const FN_END_RE = /^\s*FIN\s+(?:FUNCION|PROCEDIMIENTO)\b/i;
+
+    function escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Indica si la posición está dentro de un comentario o de una cadena de texto,
+     * recorriendo el documento desde el inicio (soporta """...""", slash-asterisco, // y "..." / '...').
+     */
+    function isInCommentOrString(document, position) {
+        const text = document.getText();
+        const target = document.offsetAt(position);
+        let i = 0;
+        while (i < target) {
+            const two = text.substr(i, 2);
+            const three = text.substr(i, 3);
+            if (three === '"""') {
+                const end = text.indexOf('"""', i + 3);
+                if (end === -1 || end + 3 > target) return true;
+                i = end + 3;
+            } else if (two === '/*') {
+                const end = text.indexOf('*/', i + 2);
+                if (end === -1 || end + 2 > target) return true;
+                i = end + 2;
+            } else if (two === '//') {
+                let end = text.indexOf('\n', i);
+                if (end === -1) end = text.length;
+                if (end > target) return true;
+                i = end;
+            } else if (text[i] === '"' || text[i] === "'") {
+                const quote = text[i];
+                let j = i + 1;
+                while (j < text.length && text[j] !== quote && text[j] !== '\n') {
+                    if (text[j] === '\\') j++;
+                    j++;
+                }
+                if (j >= target) return true;
+                i = j + 1;
+            } else {
+                i++;
             }
-            if (hoverDocs[word.toUpperCase()]) {
-                return new vscode.Hover(new vscode.MarkdownString(hoverDocs[word.toUpperCase()]));
+        }
+        return false;
+    }
+
+    /** Devuelve los comentarios `//` contiguos que preceden a una línea (documentación). */
+    function getLeadingComment(doc, lineNo) {
+        const lines = [];
+        for (let i = lineNo - 1; i >= 0; i--) {
+            const m = doc.lineAt(i).text.match(/^\s*\/\/\s?(.*)$/);
+            if (!m) break;
+            lines.unshift(m[1]);
+        }
+        return lines.join('\n');
+    }
+
+    /** Busca la definición de una FUNCION/PROCEDIMIENTO por nombre en un documento. */
+    function findFunctionInDocument(doc, name) {
+        const nameLower = name.toLowerCase();
+        for (let i = 0; i < doc.lineCount; i++) {
+            const m = doc.lineAt(i).text.match(FN_HEADER_RE);
+            if (m && m[2].toLowerCase() === nameLower) {
+                return {
+                    doc,
+                    line: i,
+                    kind: m[1].toUpperCase(),
+                    name: m[2],
+                    params: m[3].trim(),
+                    returnType: (m[4] || '').replace(/\s+/g, ''),
+                    comment: getLeadingComment(doc, i)
+                };
             }
+        }
+        return null;
+    }
+
+    /**
+     * Busca la declaración de una variable o parámetro respetando el alcance:
+     * hacia arriba desde la línea actual, saltando cuerpos de otras funciones.
+     */
+    function findVariableDeclaration(doc, name, fromLine) {
+        const esc = escapeRegex(name);
+        const varRe = new RegExp(`\\b(${TYPE_KEYWORDS})\\s+${esc}\\b((?:\\s*\\[[^\\]]*\\])*)`, 'i');
+        const paramRe = new RegExp(`^${esc}((?:\\s*\\[[^\\]]*\\])*)\\s*:\\s*([A-Za-z]+)$`, 'i');
+        let depth = 0;
+
+        for (let i = fromLine; i >= 0; i--) {
+            const text = doc.lineAt(i).text;
+            if (/^\s*\/\//.test(text)) continue;
+
+            if (i !== fromLine && FN_END_RE.test(text)) {
+                depth++;
+                continue;
+            }
+
+            const header = text.match(FN_HEADER_RE);
+            if (header) {
+                if (depth > 0) {
+                    depth--;
+                    continue;
+                }
+                // Cabecera de la función que contiene la posición: revisar sus parámetros
+                const pm = header[3].split(',')
+                    .map(p => p.trim().match(paramRe))
+                    .find(Boolean);
+                if (pm) {
+                    const dims = (pm[1].match(/\[/g) || []).length;
+                    return { kind: 'parámetro', type: pm[2].toUpperCase() + '[]'.repeat(dims), name, line: i };
+                }
+                continue;
+            }
+
+            if (depth > 0) continue;
+
+            const vm = text.match(varRe);
+            if (vm) {
+                const dims = (vm[2].match(/\[/g) || []).length;
+                return { kind: 'variable', type: vm[1].toUpperCase() + '[]'.repeat(dims), name, line: i };
+            }
+        }
+        return null;
+    }
+
+    function makeHover(markdown, range) {
+        const md = new vscode.MarkdownString(markdown);
+        md.isTrusted = false;
+        return new vscode.Hover(md, range);
+    }
+
+    const hoverProvider = vscode.languages.registerHoverProvider('ucaba', {
+        async provideHover(document, position, token) {
+            const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
+            if (!wordRange) return null;
+            if (isInCommentOrString(document, position)) return null;
+
+            const word = document.getText(wordRange);
+            const lineText = document.lineAt(position.line).text;
+            const isProperty = wordRange.start.character > 0 &&
+                /\.\s*$/.test(lineText.substring(0, wordRange.start.character));
+
+            // 1. Propiedades y métodos con punto (vector.largo, archivo.findearchivo, ...)
+            if (isProperty) {
+                const prop = propertyDocs[word.toLowerCase()];
+                return prop ? makeHover(prop, wordRange) : null;
+            }
+
+            // 2. Palabras reservadas, tipos y funciones incorporadas
+            const isReserved = Object.prototype.hasOwnProperty.call(hoverDocs, word.toUpperCase());
+            if (isReserved) {
+                return makeHover(hoverDocs[word.toUpperCase()], wordRange);
+            }
+
+            // 3. Funciones / procedimientos definidos por el usuario
+            let fn = findFunctionInDocument(document, word);
+            if (!fn) {
+                try {
+                    const files = await vscode.workspace.findFiles('**/*.ucaba', '**/node_modules/**');
+                    for (const fileUri of files) {
+                        if (fileUri.toString() === document.uri.toString()) continue;
+                        const other = await vscode.workspace.openTextDocument(fileUri);
+                        fn = findFunctionInDocument(other, word);
+                        if (fn) break;
+                    }
+                } catch (e) {
+                    // Ignorar errores de búsqueda en el workspace
+                }
+            }
+            if (fn) {
+                const signature = `${fn.kind} ${fn.name}(${fn.params})${fn.returnType ? ': ' + fn.returnType : ''}`;
+                let md = '```ucaba\n' + signature + '\n```';
+                md += `\n\n*${fn.kind === 'FUNCION' ? 'Función' : 'Procedimiento'}* definido en línea ${fn.line + 1}`;
+                if (fn.doc !== document) {
+                    md += ` de \`${path.basename(fn.doc.fileName)}\``;
+                }
+                if (fn.comment) md += '\n\n' + fn.comment;
+                return makeHover(md, wordRange);
+            }
+
+            // 4. Variables y parámetros declarados
+            const decl = findVariableDeclaration(document, word, position.line);
+            if (decl) {
+                const md = '```ucaba\n(' + decl.kind + ') ' + decl.type + ' ' + decl.name + '\n```' +
+                    `\n\nDeclarado en línea ${decl.line + 1}`;
+                return makeHover(md, wordRange);
+            }
+
             return null;
         }
     });
@@ -470,10 +672,6 @@ function activate(context) {
     // -------------------------------------------------------------
     // Navegación a Definición (DefinitionProvider: Ctrl + Clic / F12)
     // -------------------------------------------------------------
-    function escapeRegex(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
     const definitionProvider = vscode.languages.registerDefinitionProvider('ucaba', {
         async provideDefinition(document, position, token) {
             const wordRange = document.getWordRangeAtPosition(position);

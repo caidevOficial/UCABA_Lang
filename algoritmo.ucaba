@@ -241,7 +241,7 @@ INICIO
         IMPRIMIR("====== CONTAR ELEMENTOS ======")
         PARA(ENTERO indice = 0; indice < vector.largo; indice++)
             SI(modo_comparacion == 'mayor' && vector[indice] > comparar_con) ||
-            SI(modo_comparacion == 'menor' && vector[indice] <= comparar_con)
+            SI(modo_comparacion == 'menor' && vector[indice] < comparar_con)
                 cantidad++
             FIN SI
         FIN PARA
@@ -254,25 +254,32 @@ INICIO
         SI(vector.largo < 2)
             RETORNAR vector
         
-        ENTERO pivot[1] = vector[0]
+        ENTERO pivot[] = vector[0]
         ENTERO cant_menores = contar_elementos(vector, pivot[0], 'menor')
         ENTERO cant_mayores = contar_elementos(vector, pivot[0], 'mayor')
         ENTERO menores[cant_menores]
         ENTERO mayores[cant_mayores]
+        IMPRIMIR(cant_mayores)
+        IMPRIMIR(mayores)
         ENTERO indice_menor = 0
         ENTERO indice_mayor = 0
-
-        PARA(ENTERO indice = 0; indice<vector.largo; indice++)
+        // IMPRIMIR(vector)
+        IMPRIMIR("PIVOT: " + pivot[0])
+        PARA(ENTERO indice = 0; indice<(vector.largo - 1); indice++)
+            IMPRIMIR("NUMERO ACTUAL: " + vector[indice])
             SI(vector[indice] < pivot[0])
-                menores[indice_menor]
+                menores[indice_menor] = vector[indice]
+                IMPRIMIR("MENORES: " + menores)
                 indice_menor++
-            SINO
-                mayores[indice_mayor]
+            SINO SI(vector[indice] > pivot[0])
+                mayores[indice_mayor] = vector[indice]
+                IMPRIMIR("MAYORES: " + mayores)
                 indice_mayor++
             FIN SI
         FIN PARA
-
-        RETORNAR ordenar_vector_asc_quick(menores) + pivot + ordenar_vector_asc_quick(mayores)
+        menores = ordenar_vector_asc_quick(menores)
+        mayores = ordenar_vector_asc_quick(mayores)
+        RETORNAR (menores + pivot + mayores)
         IMPRIMIR("====== FIN ORDENAR VECTOR ASCENDENTE QUICK ======")
     FIN FUNCION
 
@@ -368,4 +375,6 @@ INICIO
     ]
 
     procesar(archivos)
+    ENTERO numeros[] = [40, 20, 800, 100, 10]
+    IMPRIMIR(ordenar_vector_asc_quick(numeros))
 FIN
