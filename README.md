@@ -39,6 +39,7 @@
   - [4. Manejo de Archivos (`ARCHIVO`)](#4-manejo-de-archivos-archivo)
   - [5. Funciones Incorporadas (Built-ins)](#5-funciones-incorporadas-built-ins)
 - [💡 Ejemplo Completo de Algoritmo](#-ejemplo-completo-de-algoritmo)
+- [🔢 Ordenar una Matriz (Selection Sort)](#-ordenar-una-matriz-selection-sort)
 - [🧪 Pruebas Automatizadas](#-pruebas-automatizadas)
 - [👤 Autoría y Créditos](#-autoría-y-créditos)
 
@@ -376,6 +377,84 @@ INICIO
     imprimir_informe(equipo, salarios)
 FIN
 ```
+
+---
+
+## 🔢 Ordenar una Matriz (Selection Sort)
+
+La función `ordenar_matriz` recibe una matriz de `ENTERO` por parámetro, la ordena de menor a mayor con el algoritmo **Selection Sort** y **retorna la matriz ordenada**. La matriz original no se modifica.
+
+```text
+FUNCION ordenar_matriz(matriz[][]: ENTERO): ENTERO[][]
+    ENTERO filas = matriz.largo
+    ENTERO columnas = matriz[0].largo
+    ENTERO total = filas * columnas
+
+    // 1. Aplanar la matriz en un vector (recorrido por filas)
+    ENTERO elementos[total]
+    ENTERO posicion = 0
+    PARA (ENTERO f = 0; f < filas; f++)
+        PARA (ENTERO c = 0; c < columnas; c++)
+            elementos[posicion] = matriz[f][c]
+            posicion++
+        FIN PARA
+    FIN PARA
+
+    // 2. Selection Sort sobre el vector
+    PARA (ENTERO i = 0; i < total - 1; i++)
+        ENTERO indice_minimo = i
+        PARA (ENTERO j = i + 1; j < total; j++)
+            SI (elementos[j] < elementos[indice_minimo])
+                indice_minimo = j
+            FIN SI
+        FIN PARA
+
+        SI (indice_minimo != i)
+            ENTERO auxiliar = elementos[i]
+            elementos[i] = elementos[indice_minimo]
+            elementos[indice_minimo] = auxiliar
+        FIN SI
+    FIN PARA
+
+    // 3. Reconstruir la matriz ordenada (la original no se modifica)
+    ENTERO resultado[filas][columnas]
+    posicion = 0
+    PARA (ENTERO f = 0; f < filas; f++)
+        PARA (ENTERO c = 0; c < columnas; c++)
+            resultado[f][c] = elementos[posicion]
+            posicion++
+        FIN PARA
+    FIN PARA
+
+    RETORNAR resultado
+FIN FUNCION
+
+INICIO
+    ENTERO datos[3][3] = [[9, 4, 7], [1, 8, 2], [6, 3, 5]]
+    ENTERO ordenada[][] = ordenar_matriz(datos)
+
+    PARA (ENTERO f = 0; f < ordenada.largo; f++)
+        IMPRIMIR(ordenada[f])
+    FIN PARA
+FIN
+```
+
+**Salida:**
+```text
+[1, 2, 3]
+[4, 5, 6]
+[7, 8, 9]
+```
+
+| Elemento | Detalle |
+| :--- | :--- |
+| **Parámetro** | `matriz[][]: ENTERO` — matriz de enteros de cualquier tamaño (`filas x columnas`). |
+| **Retorno** | `ENTERO[][]` — nueva matriz con las mismas dimensiones y todos sus elementos en orden ascendente por filas. |
+| **Algoritmo** | Selection Sort: en cada pasada se busca el mínimo del tramo sin ordenar y se intercambia con la posición actual. |
+| **Complejidad** | `O(n²)` con `n = filas * columnas`. |
+
+> [!NOTE]
+> Como UCABA no tiene división entera (`/` siempre devuelve `REAL`), la matriz se aplana a un vector para poder ordenarla con índices enteros y luego se reconstruye. Para ordenar de mayor a menor, cambia la comparación a `elementos[j] > elementos[indice_minimo]`.
 
 ---
 
