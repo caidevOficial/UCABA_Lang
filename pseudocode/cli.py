@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--version", "-v",
         action="version",
-        version="UCABA 1.2.0 - Copyright (C) 2026 Facu Falcone <a.facundo.falcone@gmail.com> (GNU GPLv3)"
+        version="UCABA 1.5.0 - Copyright (C) 2026 Facu Falcone <a.facundo.falcone@gmail.com> (GNU GPLv3)"
     )
     subparsers = parser.add_subparsers(dest="command", help="Comandos disponibles")
 

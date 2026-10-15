@@ -327,7 +327,8 @@ function activate(context) {
                 { name: 'CADENA', desc: 'Cadena de caracteres alfanumérica' },
                 { name: 'CARACTER', desc: 'Un solo caracter alfanumérico' },
                 { name: 'BOOLEANO', desc: 'Valor lógico: VERDADERO o FALSO' },
-                { name: 'ARCHIVO', desc: 'Descriptor para manejo de archivos' }
+                { name: 'ARCHIVO', desc: 'Descriptor para manejo de archivos' },
+                { name: 'NULO', desc: 'Tipo y valor nulo o referencia vacía (equivalente a null o None)' }
             ];
 
             tipos.forEach(t => {
@@ -340,6 +341,7 @@ function activate(context) {
             // Palabras clave
             const keywords = [
                 'ALGORITMO', 'INICIO', 'FIN',
+                'ESTRUCTURA', 'FIN ESTRUCTURA',
                 'FUNCION', 'FIN FUNCION',
                 'PROCEDIMIENTO', 'FIN PROCEDIMIENTO',
                 'RETORNAR',
@@ -347,6 +349,7 @@ function activate(context) {
                 'MIENTRAS', 'FIN MIENTRAS',
                 'PARA', 'HASTA', 'PASO', 'HACER', 'FIN PARA',
                 'VERDADERO', 'FALSO',
+                'NULO', 'NULL', 'NONE',
                 'MOD', 'Y', 'O', 'NO'
             ];
 
@@ -354,6 +357,13 @@ function activate(context) {
                 const item = new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword);
                 items.push(item);
             });
+
+            // Snippet de Estructura
+            const structSnippet = new vscode.CompletionItem('ESTRUCTURA', vscode.CompletionItemKind.Struct);
+            structSnippet.insertText = new vscode.SnippetString('Estructura ${1:Nombre}:\n    ${2:CADENA campo1}\nFin Estructura');
+            structSnippet.detail = 'Definición de Estructura';
+            structSnippet.documentation = new vscode.MarkdownString('Define una estructura de datos personalizada con campos tipados.');
+            items.push(structSnippet);
 
             // Funciones incorporadas (Built-ins)
             const builtins = [
@@ -451,8 +461,9 @@ function activate(context) {
         'ESPAR': '```ucaba\nESPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es par, `FALSO` si no.',
         'ESIMPAR': '```ucaba\nESIMPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es impar, `FALSO` si no.',
         'ABRIR_ARCHIVO': '```ucaba\nABRIR_ARCHIVO(ruta: CADENA, modo: CADENA): ARCHIVO\n```\nAbre un archivo y devuelve su manejador.',
+        'ESTRUCTURA': '```ucaba\nEstructura Nombre:\n    CADENA campo1\n    ENTERO campo2\nFin Estructura\n```\nDefine una estructura de datos personalizada con campos fuertemente tipados.',
         'INICIO': 'Marca el comienzo del programa principal.',
-        'FIN': 'Cierra un bloque (`FIN SI`, `FIN PARA`, `FIN MIENTRAS`, `FIN FUNCION`, `FIN PROCEDIMIENTO`) o el programa.',
+        'FIN': 'Cierra un bloque (`FIN SI`, `FIN PARA`, `FIN MIENTRAS`, `FIN FUNCION`, `FIN PROCEDIMIENTO`, `FIN ESTRUCTURA`) o el programa.',
         'SI': '```ucaba\nSI (condicion)\n    // bloque\nSINO\n    // bloque\nFIN SI\n```\nEstructura condicional.',
         'SINO': 'Rama alternativa de una estructura condicional `SI`.',
         'MIENTRAS': '```ucaba\nMIENTRAS (condicion)\n    // bloque\nFIN MIENTRAS\n```\nRepite el bloque mientras la condición sea verdadera.',
@@ -460,6 +471,9 @@ function activate(context) {
         'HACER': 'Inicio de un bucle `HACER ... MIENTRAS`.',
         'VERDADERO': 'Constante lógica verdadera (`BOOLEANO`).',
         'FALSO': 'Constante lógica falsa (`BOOLEANO`).',
+        'NULO': '```ucaba\nNodo nodo_actual = NULO\nSI (nodo_actual == NULO)\n```\nValor nulo o referencia vacía (equivalente a `null` en C/Java/JS o `None` en Python).',
+        'NULL': '```ucaba\nNodo nodo_actual = NULL\n```\nAlias de `NULO` (referencia nula vacía).',
+        'NONE': '```ucaba\nNodo nodo_actual = NONE\n```\nAlias de `NULO` (referencia nula vacía).',
         'Y': 'Operador lógico AND.',
         'O': 'Operador lógico OR.',
         'NO': 'Operador lógico NOT.'
@@ -474,12 +488,40 @@ function activate(context) {
         'cerrar_archivo': '(método) `CERRAR_ARCHIVO()`\n\nCierra el archivo abierto liberando su descriptor.'
     };
 
-    const TYPE_KEYWORDS = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO';
+    const TYPE_KEYWORDS = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|NULO';
     const FN_HEADER_RE = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?::\s*([A-Za-z]+(?:\s*\[\s*\])*))?/i;
     const FN_END_RE = /^\s*FIN\s+(?:FUNCION|PROCEDIMIENTO)\b/i;
+    const STRUCT_HEADER_RE = /^\s*Estructura\s+([A-Za-z_][A-Za-z0-9_]*)\s*:?/i;
+    const STRUCT_END_RE = /^\s*FIN\s+ESTRUCTURA\b/i;
 
     function escapeRegex(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /** Busca la definición de una Estructura por nombre en un documento. */
+    function findStructInDocument(doc, name) {
+        const nameLower = name.toLowerCase();
+        for (let i = 0; i < doc.lineCount; i++) {
+            const m = doc.lineAt(i).text.match(STRUCT_HEADER_RE);
+            if (m && m[1].toLowerCase() === nameLower) {
+                const fields = [];
+                for (let j = i + 1; j < doc.lineCount; j++) {
+                    const lineText = doc.lineAt(j).text.trim();
+                    if (STRUCT_END_RE.test(lineText)) break;
+                    if (lineText && !lineText.startsWith('//')) {
+                        fields.push(lineText);
+                    }
+                }
+                return {
+                    doc,
+                    line: i,
+                    name: m[1],
+                    fields,
+                    comment: getLeadingComment(doc, i)
+                };
+            }
+        }
+        return null;
     }
 
     /**
@@ -559,8 +601,17 @@ function activate(context) {
      */
     function findVariableDeclaration(doc, name, fromLine) {
         const esc = escapeRegex(name);
-        const varRe = new RegExp(`\\b(${TYPE_KEYWORDS})\\s+${esc}\\b((?:\\s*\\[[^\\]]*\\])*)`, 'i');
-        const paramRe = new RegExp(`^${esc}((?:\\s*\\[[^\\]]*\\])*)\\s*:\\s*([A-Za-z]+)$`, 'i');
+
+        // Recolectar nombres de estructuras definidas en el documento
+        const structNames = [];
+        for (let k = 0; k < doc.lineCount; k++) {
+            const sm = doc.lineAt(k).text.match(STRUCT_HEADER_RE);
+            if (sm) structNames.push(escapeRegex(sm[1]));
+        }
+        const allTypes = structNames.length > 0 ? `${TYPE_KEYWORDS}|${structNames.join('|')}` : TYPE_KEYWORDS;
+
+        const varRe = new RegExp(`\\b(${allTypes})\\s+${esc}\\b((?:\\s*\\[[^\\]]*\\])*)`, 'i');
+        const paramRe = new RegExp(`^${esc}((?:\\s*\\[[^\\]]*\\])*)\\s*:\\s*([A-Za-z_][A-Za-z0-9_]*)$`, 'i');
         let depth = 0;
 
         for (let i = fromLine; i >= 0; i--) {
@@ -584,7 +635,7 @@ function activate(context) {
                     .find(Boolean);
                 if (pm) {
                     const dims = (pm[1].match(/\[/g) || []).length;
-                    return { kind: 'parámetro', type: pm[2].toUpperCase() + '[]'.repeat(dims), name, line: i };
+                    return { kind: 'parámetro', type: pm[2] + '[]'.repeat(dims), name, line: i };
                 }
                 continue;
             }
@@ -594,7 +645,7 @@ function activate(context) {
             const vm = text.match(varRe);
             if (vm) {
                 const dims = (vm[2].match(/\[/g) || []).length;
-                return { kind: 'variable', type: vm[1].toUpperCase() + '[]'.repeat(dims), name, line: i };
+                return { kind: 'variable', type: vm[1] + '[]'.repeat(dims), name, line: i };
             }
         }
         return null;
@@ -655,7 +706,33 @@ function activate(context) {
                 return makeHover(md, wordRange);
             }
 
-            // 4. Variables y parámetros declarados
+            // 4. Estructuras definidas por el usuario
+            let st = findStructInDocument(document, word);
+            if (!st) {
+                try {
+                    const files = await vscode.workspace.findFiles('**/*.ucaba', '**/node_modules/**');
+                    for (const fileUri of files) {
+                        if (fileUri.toString() === document.uri.toString()) continue;
+                        const other = await vscode.workspace.openTextDocument(fileUri);
+                        st = findStructInDocument(other, word);
+                        if (st) break;
+                    }
+                } catch (e) {
+                    // Ignorar errores de búsqueda
+                }
+            }
+            if (st) {
+                const fieldsStr = st.fields.length > 0 ? '\n    ' + st.fields.join('\n    ') : '';
+                let md = '```ucaba\nEstructura ' + st.name + ':' + fieldsStr + '\nFin Estructura\n```';
+                md += `\n\n*Estructura* definida en línea ${st.line + 1}`;
+                if (st.doc !== document) {
+                    md += ` de \`${path.basename(st.doc.fileName)}\``;
+                }
+                if (st.comment) md += '\n\n' + st.comment;
+                return makeHover(md, wordRange);
+            }
+
+            // 5. Variables y parámetros declarados
             const decl = findVariableDeclaration(document, word, position.line);
             if (decl) {
                 const md = '```ucaba\n(' + decl.kind + ') ' + decl.type + ' ' + decl.name + '\n```' +
@@ -692,7 +769,19 @@ function activate(context) {
                 return null;
             }
 
-            // 1. Buscar definición de FUNCION o PROCEDIMIENTO en el documento actual
+            // 1. Buscar definición de ESTRUCTURA en el documento actual
+            const structDefRegex = new RegExp(`^\\s*Estructura\\s+(${escapeRegex(word)})\\s*:?`, 'i');
+            for (let i = 0; i < document.lineCount; i++) {
+                const line = document.lineAt(i);
+                const match = line.text.match(structDefRegex);
+                if (match) {
+                    const col = line.text.indexOf(match[1]);
+                    const targetRange = new vscode.Range(i, col, i, col + match[1].length);
+                    return new vscode.Location(document.uri, targetRange);
+                }
+            }
+
+            // 2. Buscar definición de FUNCION o PROCEDIMIENTO en el documento actual
             const fnDefRegex = new RegExp(`^\\s*(?:FUNCION|PROCEDIMIENTO)\\s+(${escapeRegex(word)})\\b`, 'i');
 
             for (let i = 0; i < document.lineCount; i++) {
@@ -705,7 +794,7 @@ function activate(context) {
                 }
             }
 
-            // 2. Buscar declaración de variable o parámetro en el documento actual
+            // 3. Buscar declaración de variable o parámetro en el documento actual
             const typeKeywords = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO';
             const varDeclRegex = new RegExp(`(?:\\b(?:${typeKeywords})\\s+(?:\\[[^\\]]*\\]\\s*)*|\\b)(${escapeRegex(word)})\\s*(?::\\s*(?:${typeKeywords})|(?:\\[[^\\]]*\\])?\\s*=)`, 'i');
 
@@ -798,9 +887,46 @@ function activate(context) {
             const symbols = [];
             const fnHeaderRegex = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\((.*?)\))?(?:\s*:\s*([A-Za-z0-9_\[\]]+))?/i;
             const endFnRegex = /^\s*FIN\s+(?:FUNCION|PROCEDIMIENTO)\b/i;
+            const structHeaderRegex = /^\s*Estructura\s+([A-Za-z_][A-Za-z0-9_]*)\s*:?/i;
+            const structEndRegex = /^\s*FIN\s+ESTRUCTURA\b/i;
 
             for (let i = 0; i < document.lineCount; i++) {
                 const line = document.lineAt(i);
+
+                // Estructuras
+                const structMatch = line.text.match(structHeaderRegex);
+                if (structMatch) {
+                    const structName = structMatch[1];
+                    const nameCol = line.text.indexOf(structName);
+                    const selectionRange = new vscode.Range(i, nameCol, i, nameCol + structName.length);
+
+                    let endLine = i;
+                    const fieldSymbols = [];
+                    for (let j = i + 1; j < document.lineCount; j++) {
+                        const l = document.lineAt(j).text;
+                        if (structEndRegex.test(l)) {
+                            endLine = j;
+                            break;
+                        }
+                        const fieldMatch = l.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+                        if (fieldMatch) {
+                            const fieldType = fieldMatch[1];
+                            const fieldName = fieldMatch[2];
+                            const fCol = l.indexOf(fieldName);
+                            const fSelRange = new vscode.Range(j, fCol, j, fCol + fieldName.length);
+                            const fFullRange = new vscode.Range(j, 0, j, l.length);
+                            fieldSymbols.push(new vscode.DocumentSymbol(fieldName, fieldType, vscode.SymbolKind.Field, fFullRange, fSelRange));
+                        }
+                    }
+
+                    const fullRange = new vscode.Range(i, 0, endLine, document.lineAt(endLine).text.length);
+                    const structSymbol = new vscode.DocumentSymbol(structName, 'Estructura', vscode.SymbolKind.Struct, fullRange, selectionRange);
+                    structSymbol.children = fieldSymbols;
+                    symbols.push(structSymbol);
+                    continue;
+                }
+
+                // Funciones y Procedimientos
                 const match = line.text.match(fnHeaderRegex);
                 if (match) {
                     const keyword = match[1].toUpperCase();
@@ -819,7 +945,7 @@ function activate(context) {
                             endLine = j;
                             break;
                         }
-                        if (fnHeaderRegex.test(l)) {
+                        if (fnHeaderRegex.test(l) || structHeaderRegex.test(l)) {
                             endLine = j - 1;
                             break;
                         }

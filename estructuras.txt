@@ -172,3 +172,52 @@ CARACTER mi_vector_4 = ['a', 'b', 'c', 'd', 'e']
 CADENA mi_vector_5 = ["hola", "adios", "buenos", "dias", "tardes", "noches"]
 
 mi_vector_concatenado = mi_vector + mi_vector_2 + mi_vector_3 + mi_vector_4 + mi_vector_5
+
+// ESTRUCTURAS (STRUCTS)
+// Definir una estructura
+Estructura Libro: // Definir
+    CADENA nombre
+    ENTERO hojas
+    CADENA sinopsis
+    CADENA autor
+    CADENA editorial
+    ENTERO edicion
+Fin Estructura
+
+// Declarar una variable de tipo estructura
+Libro libro1 // Declarar
+
+// Asignar valor a los campos
+libro1.nombre = "Nombre del Libro" //Asignar un valor
+libro1.hojas = 350
+libro1.sinopsis = "Sinopsis del libro"
+libro1.autor = "Autor del Libro"
+libro1.editorial = "Editorial"
+libro1.edicion = 1
+
+// Acceso a campos
+IMPRIMIR(libro1.nombre)
+IMPRIMIR(libro1.hojas)
+
+// TIPO DE DATO Y LITERAL: NULO (null / None)
+// Representa la ausencia de valor o referencia nula (puntero a nada)
+NULO referencia_vacia = NULO
+// Aliases admitidos: null, NULL, None, NONE, nulo
+
+// ESTRUCTURAS AUTORREFERENCIALES (Nodos / Listas Enlazadas)
+ESTRUCTURA Nodo:
+    CADENA nombre
+    Nodo proximo_nodo
+FIN ESTRUCTURA
+
+Nodo raiz
+raiz.nombre = "Primero"
+raiz.proximo_nodo = NULO
+
+// Recorrido de lista enlazada con NULO
+Nodo actual = raiz
+MIENTRAS actual != NULO
+    IMPRIMIR("Elemento: " + actual.nombre)
+    actual = actual.proximo_nodo
+FIN MIENTRAS
+

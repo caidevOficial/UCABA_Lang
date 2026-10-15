@@ -23,9 +23,9 @@ Valida declaraciones, compatibilidad de tipos, llamadas a funciones y aridades a
 import difflib
 from typing import Dict, List, Optional, Any, Tuple
 from pseudocode.types_system import (
-    DataType, VectorType, MatrixType,
+    DataType, VectorType, MatrixType, StructType,
     TYPE_ENTERO, TYPE_FLOTANTE, TYPE_REAL, TYPE_CADENA,
-    TYPE_CARACTER, TYPE_BOOLEANO, TYPE_ARCHIVO, TYPE_VOID, TYPE_ANY
+    TYPE_CARACTER, TYPE_BOOLEANO, TYPE_ARCHIVO, TYPE_VOID, TYPE_ANY, TYPE_NULO
 )
 from pseudocode.ast_nodes import (
     Program, FunctionDef, Parameter, Statement, Expression,
@@ -33,7 +33,7 @@ from pseudocode.ast_nodes import (
     IfStatement, WhileStatement, DoWhileStatement, ForStatement,
     ReturnStatement, PrintStatement, ExpressionStatement,
     Literal, ArrayLiteral, Variable, BinaryOp, UnaryOp,
-    IndexAccess, MemberAccess, FunctionCall
+    IndexAccess, MemberAccess, FunctionCall, StructDef, StructField
 )
 from pseudocode.errors import TypeError as PseudoTypeError
 
@@ -77,6 +77,8 @@ class TypeChecker:
         self.global_scope = Scope(name="global")
         self.current_scope = self.global_scope
         self.functions: Dict[str, FunctionDef] = {}
+        self.structs: Dict[str, StructDef] = {}
+        self.struct_types: Dict[str, StructType] = {}
         self.current_function: Optional[FunctionDef] = None
         self.warnings: List[str] = []
 
@@ -89,8 +91,29 @@ class TypeChecker:
         self.global_scope.define("ESIMPAR", TYPE_BOOLEANO)
         self.global_scope.define("MOD", TYPE_ENTERO)
         self.global_scope.define("IMPRIMIR", TYPE_VOID)
+        # Nulo (null / None)
+        self.global_scope.define("NULO", TYPE_NULO)
+        self.global_scope.define("NULL", TYPE_NULO)
+        self.global_scope.define("NONE", TYPE_NULO)
+        self.global_scope.define("nulo", TYPE_NULO)
+        self.global_scope.define("null", TYPE_NULO)
 
     def check(self, program: Program):
+        # 0. Registrar estructuras declaradas
+        for s_def in getattr(program, "structs", []):
+            s_upper = s_def.name.upper()
+            if s_upper in self.structs:
+                if not self.lenient:
+                    raise PseudoTypeError(
+                        f"La estructura '{s_def.name}' ya ha sido declarada.",
+                        line=s_def.line, column=s_def.column, source=self.source
+                    )
+                else:
+                    self.warnings.append(f"Advertencia: redefinición de estructura '{s_def.name}' en línea {s_def.line}")
+            self.structs[s_upper] = s_def
+            fields_dict = {f.name: f.data_type for f in s_def.fields}
+            self.struct_types[s_upper] = StructType(s_def.name, fields_dict)
+
         # 1. Registrar firmas de todas las funciones
         for func in program.functions:
             if func.name in self.functions:
@@ -130,6 +153,20 @@ class TypeChecker:
 
     def check_statement(self, stmt: Statement):
         if isinstance(stmt, VarDeclaration):
+            # Resolver definición de estructura si el tipo es StructType
+            curr_type = stmt.data_type
+            if isinstance(curr_type, StructType):
+                s_upper = curr_type.name.upper()
+                if s_upper in self.struct_types:
+                    curr_type.fields = self.struct_types[s_upper].fields
+                elif not self.lenient:
+                    raise PseudoTypeError(f"Estructura no definida: '{curr_type.name}'",
+                                          line=stmt.line, column=stmt.column, source=self.source)
+            elif isinstance(curr_type, (VectorType, MatrixType)) and isinstance(curr_type.element_type, StructType):
+                s_upper = curr_type.element_type.name.upper()
+                if s_upper in self.struct_types:
+                    curr_type.element_type.fields = self.struct_types[s_upper].fields
+
             # Verificar expresiones de tamaño si es array
             for s_expr in stmt.size_exprs:
                 s_type = self.check_expression(s_expr)
@@ -293,6 +330,23 @@ class TypeChecker:
                 return target_type.element_type
             return TYPE_ANY
 
+        elif isinstance(target, MemberAccess):
+            target_type = self.check_expression(target.target)
+            if isinstance(target_type, StructType):
+                s_upper = target_type.name.upper()
+                struct_info = self.struct_types.get(s_upper) or target_type
+                for f_name, f_type in struct_info.fields.items():
+                    if f_name.lower() == target.member.lower():
+                        return f_type
+                candidates = list(struct_info.fields.keys())
+                matches = difflib.get_close_matches(target.member, candidates, n=1, cutoff=0.6)
+                sug = f". ¿Quisiste decir '{matches[0]}'?" if matches else ""
+                raise PseudoTypeError(
+                    f"La estructura '{struct_info.name}' no tiene el campo '{target.member}'{sug}",
+                    line=target.line, column=target.column, source=self.source
+                )
+            return TYPE_ANY
+
         return TYPE_ANY
 
     def check_expression(self, expr: Expression) -> DataType:
@@ -394,6 +448,19 @@ class TypeChecker:
                 return TYPE_ENTERO
             if prop == "findearchivo":
                 return TYPE_BOOLEANO
+            if isinstance(target_t, StructType):
+                s_upper = target_t.name.upper()
+                struct_info = self.struct_types.get(s_upper) or target_t
+                for f_name, f_type in struct_info.fields.items():
+                    if f_name.lower() == prop:
+                        return f_type
+                candidates = list(struct_info.fields.keys())
+                matches = difflib.get_close_matches(expr.member, candidates, n=1, cutoff=0.6)
+                sug = f". ¿Quisiste decir '{matches[0]}'?" if matches else ""
+                raise PseudoTypeError(
+                    f"La estructura '{struct_info.name}' no tiene el campo '{expr.member}'{sug}",
+                    line=expr.line, column=expr.column, source=self.source
+                )
             return TYPE_ANY
 
         if isinstance(expr, FunctionCall):

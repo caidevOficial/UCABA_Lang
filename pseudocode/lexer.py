@@ -199,6 +199,8 @@ class Lexer:
             val = word
             if tok_type == TokenType.BOOLEANO_LIT:
                 val = True if upper_word in ("VERDADERO", "TRUE") else False
+            elif tok_type == TokenType.NULO_LIT:
+                val = None
             return Token(tok_type, val, start_line, start_col, len(word))
 
         return Token(TokenType.IDENTIFICADOR, word, start_line, start_col, len(word))

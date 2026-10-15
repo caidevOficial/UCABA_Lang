@@ -16,3 +16,6 @@ node_modules/
 # Windows thumbnail cache
 Thumbs.db
 ehthumbs.db
+
+# Generated release notes
+release_notes.md

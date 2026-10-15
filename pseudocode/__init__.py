@@ -19,6 +19,9 @@
 Paquete oficial del Lenguaje de Programación UCABA.
 """
 
+__version__ = "1.5.0"
+__author__ = "Facu Falcone <a.facundo.falcone@gmail.com>"
+
 import os
 from pseudocode.lexer import Lexer
 from pseudocode.parser import Parser

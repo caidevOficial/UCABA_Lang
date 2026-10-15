@@ -263,11 +263,33 @@ class FunctionDef(ASTNode):
         return f"{kind} {self.name}({self.params}): {self.return_type} [{len(self.body)} stmts]"
 
 
+class StructField(ASTNode):
+    def __init__(self, name: str, data_type: DataType, line: int = 1, column: int = 1):
+        super().__init__(line, column)
+        self.name = name
+        self.data_type = data_type
+
+    def __repr__(self) -> str:
+        return f"{self.data_type} {self.name}"
+
+
+class StructDef(ASTNode):
+    def __init__(self, name: str, fields: List[StructField], line: int = 1, column: int = 1):
+        super().__init__(line, column)
+        self.name = name
+        self.fields = fields
+
+    def __repr__(self) -> str:
+        return f"Estructura {self.name}: [{len(self.fields)} campos]"
+
+
 class Program(ASTNode):
-    def __init__(self, functions: List[FunctionDef], statements: List[Statement], line: int = 1, column: int = 1):
+    def __init__(self, functions: List[FunctionDef], statements: List[Statement],
+                 structs: Optional[List[StructDef]] = None, line: int = 1, column: int = 1):
         super().__init__(line, column)
         self.functions = functions
         self.statements = statements
+        self.structs = structs or []
 
     def __repr__(self) -> str:
-        return f"Program(funcs={len(self.functions)}, top_stmts={len(self.statements)})"
+        return f"Program(structs={len(self.structs)}, funcs={len(self.functions)}, top_stmts={len(self.statements)})"

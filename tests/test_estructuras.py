@@ -317,6 +317,189 @@ class TestEstructuras(unittest.TestCase):
         self.assertIn("¿Quisiste decir 'RETORNAR'?", str(ctx.exception))
 
 
+    def test_estructura_definir_declarar_y_asignar(self):
+        # Caso exacto de la imagen del usuario
+        code = """
+        Estructura Libro: // Definir
+            CADENA nombre
+            ENTERO hojas
+            CADENA sinopsis
+            CADENA autor
+            CADENA editorial
+            ENTERO edicion
+        Fin Estructura
+
+        Libro libro1 // Declarar
+
+        libro1.nombre = "Nombre del Libro" //Asignar un valor
+        libro1.hojas = 350
+        libro1.autor = "Jorge Luis Borges"
+        libro1.editorial = "Sur"
+        libro1.edicion = 1
+
+        IMPRIMIR("NOMBRE: " + libro1.nombre)
+        IMPRIMIR("HOJAS: " + libro1.hojas)
+        IMPRIMIR("AUTOR: " + libro1.autor)
+        IMPRIMIR("EDITORIAL: " + libro1.editorial)
+        IMPRIMIR("EDICION: " + libro1.edicion)
+        IMPRIMIR("OBJETO: " + libro1)
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("NOMBRE: Nombre del Libro", out)
+        self.assertIn("HOJAS: 350", out)
+        self.assertIn("AUTOR: Jorge Luis Borges", out)
+        self.assertIn("EDITORIAL: Sur", out)
+        self.assertIn("EDICION: 1", out)
+        self.assertTrue(any("Libro{" in line for line in out))
+
+    def test_estructuras_multiples_e_independientes(self):
+        code = """
+        Estructura Persona:
+            CADENA nombre
+            ENTERO edad
+        Fin Estructura
+
+        Persona p1
+        Persona p2
+
+        p1.nombre = "Alice"
+        p1.edad = 25
+
+        p2.nombre = "Bob"
+        p2.edad = 30
+
+        IMPRIMIR("P1: " + p1.nombre + " (" + p1.edad + ")")
+        IMPRIMIR("P2: " + p2.nombre + " (" + p2.edad + ")")
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("P1: Alice (25)", out)
+        self.assertIn("P2: Bob (30)", out)
+
+    def test_vector_de_estructuras(self):
+        code = """
+        Estructura Producto:
+            CADENA codigo
+            REAL precio
+        Fin Estructura
+
+        Producto inventario[2]
+        inventario[0].codigo = "P01"
+        inventario[0].precio = 99.5
+        inventario[1].codigo = "P02"
+        inventario[1].precio = 150.0
+
+        IMPRIMIR("PROD0: " + inventario[0].codigo + " $" + inventario[0].precio)
+        IMPRIMIR("PROD1: " + inventario[1].codigo + " $" + inventario[1].precio)
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("PROD0: P01 $99.5", out)
+        self.assertIn("PROD1: P02 $150.0", out)
+
+    def test_estructura_en_funciones_y_procedimientos(self):
+        code = """
+        Estructura Alumno:
+            CADENA nombre
+            ENTERO nota
+        Fin Estructura
+
+        FUNCION esta_aprobado(a: Alumno): BOOLEANO
+            RETORNAR a.nota >= 6
+        FIN FUNCION
+
+        INICIO
+            Alumno alumno1
+            alumno1.nombre = "Carlos"
+            alumno1.nota = 8
+            BOOLEANO aprobo = esta_aprobado(alumno1)
+            IMPRIMIR("APROBADO: " + aprobo)
+        FIN
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("APROBADO: VERDADERO", out)
+
+    def test_error_campo_inexistente_estructura(self):
+        from pseudocode.errors import TypeError as PseudoTypeError
+        code = """
+        Estructura Libro:
+            CADENA nombre
+            ENTERO hojas
+        Fin Estructura
+
+        Libro l
+        l.nombr = "Invalido"
+        """
+        with self.assertRaises(PseudoTypeError) as ctx:
+            run_code(code, lenient=False)
+        self.assertIn("no tiene el campo 'nombr'", str(ctx.exception))
+        self.assertIn("¿Quisiste decir 'nombre'?", str(ctx.exception))
+
+    def test_estructura_recursiva_nodo(self):
+        code = """
+        Estructura nodo:
+            CADENA nombre
+            nodo proximo_nodo
+        Fin Estructura
+
+        INICIO
+            nodo n1
+            nodo n2
+            n1.nombre = "Primero"
+            n2.nombre = "Segundo"
+            n1.proximo_nodo = n2
+
+            IMPRIMIR("N1: " + n1.nombre)
+            IMPRIMIR("PROXIMO: " + n1.proximo_nodo.nombre)
+        FIN
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("N1: Primero", out)
+        self.assertIn("PROXIMO: Segundo", out)
+
+    def test_tipo_nulo_y_recorrido_lista(self):
+        code = """
+        ESTRUCTURA Nodo:
+            CADENA nombre
+            Nodo proximo_nodo
+        Fin Estructura
+
+        INICIO
+            Nodo n1
+            Nodo n2
+            n1.nombre = "Primero"
+            n2.nombre = "Segundo"
+            n1.proximo_nodo = n2
+
+            Nodo actual
+            actual = n1
+
+            MIENTRAS actual != NULO
+                IMPRIMIR("VISITADO: " + actual.nombre)
+                actual = actual.proximo_nodo
+            FIN MIENTRAS
+
+            IMPRIMIR("FINAL: " + actual)
+            SI(actual == null)
+                IMPRIMIR("ES NULL: VERDADERO")
+            FIN SI
+            SI(actual == None)
+                IMPRIMIR("ES NONE: VERDADERO")
+            FIN SI
+        FIN
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("VISITADO: Primero", out)
+        self.assertIn("VISITADO: Segundo", out)
+        self.assertIn("FINAL: NULO", out)
+        self.assertIn("ES NULL: VERDADERO", out)
+        self.assertIn("ES NONE: VERDADERO", out)
+
+
 if __name__ == "__main__":
     unittest.main()
 

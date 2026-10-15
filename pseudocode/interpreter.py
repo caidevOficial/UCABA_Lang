@@ -22,10 +22,10 @@ Ejecuta de manera segura y tipada el AST analizado, gestionando entornos de ejec
 
 from typing import Any, Dict, List, Optional
 from pseudocode.types_system import (
-    DataType, VectorType, MatrixType,
+    DataType, VectorType, MatrixType, StructType, StructInstance,
     TYPE_ENTERO, TYPE_FLOTANTE, TYPE_REAL, TYPE_CADENA,
-    TYPE_CARACTER, TYPE_BOOLEANO, TYPE_ARCHIVO, TYPE_VOID,
-    validate_runtime_value
+    TYPE_CARACTER, TYPE_BOOLEANO, TYPE_ARCHIVO, TYPE_VOID, TYPE_NULO,
+    validate_runtime_value, default_value_for_type
 )
 from pseudocode.ast_nodes import (
     Program, FunctionDef, Statement, Expression,
@@ -33,7 +33,7 @@ from pseudocode.ast_nodes import (
     IfStatement, WhileStatement, DoWhileStatement, ForStatement,
     ReturnStatement, PrintStatement, ExpressionStatement,
     Literal, ArrayLiteral, Variable, BinaryOp, UnaryOp,
-    IndexAccess, MemberAccess, FunctionCall
+    IndexAccess, MemberAccess, FunctionCall, StructDef
 )
 from pseudocode.builtins import (
     ArchivoHandle, builtin_abrir_archivo, builtin_es_par, builtin_es_impar, builtin_mod,
@@ -86,15 +86,24 @@ class Interpreter:
         self.global_env = Environment(name="global")
         self.current_env = self.global_env
         self.functions: Dict[str, FunctionDef] = {}
+        self.structs: Dict[str, StructDef] = {}
         self.output_collector = output_collector  # Para capturar salidas en tests si es provisto
 
         self._setup_builtins()
 
     def _setup_builtins(self):
-        # Builtin functions
-        pass
+        # Constantes incorporadas
+        self.global_env.define("NULO", None, TYPE_NULO)
+        self.global_env.define("NULL", None, TYPE_NULO)
+        self.global_env.define("NONE", None, TYPE_NULO)
+        self.global_env.define("nulo", None, TYPE_NULO)
+        self.global_env.define("null", None, TYPE_NULO)
 
     def run(self, program: Program):
+        # 0. Registrar estructuras
+        for s_def in getattr(program, "structs", []):
+            self.structs[s_def.name.upper()] = s_def
+
         # 1. Registrar funciones
         for func in program.functions:
             self.functions[func.name] = func
@@ -265,6 +274,36 @@ class Interpreter:
             elif op == "-=":
                 curr[last_idx] -= final_val
 
+        elif isinstance(target, MemberAccess):
+            obj = self.evaluate_expression(target.target)
+            if obj is None:
+                raise PseudoRuntimeError(
+                    f"Intento de asignar el campo '{target.member}' en una referencia nula (NULO)",
+                    line=target.line, column=target.column, source=self.source
+                )
+            if not isinstance(obj, StructInstance):
+                raise PseudoRuntimeError(
+                    f"No se puede asignar el campo '{target.member}' a un objeto que no es una estructura ({type(obj).__name__})",
+                    line=target.line, column=target.column, source=self.source
+                )
+            if op == "=":
+                try:
+                    obj.set_field(target.member, value)
+                except (AttributeError, TypeError) as e:
+                    raise PseudoRuntimeError(str(e), line=target.line, column=target.column, source=self.source)
+            elif op == "+=":
+                cur = obj.get_field(target.member)
+                try:
+                    obj.set_field(target.member, cur + value)
+                except (AttributeError, TypeError) as e:
+                    raise PseudoRuntimeError(str(e), line=target.line, column=target.column, source=self.source)
+            elif op == "-=":
+                cur = obj.get_field(target.member)
+                try:
+                    obj.set_field(target.member, cur - value)
+                except (AttributeError, TypeError) as e:
+                    raise PseudoRuntimeError(str(e), line=target.line, column=target.column, source=self.source)
+
     def _create_empty_array(self, data_type: DataType, sizes: List[int]) -> List[Any]:
         if not sizes:
             return []
@@ -292,6 +331,12 @@ class Interpreter:
             return False
         if isinstance(data_type, (VectorType, MatrixType)):
             return []
+        if isinstance(data_type, StructType):
+            s_upper = data_type.name.upper()
+            if s_upper in self.structs:
+                fields_dict = {f.name: f.data_type for f in self.structs[s_upper].fields}
+                data_type.fields = fields_dict
+            return StructInstance(data_type)
         return None
 
     def _is_truthy(self, val: Any) -> bool:
@@ -407,6 +452,18 @@ class Interpreter:
         if isinstance(expr, MemberAccess):
             target = self.evaluate_expression(expr.target)
             member = expr.member.lower()
+
+            if target is None:
+                raise PseudoRuntimeError(
+                    f"Intento de acceder al campo '{expr.member}' en una referencia nula (NULO)",
+                    line=expr.line, column=expr.column, source=self.source
+                )
+
+            if isinstance(target, StructInstance):
+                try:
+                    return target.get_field(expr.member)
+                except AttributeError as e:
+                    raise PseudoRuntimeError(str(e), line=expr.line, column=expr.column, source=self.source)
 
             # Propiedad .largo
             if member == "largo":

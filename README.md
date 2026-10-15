@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.2.0-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.5.0-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-21%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-28%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -31,6 +31,8 @@
 - [💎 Sistema de Tipos (Fuertemente Tipado)](#-sistema-de-tipos-fuertemente-tipado)
   - [Tabla de Tipos Primitivos](#tabla-de-tipos-primitivos)
   - [Vectores y Matrices](#vectores-y-matrices)
+  - [Estructuras de Datos (`ESTRUCTURA`)](#-estructuras-de-datos-estructura)
+  - [Estructuras Autorreferenciales y Tipo `NULO`](#-estructuras-autorreferenciales-y-tipo-nulo-listas-y-punteros)
   - [Reglas de Conversión y Concatenación](#reglas-de-conversión-y-concatenación)
 - [📜 Sintaxis y Gramática Canónica](#-sintaxis-y-gramática-canónica)
   - [1. Estructura General del Programa](#1-estructura-general-del-programa)
@@ -78,7 +80,7 @@ La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es m
 2. El asistente te permitirá de forma automatizada:
    - ✅ Instalar el comando nativo `ucaba.exe` en tu sistema.
    - ✅ Añadir `ucaba` a la variable de entorno `PATH` del usuario.
-   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.2.0.vsix`).
+   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.5.0.vsix`).
    - ✅ Asociar los archivos `.ucaba` en Windows con el icono oficial y opciones de ejecución directa.
 
 > [!TIP]
@@ -163,6 +165,8 @@ UCABA implementa un sistema de tipos riguroso que previene errores lógicos comu
 | `CARACTER` | `char` | Carácter individual | `CARACTER letra = 'A'` |
 | `BOOLEANO` | `boolean` | Valor de verdad: `VERDADERO` o `FALSO` | `BOOLEANO activo = VERDADERO` |
 | `ARCHIVO` | `Handle` | Descriptor para lectura/escritura de archivos | `ARCHIVO f = ABRIR_ARCHIVO("datos.txt", "lectura")` |
+| `NULO` | `null` / `None` | Representa la ausencia de valor o puntero nulo | `Nodo actual = NULO` |
+| `Estructura` | Objeto `struct` | Tipos compuestos y heterogéneos del usuario | `Libro libro1` |
 | `VOID` | `void` | Utilizado en procedimientos sin retorno | `PROCEDIMIENTO saludar() ...` |
 
 > [!IMPORTANT]
@@ -187,6 +191,166 @@ IMPRIMIR(edades.largo)       // 4 (cantidad de elementos)
 IMPRIMIR(matriz.largo)       // 12 (cantidad de filas)
 IMPRIMIR(matriz[0].largo)    // 30 (cantidad de columnas)
 ```
+
+### 🏗️ Estructuras de Datos (`ESTRUCTURA`)
+
+UCABA permite definir tipos de datos heterogéneos y compuestos mediante el bloque `ESTRUCTURA ... FIN ESTRUCTURA`.
+
+#### 1. Definición y Declaración
+```text
+// Definición del molde o tipo de dato compuesto
+ESTRUCTURA Libro:
+    CADENA nombre
+    ENTERO hojas
+    CADENA sinopsis
+    CADENA autor
+    CADENA editorial
+    ENTERO edicion
+FIN ESTRUCTURA
+
+INICIO
+    // Declaración de una variable de tipo estructura
+    Libro libro1
+
+    // Asignación de valores a sus campos
+    libro1.nombre = "El Aleph"
+    libro1.hojas = 210
+    libro1.sinopsis = "Colección de cuentos de Jorge Luis Borges."
+    libro1.autor = "Jorge Luis Borges"
+    libro1.editorial = "Sur"
+    libro1.edicion = 1
+
+    // Acceso a campos y representación en texto
+    IMPRIMIR("Libro: " + libro1.nombre + " (Páginas: " + libro1.hojas + ")")
+    IMPRIMIR("Objeto completo: " + libro1)
+FIN
+```
+
+*Salida:*
+```text
+Libro: El Aleph (Páginas: 210)
+Objeto completo: Libro{nombre: 'El Aleph', hojas: 210, sinopsis: 'Colección de cuentos de Jorge Luis Borges.', autor: 'Jorge Luis Borges', editorial: 'Sur', edicion: 1}
+```
+
+#### 2. Vectores de Estructuras y Paso a Funciones
+Las estructuras pueden almacenarse en vectores, matrices y pasarse como argumentos o valores de retorno en funciones y procedimientos:
+
+```text
+FUNCION resumir_libro(item: Libro): CADENA
+    RETORNAR item.nombre + " por " + item.autor + " [" + item.hojas + " págs.]"
+FIN FUNCION
+
+INICIO
+    // Arreglo de estructuras
+    Libro estante[2]
+    estante[0] = libro1
+
+    Libro libro2
+    libro2.nombre = "Ficciones"
+    libro2.autor = "Jorge Luis Borges"
+    libro2.hojas = 190
+    estante[1] = libro2
+
+    PARA (ENTERO i = 0; i < estante.largo; i++)
+        IMPRIMIR("• " + resumir_libro(estante[i]))
+    FIN PARA
+FIN
+```
+
+---
+
+### 🔗 Estructuras Autorreferenciales y Tipo `NULO` (Listas y Punteros)
+
+A partir de la versión **1.5**, UCABA cuenta con soporte para **estructuras autorreferenciales** (estructuras que contienen campos de su mismo tipo) y el tipo/literal universal **`NULO`** (equivalente a `null` o `None`).
+
+Esto permite construir y manipular estructuras de datos dinámicas avanzadas como **Listas Enlazadas, Pilas, Colas y Árboles**.
+
+#### 1. Definición de un Nodo Enlazado
+```text
+ESTRUCTURA Nodo:
+    CADENA nombre
+    Nodo proximo_nodo
+FIN ESTRUCTURA
+```
+
+> [!NOTE]
+> **Gestión Segura de Memoria y Recursión:**
+> Al instanciar una estructura autorreferencial, UCABA inicializa automáticamente los campos recursivos con valor `NULO`, garantizando que no ocurran ciclos infinitos ni desbordamientos de memoria en la instanciación.
+
+#### 2. Creación, Anidamiento de Nodos y Recorrido
+En este ejemplo canónico ([ejemplo.ucaba](file:///e:/Python_d/UCABA_Lang/ejemplo.ucaba)), se crean 5 nodos secuenciales enlazados en memoria y se recorren mediante un puntero auxiliar:
+
+```text
+INICIO
+
+    // Definición de la estructura autorreferencial
+    ESTRUCTURA Nodo:
+        CADENA nombre
+        Nodo proximo_nodo
+    Fin Estructura
+
+    Nodo nodo_pila = NULO
+    Nodo nodo_ultimo = NULO
+
+    // 1. Creación y anidamiento secuencial de 5 nodos (Nodo 1 -> Nodo 2 -> ... -> Nodo 5)
+    PARA (ENTERO vuelta = 0; vuelta < 5; vuelta++)
+        Nodo nuevo_nodo
+        nuevo_nodo.nombre = "Nodo " + (vuelta + 1)
+        nuevo_nodo.proximo_nodo = NULO
+
+        SI (nodo_pila == NULO)
+            nodo_pila = nuevo_nodo
+            nodo_ultimo = nuevo_nodo
+        SINO
+            nodo_ultimo.proximo_nodo = nuevo_nodo
+            nodo_ultimo = nuevo_nodo
+        FIN SI
+    FIN PARA
+
+    // 1.1 Información del árbol de nodos anidados en memoria
+    IMPRIMIR("Nodos apilados: " + nodo_pila)
+
+    // 2. Recorrido de los 5 nodos anidados utilizando el puntero auxiliar
+    Nodo nodo_aux = nodo_pila
+    MIENTRAS nodo_aux != NULO
+        IMPRIMIR("Recorriendo el nodo: " + nodo_aux.nombre)
+        nodo_aux = nodo_aux.proximo_nodo
+    FIN MIENTRAS
+
+    // 3. Información de los nodos inicio y fin
+    IMPRIMIR("Primer nodo (cabeza): " + nodo_pila.nombre)
+    IMPRIMIR("Ultimo nodo (cola): " + nodo_ultimo.nombre)
+
+FIN
+```
+
+*Salida de ejecución en consola:*
+```text
+[RUN] Ejecutando archivo: ejemplo.ucaba (lenient=False) ...
+Nodos apilados: Nodo{nombre: 'Nodo 1', proximo_nodo: Nodo{nombre: 'Nodo 2', proximo_nodo: Nodo{nombre: 'Nodo 3', proximo_nodo: Nodo{nombre: 'Nodo 4', proximo_nodo: Nodo{nombre: 'Nodo 5', proximo_nodo: NULO}}}}}
+Recorriendo el nodo: Nodo 1
+Recorriendo el nodo: Nodo 2
+Recorriendo el nodo: Nodo 3
+Recorriendo el nodo: Nodo 4
+Recorriendo el nodo: Nodo 5
+Primer nodo (cabeza): Nodo 1
+Ultimo nodo (cola): Nodo 5
+```
+
+#### 3. Reglas de Uso de `NULO` y Seguridad en Runtime
+- **Aliases admitidos:** `NULO`, `null`, `NULL`, `None`, `NONE`, `nulo`.
+- **Operadores de comparación:** Puede compararse con igualdad (`==`) o desigualdad (`!=`) frente a cualquier variable de tipo estructura, vector, matriz o archivo:
+  ```text
+  SI (cabeza == NULO) ...
+  MIENTRAS (nodo_aux != NULO) ...
+  ```
+- **Evaluación Booleana:** En condiciones lógicas directas (`SI (nodo)`), `NULO` evalúa a `FALSO`.
+- **Protección contra Referencias Nulas (*Null-Safety*):** Intentar acceder o asignar un campo sobre una variable con valor `NULO` (ej. `nulo.campo`) emite un diagnóstico claro y didáctico:
+  ```text
+  PseudoRuntimeError: Intento de acceder al campo 'campo' en una referencia nula (NULO)
+  ```
+
+---
 
 ### Reglas de Conversión y Concatenación
 

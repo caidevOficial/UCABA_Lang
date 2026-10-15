@@ -22,7 +22,7 @@ las reglas de compatibilidad, promoción y representación en tiempo de ejecuci�
 """
 
 import struct
-from typing import Any, Optional, List, Tuple
+from typing import Any, Optional, List, Tuple, Dict, Set
 
 
 class DataType:
@@ -46,6 +46,10 @@ class DataType:
         # CARACTER a CADENA
         if self == TYPE_CADENA and source == TYPE_CARACTER:
             return True
+        # Asignación de NULO a tipos compatibles (cadena, archivo, etc.)
+        if isinstance(source, DataType) and source.name == "NULO":
+            if self.name in ("NULO", "CADENA", "ARCHIVO", "ANY"):
+                return True
         return False
 
     def __eq__(self, other: Any) -> bool:
@@ -64,6 +68,8 @@ class VectorType(DataType):
         self.size = size
 
     def is_assignable_from(self, source: 'DataType') -> bool:
+        if isinstance(source, DataType) and source.name in ("NULO", "ANY"):
+            return True
         if isinstance(source, VectorType):
             return self.element_type.is_assignable_from(source.element_type)
         return False
@@ -82,6 +88,8 @@ class MatrixType(DataType):
         self.cols = cols
 
     def is_assignable_from(self, source: 'DataType') -> bool:
+        if isinstance(source, DataType) and source.name in ("NULO", "ANY"):
+            return True
         if isinstance(source, MatrixType):
             return self.element_type.is_assignable_from(source.element_type)
         return False
@@ -90,6 +98,105 @@ class MatrixType(DataType):
         if isinstance(other, MatrixType):
             return self.element_type == other.element_type
         return False
+
+
+class StructType(DataType):
+    def __init__(self, name: str, fields: Optional[Dict[str, DataType]] = None):
+        super().__init__(name)
+        self.fields: Dict[str, DataType] = fields or {}
+
+    def is_assignable_from(self, source: 'DataType') -> bool:
+        if self.name == "ANY" or (isinstance(source, DataType) and source.name == "ANY"):
+            return True
+        if isinstance(source, DataType) and source.name in ("NULO", "ANY"):
+            return True
+        if isinstance(source, StructType):
+            return self.name.upper() == source.name.upper()
+        return False
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, StructType):
+            return self.name.upper() == other.name.upper()
+        return False
+
+    def __repr__(self) -> str:
+        return f"Estructura {self.name}"
+
+
+class StructInstance:
+    def __init__(self, struct_type: StructType, fields: Optional[Dict[str, Any]] = None, parent_types: Optional[Set[str]] = None):
+        self.struct_type = struct_type
+        self.fields: Dict[str, Any] = {}
+        parents = set(parent_types) if parent_types else set()
+        parents.add(struct_type.name.upper())
+
+        for f_name, f_type in struct_type.fields.items():
+            if fields and f_name in fields:
+                self.fields[f_name] = validate_runtime_value(fields[f_name], f_type)
+            else:
+                if isinstance(f_type, StructType) and f_type.name.upper() in parents:
+                    # Campo recursivo: se inicializa en None (referencia/puntero nulo)
+                    self.fields[f_name] = None
+                elif isinstance(f_type, StructType):
+                    self.fields[f_name] = StructInstance(f_type, parent_types=parents)
+                else:
+                    self.fields[f_name] = default_value_for_type(f_type)
+
+    def get_field(self, name: str) -> Any:
+        for f_name, val in self.fields.items():
+            if f_name.lower() == name.lower():
+                return val
+        raise AttributeError(f"El campo '{name}' no existe en la estructura '{self.struct_type.name}'")
+
+    def set_field(self, name: str, value: Any) -> None:
+        for f_name, f_type in self.struct_type.fields.items():
+            if f_name.lower() == name.lower():
+                self.fields[f_name] = validate_runtime_value(value, f_type)
+                return
+        raise AttributeError(f"El campo '{name}' no existe en la estructura '{self.struct_type.name}'")
+
+    def to_string(self, seen: Optional[Set[int]] = None) -> str:
+        if seen is None:
+            seen = set()
+        if id(self) in seen:
+            return f"<{self.struct_type.name} ...>"
+        seen.add(id(self))
+        items = []
+        for k in self.struct_type.fields.keys():
+            v = self.fields.get(k)
+            if isinstance(v, StructInstance):
+                items.append(f"{k}: {v.to_string(seen)}")
+            elif v is None:
+                items.append(f"{k}: NULO")
+            else:
+                items.append(f"{k}: {v!r}")
+        return f"{self.struct_type.name}{{{', '.join(items)}}}"
+
+    def __repr__(self) -> str:
+        return self.to_string()
+
+    def __str__(self) -> str:
+        return self.to_string()
+
+
+def default_value_for_type(data_type: DataType) -> Any:
+    if data_type == TYPE_NULO or (isinstance(data_type, DataType) and data_type.name == "NULO"):
+        return None
+    if data_type == TYPE_ENTERO:
+        return 0
+    if data_type in (TYPE_FLOTANTE, TYPE_REAL):
+        return 0.0
+    if data_type == TYPE_CADENA:
+        return ""
+    if data_type == TYPE_CARACTER:
+        return " "
+    if data_type == TYPE_BOOLEANO:
+        return False
+    if isinstance(data_type, (VectorType, MatrixType)):
+        return []
+    if isinstance(data_type, StructType):
+        return StructInstance(data_type)
+    return None
 
 
 # Tipos primitivos singleton
@@ -102,6 +209,7 @@ TYPE_BOOLEANO = DataType("BOOLEANO")
 TYPE_ARCHIVO = DataType("ARCHIVO")
 TYPE_VOID = DataType("VACIO")
 TYPE_ANY = DataType("ANY")
+TYPE_NULO = DataType("NULO")
 
 
 def parse_type_name(name: str) -> DataType:
@@ -126,6 +234,9 @@ def parse_type_name(name: str) -> DataType:
         "ARCHIVO": TYPE_ARCHIVO,
         "VACIO": TYPE_VOID,
         "PROCEDIMIENTO": TYPE_VOID,
+        "NULO": TYPE_NULO,
+        "NULL": TYPE_NULO,
+        "NONE": TYPE_NULO,
     }
     if upper in mapping:
         return mapping[upper]
@@ -212,5 +323,20 @@ def validate_runtime_value(value: Any, expected_type: DataType) -> Any:
             [validate_runtime_value(cell, expected_type.element_type) for cell in row]
             for row in value
         ]
+
+    if expected_type == TYPE_NULO or (isinstance(expected_type, DataType) and expected_type.name == "NULO"):
+        return None
+
+    if value is None and (isinstance(expected_type, (StructType, VectorType, MatrixType)) or expected_type in (TYPE_CADENA, TYPE_ARCHIVO, TYPE_NULO, TYPE_ANY)):
+        return None
+
+    if isinstance(expected_type, StructType):
+        if value is None:
+            return None
+        if isinstance(value, StructInstance):
+            if value.struct_type.name.upper() == expected_type.name.upper():
+                return value
+            raise TypeError(f"Se esperaba estructura '{expected_type.name}', se obtuvo '{value.struct_type.name}'")
+        raise TypeError(f"Se esperaba estructura '{expected_type.name}', se obtuvo {type(value).__name__} ({value!r})")
 
     return value

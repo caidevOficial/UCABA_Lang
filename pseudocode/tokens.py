@@ -30,6 +30,7 @@ class TokenType(Enum):
     CADENA_LIT = auto()
     CARACTER_LIT = auto()
     BOOLEANO_LIT = auto()
+    NULO_LIT = auto()
 
     # Identificadores
     IDENTIFICADOR = auto()
@@ -43,6 +44,7 @@ class TokenType(Enum):
     TIPO_BOOLEANO = auto()
     TIPO_ARCHIVO = auto()
     TIPO_VOID = auto()
+    TIPO_NULO = auto()
 
     # Estructuras de Control y Bloques
     KW_INICIO = auto()
@@ -57,6 +59,7 @@ class TokenType(Enum):
     KW_HACER = auto()
     KW_PARA = auto()
     KW_IMPRIMIR = auto()
+    KW_ESTRUCTURA = auto()
 
     # Funciones incorporadas matemáticas
     KW_MOD = auto()
@@ -127,6 +130,7 @@ KEYWORDS = {
     "HACER": TokenType.KW_HACER,
     "PARA": TokenType.KW_PARA,
     "IMPRIMIR": TokenType.KW_IMPRIMIR,
+    "ESTRUCTURA": TokenType.KW_ESTRUCTURA,
 
     # Funciones especiales
     "MOD": TokenType.KW_MOD,
@@ -143,6 +147,11 @@ KEYWORDS = {
     "FALSO": TokenType.BOOLEANO_LIT,
     "TRUE": TokenType.BOOLEANO_LIT,
     "FALSE": TokenType.BOOLEANO_LIT,
+
+    # Nulo (null / None)
+    "NULO": TokenType.NULO_LIT,
+    "NULL": TokenType.NULO_LIT,
+    "NONE": TokenType.NULO_LIT,
 }
 
 

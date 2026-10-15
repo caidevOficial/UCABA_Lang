@@ -78,9 +78,19 @@ def build():
         shutil.copy2(header_logo, os.path.join(payload_dir, "ucaba_logo_header.png"))
         print(" [OK] ucaba_logo_header.png copiado a payload/")
 
-    vsix_src = os.path.join(REPO_ROOT, "extension-vscode", "ucaba-language-support-1.2.0.vsix")
-    shutil.copy2(vsix_src, os.path.join(payload_dir, "ucaba-language-support-1.2.0.vsix"))
-    print(" [OK] VSIX copiado a payload/")
+    # Limpiar cualquier VSIX antiguo en payload y copiar el VSIX más reciente
+    for existing_vsix in [os.path.join(payload_dir, f) for f in os.listdir(payload_dir) if f.endswith(".vsix")]:
+        try:
+            os.remove(existing_vsix)
+        except OSError:
+            pass
+
+    vsix_files = [os.path.join(REPO_ROOT, "extension-vscode", f) for f in os.listdir(os.path.join(REPO_ROOT, "extension-vscode")) if f.endswith(".vsix")]
+    if vsix_files:
+        vsix_src = sorted(vsix_files, key=os.path.getmtime, reverse=True)[0]
+        vsix_dst = os.path.join(payload_dir, os.path.basename(vsix_src))
+        shutil.copy2(vsix_src, vsix_dst)
+        print(f" [OK] VSIX copiado a payload/: {os.path.basename(vsix_src)}")
 
     ext_payload_dir = os.path.join(payload_dir, "extension-vscode")
     if os.path.exists(ext_payload_dir):

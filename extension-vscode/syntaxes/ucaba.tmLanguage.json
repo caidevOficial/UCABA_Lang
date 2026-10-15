@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
+    { "include": "#struct_definition" },
     { "include": "#function_definition" },
     { "include": "#control_flow" },
     { "include": "#storage_types" },
@@ -60,6 +61,17 @@
         }
       ]
     },
+    "struct_definition": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(ESTRUCTURA)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.struct.ucaba" },
+            "2": { "name": "entity.name.type.struct.ucaba" }
+          }
+        }
+      ]
+    },
     "function_definition": {
       "patterns": [
         {
@@ -75,7 +87,7 @@
       "patterns": [
         {
           "name": "keyword.control.structure.ucaba",
-          "match": "(?i)\\b(ALGORITMO|PROGRAMA|INICIO|FIN(\\s+(SI|MIENTRAS|PARA|FUNCION|PROCEDIMIENTO))?)\\b"
+          "match": "(?i)\\b(ALGORITMO|PROGRAMA|INICIO|ESTRUCTURA|FIN(\\s+(SI|MIENTRAS|PARA|FUNCION|PROCEDIMIENTO|ESTRUCTURA))?)\\b"
         },
         {
           "name": "keyword.control.flow.return.ucaba",
@@ -103,12 +115,16 @@
       "patterns": [
         {
           "name": "storage.type.primitive.ucaba",
-          "match": "(?i)\\b(ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|VACIO|SIN_RETORNO)\\b"
+          "match": "(?i)\\b(ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|VACIO|SIN_RETORNO|NULO)\\b"
         }
       ]
     },
     "constants": {
       "patterns": [
+        {
+          "name": "constant.language.null.ucaba",
+          "match": "(?i)\\b(NULO|NULL|NONE)\\b"
+        },
         {
           "name": "constant.language.boolean.ucaba",
           "match": "(?i)\\b(VERDADERO|FALSO|TRUE|FALSE)\\b"

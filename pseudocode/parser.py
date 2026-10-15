@@ -24,10 +24,10 @@ from typing import List, Optional, Tuple, Any
 from pseudocode.tokens import Token, TokenType
 from pseudocode.errors import ParseError
 from pseudocode.types_system import (
-    DataType, VectorType, MatrixType,
+    DataType, VectorType, MatrixType, StructType,
     TYPE_ENTERO, TYPE_FLOTANTE, TYPE_REAL, TYPE_CADENA,
     TYPE_CARACTER, TYPE_BOOLEANO, TYPE_ARCHIVO, TYPE_VOID,
-    parse_type_name
+    TYPE_NULO, parse_type_name
 )
 from pseudocode.ast_nodes import (
     ASTNode, Expression, Statement,
@@ -36,7 +36,7 @@ from pseudocode.ast_nodes import (
     VarDeclaration, Assignment, IncrementStatement,
     IfStatement, WhileStatement, DoWhileStatement, ForStatement,
     ReturnStatement, PrintStatement, ExpressionStatement,
-    Parameter, FunctionDef, Program
+    Parameter, FunctionDef, Program, StructDef, StructField
 )
 
 # Mapa de tipos según token
@@ -49,6 +49,8 @@ TOKEN_TO_TYPE = {
     TokenType.TIPO_BOOLEANO: TYPE_BOOLEANO,
     TokenType.TIPO_ARCHIVO: TYPE_ARCHIVO,
     TokenType.TIPO_VOID: TYPE_VOID,
+    TokenType.TIPO_NULO: TYPE_NULO,
+    TokenType.NULO_LIT: TYPE_NULO,
 }
 
 
@@ -63,6 +65,14 @@ class Parser:
         self.lenient = lenient
         self.warnings: List[str] = []
         self.pos = 0
+
+        self.struct_types: dict[str, StructType] = {}
+        # Pre-escaneo para registrar estructuras declaradas y permitir resolución temprana de tipos
+        for i, t in enumerate(self.tokens):
+            if t.type == TokenType.KW_ESTRUCTURA and i + 1 < len(self.tokens):
+                nxt = self.tokens[i + 1]
+                if nxt.type == TokenType.IDENTIFICADOR:
+                    self.struct_types[nxt.value.upper()] = StructType(nxt.value)
 
     def check_keyword_typo(self, tok: Token, candidates: List[str]) -> Optional[str]:
         """Detecta si un identificador es un error de tipeo de una palabra clave esperada."""
@@ -81,6 +91,10 @@ class Parser:
             "PROC": "PROCEDIMIENTO",
             "PROCEDURE": "PROCEDIMIENTO",
             "PROCEDIMIENT": "PROCEDIMIENTO",
+            "ESTRUCT": "ESTRUCTURA",
+            "ESTRUCTUR": "ESTRUCTURA",
+            "STRUCT": "ESTRUCTURA",
+            "STRUCTURE": "ESTRUCTURA",
             "MIENTRA": "MIENTRAS",
             "WHILE": "MIENTRAS",
             "RETORNA": "RETORNAR",
@@ -160,8 +174,15 @@ class Parser:
             raise ParseError(msg, line=tok.line, column=tok.column, source=self.source)
         return self.advance()
 
-    def parse_program_item(self, functions: List[FunctionDef], statements: List[Statement]) -> None:
+    def parse_program_item(self, functions: List[FunctionDef], statements: List[Statement], structs: Optional[List[StructDef]] = None) -> None:
         tok = self.current_token()
+
+        # Definición de Estructura: Estructura Nombre: ... Fin Estructura
+        if tok.type == TokenType.KW_ESTRUCTURA:
+            s_def = self.parse_struct_def()
+            if structs is not None:
+                structs.append(s_def)
+            return
 
         # Funciones y Procedimientos válidos
         if tok.type in (TokenType.KW_FUNCION, TokenType.KW_PROCEDIMIENTO):
@@ -174,7 +195,7 @@ class Parser:
             next_tok = self.peek_token(1)
             next_next_tok = self.peek_token(2)
             if next_tok.type == TokenType.IDENTIFICADOR and next_next_tok.type == TokenType.PARENTESIS_IZQ:
-                suggestion = self.check_keyword_typo(tok, ["FUNCION", "PROCEDIMIENTO"])
+                suggestion = self.check_keyword_typo(tok, ["FUNCION", "PROCEDIMIENTO", "ESTRUCTURA"])
                 if suggestion:
                     if self.lenient:
                         self.warnings.append(
@@ -194,20 +215,77 @@ class Parser:
                         line=tok.line, column=tok.column, length=tok.length, source=self.source
                     )
 
-            # Detección de error de tipeo en palabras clave globales
-            global_suggestion = self.check_keyword_typo(tok, ["FUNCION", "PROCEDIMIENTO", "ALGORITMO", "INICIO", "ENTERO", "REAL", "CADENA", "BOOLEANO"])
-            if global_suggestion:
-                raise ParseError(
-                    f"Palabra clave no reconocida: '{tok.value}'. ¿Quisiste decir '{global_suggestion}'?",
-                    line=tok.line, column=tok.column, length=tok.length, source=self.source
-                )
+            # Detección de error de tipeo en palabras clave globales (solo si no es un tipo de estructura conocido)
+            if tok.value.upper() not in self.struct_types:
+                global_suggestion = self.check_keyword_typo(tok, ["ESTRUCTURA", "FUNCION", "PROCEDIMIENTO", "ALGORITMO", "INICIO", "ENTERO", "REAL", "CADENA", "BOOLEANO"])
+                if global_suggestion:
+                    raise ParseError(
+                        f"Palabra clave no reconocida: '{tok.value}'. ¿Quisiste decir '{global_suggestion}'?",
+                        line=tok.line, column=tok.column, length=tok.length, source=self.source
+                    )
 
         # Sentencia normal
         statements.append(self.parse_statement())
 
+    def parse_struct_def(self) -> StructDef:
+        start_tok = self.expect(TokenType.KW_ESTRUCTURA)
+        name_tok = self.expect(TokenType.IDENTIFICADOR, "Se esperaba el nombre de la estructura después de 'Estructura'")
+        name = name_tok.value
+        self.match(TokenType.DOS_PUNTOS)  # ':' opcional como en "Estructura Libro:"
+
+        fields: List[StructField] = []
+        while self.current_token().type != TokenType.EOF:
+            # Fin Estructura
+            if self.current_token().type == TokenType.KW_FIN:
+                if self.peek_token().type == TokenType.KW_ESTRUCTURA:
+                    self.advance()  # consume FIN
+                    self.advance()  # consume ESTRUCTURA
+                    break
+                elif self.peek_token().type == TokenType.EOF:
+                    self.advance()
+                    break
+
+            # Tipo de campo
+            f_type_tok = self.current_token()
+            if not self.is_type_token(f_type_tok):
+                # Sugerencia de typo para FIN ESTRUCTURA o tipos
+                if f_type_tok.type == TokenType.IDENTIFICADOR:
+                    suggestion = self.check_keyword_typo(f_type_tok, ["ENTERO", "REAL", "FLOTANTE", "CADENA", "BOOLEANO", "CARACTER", "ARCHIVO", "FIN"])
+                    if suggestion:
+                        raise ParseError(
+                            f"Palabra clave o tipo no reconocido en estructura '{name}': '{f_type_tok.value}'. ¿Quisiste decir '{suggestion}'?",
+                            line=f_type_tok.line, column=f_type_tok.column, length=f_type_tok.length, source=self.source
+                        )
+                raise ParseError(
+                    f"Se esperaba tipo de dato para el campo de la estructura '{name}', se encontró '{f_type_tok.value}'",
+                    line=f_type_tok.line, column=f_type_tok.column, length=f_type_tok.length, source=self.source
+                )
+
+            field_type = self.parse_type_specifier()
+            f_name_tok = self.expect(TokenType.IDENTIFICADOR, f"Se esperaba el nombre del campo para el tipo {field_type} en la estructura '{name}'")
+            f_name = f_name_tok.value
+
+            # Corchetes en el nombre del campo (ej: capitulos[])
+            while self.match(TokenType.CORCHETE_IZQ):
+                self.expect(TokenType.CORCHETE_DER, "Se esperaba ']' en la especificación del campo")
+                if isinstance(field_type, VectorType):
+                    field_type = MatrixType(field_type.element_type)
+                else:
+                    field_type = VectorType(field_type)
+
+            self.match(TokenType.PUNTO_Y_COMA)
+            fields.append(StructField(f_name, field_type, f_name_tok.line, f_name_tok.column))
+
+        # Registrar campos completos en self.struct_types
+        fields_dict = {f.name: f.data_type for f in fields}
+        self.struct_types[name.upper()] = StructType(name, fields_dict)
+
+        return StructDef(name, fields, start_tok.line, start_tok.column)
+
     def parse(self) -> Program:
         functions: List[FunctionDef] = []
         statements: List[Statement] = []
+        structs: List[StructDef] = []
 
         while self.current_token().type != TokenType.EOF:
             tok = self.current_token()
@@ -216,13 +294,13 @@ class Parser:
             if tok.type == TokenType.KW_INICIO:
                 self.advance()
                 while self.current_token().type not in (TokenType.KW_FIN, TokenType.EOF):
-                    self.parse_program_item(functions, statements)
+                    self.parse_program_item(functions, statements, structs)
                 self.expect(TokenType.KW_FIN, "Se esperaba 'FIN' para cerrar el bloque 'INICIO'")
                 continue
 
-            self.parse_program_item(functions, statements)
+            self.parse_program_item(functions, statements, structs)
 
-        return Program(functions, statements, line=1, column=1)
+        return Program(functions, statements, structs, line=1, column=1)
 
     # ==========================================
     # FUNCIONES Y PROCEDIMIENTOS
@@ -305,14 +383,22 @@ class Parser:
         return params
 
     def is_type_token(self, tok: Token) -> bool:
-        return tok.type in TOKEN_TO_TYPE
+        if tok.type in TOKEN_TO_TYPE:
+            return True
+        if tok.type == TokenType.IDENTIFICADOR and tok.value.upper() in self.struct_types:
+            return True
+        return False
 
     def parse_type_specifier(self) -> DataType:
         tok = self.current_token()
-        if tok.type not in TOKEN_TO_TYPE:
+        if tok.type in TOKEN_TO_TYPE:
+            self.advance()
+            dtype = TOKEN_TO_TYPE[tok.type]
+        elif tok.type == TokenType.IDENTIFICADOR and tok.value.upper() in self.struct_types:
+            self.advance()
+            dtype = self.struct_types[tok.value.upper()]
+        else:
             raise ParseError(f"Tipo de dato no válido: '{tok.value}'", line=tok.line, column=tok.column, source=self.source)
-        self.advance()
-        dtype = TOKEN_TO_TYPE[tok.type]
 
         # Verificar si tiene corchetes (ej. REAL[] o ENTERO[][])
         while self.match(TokenType.CORCHETE_IZQ):
@@ -330,8 +416,12 @@ class Parser:
     def parse_statement(self) -> Statement:
         tok = self.current_token()
 
-        # Detección temprana de funciones/procedimientos dentro de bloques anidados
-        if tok.type in (TokenType.KW_FUNCION, TokenType.KW_PROCEDIMIENTO):
+        # 1. Declaración de variables: TIPO ... (primitivos o estructuras de usuario como 'Libro libro1')
+        if self.is_type_token(tok):
+            return self.parse_var_declaration()
+
+        # Detección temprana de funciones/procedimientos/estructuras dentro de bloques anidados
+        if tok.type in (TokenType.KW_FUNCION, TokenType.KW_PROCEDIMIENTO, TokenType.KW_ESTRUCTURA):
             raise ParseError(
                 f"Declaración inesperada: '{tok.value}' no se puede declarar dentro de una sentencia o bloque anidado.",
                 line=tok.line, column=tok.column, length=tok.length, source=self.source
@@ -344,7 +434,7 @@ class Parser:
 
             # Intento de declarar función/procedimiento: <id1> <id2>(
             if next_tok.type == TokenType.IDENTIFICADOR and next_next_tok.type == TokenType.PARENTESIS_IZQ:
-                suggestion = self.check_keyword_typo(tok, ["FUNCION", "PROCEDIMIENTO"])
+                suggestion = self.check_keyword_typo(tok, ["FUNCION", "PROCEDIMIENTO", "ESTRUCTURA"])
                 if suggestion:
                     raise ParseError(
                         f"Palabra clave no reconocida: '{tok.value}'. ¿Quisiste decir '{suggestion}'?",
@@ -358,7 +448,7 @@ class Parser:
 
             # Tipos de datos mal escritos al declarar variable: ej: ENTER x = 10, INT x = 10, CADEN nombre = "test"
             if next_tok.type == TokenType.IDENTIFICADOR and next_next_tok.type in (TokenType.ASIGNAR, TokenType.CORCHETE_IZQ, TokenType.PUNTO_Y_COMA):
-                type_suggestion = self.check_keyword_typo(tok, ["ENTERO", "REAL", "FLOTANTE", "CADENA", "BOOLEANO", "CARACTER", "ARCHIVO"])
+                type_suggestion = self.check_keyword_typo(tok, ["ENTERO", "REAL", "FLOTANTE", "CADENA", "BOOLEANO", "CARACTER", "ARCHIVO", "ESTRUCTURA"])
                 if type_suggestion:
                     raise ParseError(
                         f"Tipo de dato no reconocido: '{tok.value}'. ¿Quisiste decir '{type_suggestion}'?",
@@ -367,16 +457,12 @@ class Parser:
 
             # Palabras clave de control mal escritas (no aplica si es asignación o incremento de variable)
             if next_tok.type not in (TokenType.ASIGNAR, TokenType.ASIG_SUMA, TokenType.ASIG_RESTA, TokenType.INC, TokenType.DEC):
-                ctrl_suggestion = self.check_keyword_typo(tok, ["RETORNAR", "IMPRIMIR", "MIENTRAS", "HACER", "PARA", "SI"])
+                ctrl_suggestion = self.check_keyword_typo(tok, ["RETORNAR", "IMPRIMIR", "MIENTRAS", "HACER", "PARA", "SI", "ESTRUCTURA"])
                 if ctrl_suggestion:
                     raise ParseError(
                         f"Palabra clave no reconocida: '{tok.value}'. ¿Quisiste decir '{ctrl_suggestion}'?",
                         line=tok.line, column=tok.column, length=tok.length, source=self.source
                     )
-
-        # 1. Declaración de variables: TIPO ...
-        if self.is_type_token(tok):
-            return self.parse_var_declaration()
 
         # 2. Retorno (RETORNAR / RETORNO)
         if tok.type in (TokenType.KW_RETORNAR, TokenType.KW_RETORNO):
@@ -787,6 +873,11 @@ class Parser:
         if tok.type == TokenType.BOOLEANO_LIT:
             self.advance()
             return Literal(tok.value, TYPE_BOOLEANO, tok.line, tok.column)
+
+        # Nulo
+        if tok.type == TokenType.NULO_LIT:
+            self.advance()
+            return Literal(None, TYPE_NULO, tok.line, tok.column)
 
         # Literales de Arreglos/Vectores: [1, 2, 3] o [[1, 2], [3, 4]]
         if self.match(TokenType.CORCHETE_IZQ):

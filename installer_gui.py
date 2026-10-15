@@ -34,6 +34,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from tkinter.scrolledtext import ScrolledText
 
+# Versión oficial del instalador y del lenguaje UCABA
+APP_VERSION = "1.5"
+APP_VERSION_FULL = "1.5.0"
+
 
 def setup_console():
     """Si fue invocado desde una terminal, se acopla a la consola existente para mostrar salida."""
@@ -222,7 +226,7 @@ def find_code_cli():
 class InstallerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Instalador UCABA & Extensión VS Code")
+        self.root.title(f"Instalador UCABA v{APP_VERSION} & Extensión VS Code")
 
         # Dimensiones optimizadas para visualización completa y High-DPI en Windows
         window_width = 880
@@ -298,8 +302,12 @@ class InstallerApp:
         text_frame = tk.Frame(header_frame, bg="#240a26")
         text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        # Fila de título principal con badge de versión
+        title_row = tk.Frame(text_frame, bg="#240a26")
+        title_row.pack(anchor="w", fill=tk.X)
+
         title_lbl = tk.Label(
-            text_frame,
+            title_row,
             text="UCABA",
             font=("Segoe UI", 20, "bold"),
             fg="#ffffff",
@@ -307,11 +315,30 @@ class InstallerApp:
             anchor="w",
             justify=tk.LEFT
         )
-        title_lbl.pack(anchor="w", fill=tk.X)
+        title_lbl.pack(side=tk.LEFT)
+
+        ver_badge = tk.Frame(
+            title_row,
+            bg="#701a75",
+            padx=8,
+            pady=2,
+            highlightbackground="#f472b6",
+            highlightthickness=1
+        )
+        ver_badge.pack(side=tk.LEFT, padx=(12, 0), pady=(3, 0))
+
+        ver_lbl = tk.Label(
+            ver_badge,
+            text=f"v{APP_VERSION}",
+            font=("Segoe UI", 10, "bold"),
+            fg="#fdf4ff",
+            bg="#701a75"
+        )
+        ver_lbl.pack()
 
         subtitle_lbl = tk.Label(
             text_frame,
-            text="Instalador del Lenguaje & Extensión para Visual Studio Code",
+            text=f"Instalador del Lenguaje (v{APP_VERSION}) & Extensión para Visual Studio Code",
             font=("Segoe UI", 10),
             fg="#f472b6",
             bg="#240a26",
@@ -434,7 +461,7 @@ class InstallerApp:
 
         self.chk3 = tk.Checkbutton(
             body_frame,
-            text="Instalar extensión de UCABA en Visual Studio Code (v1.2.0 - coloreado, linter y ejecución)",
+            text=f"Instalar extensión de UCABA en Visual Studio Code y Antigravity (v{APP_VERSION_FULL} - coloreado, linter, estructuras y ejecución)",
             variable=self.opt_install_vscode,
             **chk_style
         )
@@ -479,7 +506,7 @@ class InstallerApp:
         )
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
-        self.log("Asistente de instalación de UCABA iniciado | Autor: <Facu Falcone>")
+        self.log(f"Asistente de instalación de UCABA v{APP_VERSION} iniciado | Autor: <Facu Falcone>")
         self.log("Seleccione las opciones deseadas y presione 'Instalar Ahora'.")
 
     def log(self, message: str):
@@ -582,13 +609,18 @@ class InstallerApp:
             if self.opt_install_vscode.get():
                 self.log("[4/4] Instalando extensión en Visual Studio Code...")
 
-                # VSIX
-                vsix_candidate = get_resource_path("ucaba-language-support-1.2.0.vsix")
-                if not os.path.exists(vsix_candidate):
-                    vsix_candidate = get_resource_path(os.path.join("extension-vscode", "ucaba-language-support-1.2.0.vsix"))
+                # VSIX - Detección dinámica del paquete más reciente
+                vsix_candidate = None
+                search_dirs = [get_resource_path("."), get_resource_path("payload"), get_resource_path("extension-vscode")]
+                for s_dir in search_dirs:
+                    if os.path.exists(s_dir) and os.path.isdir(s_dir):
+                        candidates = [os.path.join(s_dir, f) for f in os.listdir(s_dir) if f.endswith(".vsix")]
+                        if candidates:
+                            vsix_candidate = sorted(candidates, key=os.path.getmtime, reverse=True)[0]
+                            break
 
                 code_cli = find_code_cli()
-                if code_cli and os.path.exists(vsix_candidate):
+                if code_cli and vsix_candidate and os.path.exists(vsix_candidate):
                     self.log(f" - Detectado ejecutable de VS Code CLI: {code_cli}")
                     try:
                         res = subprocess.run(
@@ -598,7 +630,7 @@ class InstallerApp:
                             shell=True
                         )
                         if res.returncode == 0:
-                            self.log(" - Extensión registrada mediante 'code --install-extension' correctamente.")
+                            self.log(f" - Extensión ({os.path.basename(vsix_candidate)}) registrada mediante 'code --install-extension' correctamente.")
                         else:
                             self.log(f" - Aviso en VS Code CLI: {res.stdout.strip()} {res.stderr.strip()}")
                     except Exception as e:
@@ -616,18 +648,21 @@ class InstallerApp:
                 for old_dir in [
                     os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
                     os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
+                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
                     os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
                 ]:
                     if os.path.exists(old_dir):
                         shutil.rmtree(old_dir, ignore_errors=True)
 
                 targets = [
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+                    os.path.join(user_home, ".vscode", "extensions", f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"),
+                    os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
                     os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
                 ]
                 cursor_ext = os.path.join(user_home, ".cursor", "extensions")
                 if os.path.exists(cursor_ext):
-                    targets.append(os.path.join(cursor_ext, "ucaba.ucaba-language-support-1.2.0"))
+                    targets.append(os.path.join(cursor_ext, f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"))
 
                 if os.path.exists(ext_src):
                     for t in targets:
@@ -685,6 +720,8 @@ class InstallerApp:
             self.log("[3/3] Removiendo extensión de VS Code...")
             user_home = os.path.expanduser("~")
             ext_paths = [
+                os.path.join(user_home, ".vscode", "extensions", f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"),
+                os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
                 os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
                 os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
                 os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
@@ -721,7 +758,7 @@ class InstallerApp:
 def run_cli_install():
     """Ejecuta la instalación completa en modo consola desatendido (silencioso)."""
     safe_print("==================================================")
-    safe_print("  INSTALACIÓN DESATENDIDA DE UCABA & VS CODE     ")
+    safe_print(f"  INSTALACIÓN DESATENDIDA DE UCABA v{APP_VERSION} & VS CODE     ")
     safe_print("==================================================")
     install_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\UCABA\bin")
     ucaba_target_exe = os.path.join(install_dir, "ucaba.exe")
@@ -764,13 +801,18 @@ def run_cli_install():
 
     # 4. Extensión VS Code
     safe_print("[4/4] Instalando extensión en Visual Studio Code...")
-    vsix_candidate = get_resource_path("ucaba-language-support-1.2.0.vsix")
-    if not os.path.exists(vsix_candidate):
-        vsix_candidate = get_resource_path(os.path.join("payload", "ucaba-language-support-1.2.0.vsix"))
+    vsix_candidate = None
+    search_dirs = [get_resource_path("."), get_resource_path("payload"), get_resource_path("extension-vscode")]
+    for s_dir in search_dirs:
+        if os.path.exists(s_dir) and os.path.isdir(s_dir):
+            candidates = [os.path.join(s_dir, f) for f in os.listdir(s_dir) if f.endswith(".vsix")]
+            if candidates:
+                vsix_candidate = sorted(candidates, key=os.path.getmtime, reverse=True)[0]
+                break
 
     code_cli = find_code_cli()
-    if code_cli and os.path.exists(vsix_candidate):
-        safe_print(f" [INFO] Ejecutando: {code_cli} --install-extension ...")
+    if code_cli and vsix_candidate and os.path.exists(vsix_candidate):
+        safe_print(f" [INFO] Ejecutando: {code_cli} --install-extension {os.path.basename(vsix_candidate)}...")
         try:
             res = subprocess.run([code_cli, "--install-extension", vsix_candidate, "--force"], capture_output=True, text=True, shell=True)
             safe_print(" [OK] Registrado en VS Code CLI.")
@@ -785,15 +827,21 @@ def run_cli_install():
     for old_dir in [
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
     ]:
         if os.path.exists(old_dir):
             shutil.rmtree(old_dir, ignore_errors=True)
 
     targets = [
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+        os.path.join(user_home, ".vscode", "extensions", f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
         os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
     ]
+    cursor_ext = os.path.join(user_home, ".cursor", "extensions")
+    if os.path.exists(cursor_ext):
+        targets.append(os.path.join(cursor_ext, f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"))
     if os.path.exists(ext_src):
         for t in targets:
             parent = os.path.dirname(t)

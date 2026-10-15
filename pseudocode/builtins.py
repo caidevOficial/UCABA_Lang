@@ -150,7 +150,7 @@ def stringify_value(val: Any) -> str:
     if isinstance(val, bool):
         return "VERDADERO" if val else "FALSO"
     if val is None:
-        return ""
+        return "NULO"
     if isinstance(val, float):
         # Si es un número entero con formato flotante (ej 12.0), mostrar 12.0 o limpio
         if val.is_integer():

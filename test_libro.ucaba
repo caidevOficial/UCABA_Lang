@@ -1,0 +1,27 @@
+// GNU General Public License v3.0 or later (GPL-3.0-or-later)
+// Test de estructuras en lenguaje UCABA
+
+Estructura Libro: // Definir
+    CADENA nombre
+    ENTERO hojas
+    CADENA sinopsis
+    CADENA autor
+    CADENA editorial
+    ENTERO edicion
+Fin Estructura
+
+Libro libro1 // Declarar
+
+libro1.nombre = "Nombre del Libro" //Asignar un valor
+libro1.hojas = 350
+libro1.sinopsis = "Una obra fundamental de la literatura."
+libro1.autor = "Jorge Luis Borges"
+libro1.editorial = "Sur"
+libro1.edicion = 1
+
+IMPRIMIR("Libro cargado:")
+IMPRIMIR("  Título: " + libro1.nombre)
+IMPRIMIR("  Autor: " + libro1.autor)
+IMPRIMIR("  Páginas: " + libro1.hojas)
+IMPRIMIR("  Editorial: " + libro1.editorial)
+IMPRIMIR("  Edición: " + libro1.edicion)

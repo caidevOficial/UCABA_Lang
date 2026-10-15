@@ -10,6 +10,17 @@
     ],
     "description": "Estructura principal de un programa UCABA"
   },
+  "Definición de Estructura": {
+    "prefix": "estructura",
+    "body": [
+      "Estructura ${1:Libro}:",
+      "\t${2:CADENA} ${3:nombre}",
+      "\t${4:ENTERO} ${5:hojas}",
+      "\t${0}",
+      "Fin Estructura"
+    ],
+    "description": "Declaración de una nueva estructura de datos (struct)"
+  },
   "Definición de Función": {
     "prefix": "funcion",
     "body": [

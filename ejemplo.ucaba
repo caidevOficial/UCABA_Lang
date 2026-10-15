@@ -1,5 +1,40 @@
-PARA(ENTERO i = 0; i < 10; i++)
-    PARA(ENTERO j = 0; j < 10; j++)
-        IMPRIMIR(i+" X " + j + " = " + i*j)
+INICIO
+
+    // Definición de la estructura autorreferencial
+    ESTRUCTURA Nodo:
+        CADENA nombre
+        Nodo proximo_nodo
+    Fin Estructura
+
+    Nodo nodo_pila = NULO
+    Nodo nodo_ultimo = NULO
+
+    // 1. Creación y anidamiento secuencial de 5 nodos (Nodo 1 -> Nodo 2 -> ... -> Nodo 5)
+    PARA(ENTERO vuelta = 0; vuelta < 5; vuelta++)
+        Nodo nuevo_nodo
+        nuevo_nodo.nombre = "Nodo " + (vuelta + 1)
+        nuevo_nodo.proximo_nodo = NULO
+
+        SI(nodo_pila == NULO)
+            nodo_pila = nuevo_nodo
+            nodo_ultimo = nuevo_nodo
+        SINO
+            nodo_ultimo.proximo_nodo = nuevo_nodo
+            nodo_ultimo = nuevo_nodo
+        FIN SI
     FIN PARA
-FIN PARA
+
+    // 1.1 Informacion de los nodos anidados
+    IMPRIMIR("Nodos apilados: " + nodo_pila)
+    // 2. Recorrido de los 5 nodos anidados utilizando el puntero auxiliar
+    Nodo nodo_aux = nodo_pila
+    MIENTRAS nodo_aux != NULO
+        IMPRIMIR("Recorriendo el nodo: " + nodo_aux.nombre)
+        nodo_aux = nodo_aux.proximo_nodo
+    FIN MIENTRAS
+
+    // 3. Información de los nodos inicio y fin
+    IMPRIMIR("Primer nodo (cabeza): " + nodo_pila.nombre)
+    IMPRIMIR("Ultimo nodo (cola): " + nodo_ultimo.nombre)
+
+FIN
