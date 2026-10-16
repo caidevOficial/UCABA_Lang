@@ -42,7 +42,7 @@ def get_version() -> str:
             for line in f:
                 if line.startswith("__version__"):
                     return line.split("=")[1].strip().strip('"').strip("'")
-    return "1.9.0"
+    return "1.10.0"
 
 
 def find_latest_vsix() -> str:

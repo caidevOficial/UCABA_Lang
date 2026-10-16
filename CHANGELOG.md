@@ -5,19 +5,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
-## [1.9.0] - 2026-10-16
-
-### 🚀 Rendimiento y Optimización de Algoritmos
-- **Optimización de Quicksort ($O(N \log N)$)**:
-  - Implementación con selección de **pivote central** (`medio = vector.largo / 2`), evitando la degradación al peor caso cuadrático $O(N^2)$ en vectores ordenados o invertidos.
-  - Partición balanceada de 3 vías (menores, iguales y mayores) que preserva elementos repetidos y elimina pasadas redundantes sobre el vector.
-  - Capaz de ordenar **100.000 elementos** en ~37 segundos en el intérprete sin desbordamiento.
-- **Ampliación de Límite de Recursión (`sys.setrecursionlimit(50000)`)**:
-  - Pila de llamadas recursivas ampliada a 50.000 frames en el motor del intérprete para admitir algoritmos de árboles, grafos y particiones recursivas profundas sin colapsar el límite por defecto de Python.
-- **Validación Acelerada de Vectores (*Fast-Path*)**:
-  - En `pseudocode/types_system.py`, se implementó validación rápida para vectores numéricos y homogéneos evitando clonaciones profundas innecesarias en llamadas y retornos de funciones recursivas.
-- **Diagnóstico Educativo de `RecursionError`**:
-  - Captura limpia y mensaje formativo en la CLI ante recursiones infinitas o casos base inalcanzables.
+## [1.10.0] - 2026-10-16
 
 ### 🐧 Soporte Oficial y Empaquetado para GNU/Linux
 - **Paquete Nativo Debian / Ubuntu (`.deb`)**:
@@ -31,7 +19,25 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
   - Workflow de release actualizado para compilar en paralelo en Windows (`windows-latest`) y Linux (`ubuntu-latest`), publicando instaladores y binarios para ambas plataformas en cada release oficial.
 - **Gestión Dinámica de Extensiones y Limpieza de VSIX**:
   - Refactorización de `install_extension.py` para purgar dinámicamente versiones anteriores obsoletas mediante coincidencia de patrones.
-  - Limpieza de paquetes `.vsix` obsoletos en `extension-vscode/`, conservando únicamente la versión activa `1.9.0`.
+  - Limpieza de paquetes `.vsix` obsoletos en `extension-vscode/`, conservando únicamente la versión activa `1.10.0`.
+- **Extensión VS Code v1.10.0**:
+  - Empaquetado y actualización de `ucaba-language-support-1.10.0.vsix`.
+
+---
+
+## [1.9.0] - 2026-10-16
+
+### 🚀 Rendimiento y Optimización de Algoritmos
+- **Optimización de Quicksort ($O(N \log N)$)**:
+  - Implementación con selección de **pivote central** (`medio = vector.largo / 2`), evitando la degradación al peor caso cuadrático $O(N^2)$ en vectores ordenados o invertidos.
+  - Partición balanceada de 3 vías (menores, iguales y mayores) que preserva elementos repetidos y elimina pasadas redundantes sobre el vector.
+  - Capaz de ordenar **100.000 elementos** en ~37 segundos en el intérprete sin desbordamiento.
+- **Ampliación de Límite de Recursión (`sys.setrecursionlimit(50000)`)**:
+  - Pila de llamadas recursivas ampliada a 50.000 frames en el motor del intérprete para admitir algoritmos de árboles, grafos y particiones recursivas profundas sin colapsar el límite por defecto de Python.
+- **Validación Acelerada de Vectores (*Fast-Path*)**:
+  - En `pseudocode/types_system.py`, se implementó validación rápida para vectores numéricos y homogéneos evitando clonaciones profundas innecesarias en llamadas y retornos de funciones recursivas.
+- **Diagnóstico Educativo de `RecursionError`**:
+  - Captura limpia y mensaje formativo en la CLI ante recursiones infinitas o casos base inalcanzables.
 
 ### 📖 Documentación y CLI
 - **Documentación Completa de `--time`**:
