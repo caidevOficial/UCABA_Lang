@@ -401,7 +401,17 @@ class TypeChecker:
                     return TYPE_FLOTANTE
                 return TYPE_ENTERO
 
-            if expr.op in ("-", "*", "/", "%"):
+            if expr.op in ("-", "*", "/", "//", "%", "MOD"):
+                numeric_types = (TYPE_ENTERO, TYPE_FLOTANTE, TYPE_REAL, TYPE_ANY)
+                if left_t not in numeric_types or right_t not in numeric_types:
+                    raise PseudoTypeError(
+                        f"El operador '{expr.op}' requiere operandos numéricos, pero se obtuvo {left_t} y {right_t}",
+                        line=expr.line, column=expr.column, source=self.source
+                    )
+                if expr.op == "//":
+                    return TYPE_ENTERO
+                if expr.op in ("%", "MOD"):
+                    return TYPE_ENTERO
                 if expr.op == "/" and left_t == TYPE_ENTERO and right_t == TYPE_ENTERO:
                     return TYPE_REAL
                 if left_t == TYPE_REAL or right_t == TYPE_REAL:

@@ -30,8 +30,12 @@
           "end": "\\*/"
         },
         {
+          "name": "comment.line.number-sign.ucaba",
+          "match": "#.*$"
+        },
+        {
           "name": "comment.line.double-slash.ucaba",
-          "match": "//.*$"
+          "match": "(^\\s*//.*$|(?<=[;:,])\\s*//.*$|//\\s+[a-zA-Z_]{2,}.*$)"
         }
       ]
     },
@@ -188,7 +192,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.ucaba",
-          "match": "(\\+|-|\\*|/|\\^)"
+          "match": "(//|\\+|-|\\*|/|%|\\^)"
         },
         {
           "name": "punctuation.delimiter.ucaba",

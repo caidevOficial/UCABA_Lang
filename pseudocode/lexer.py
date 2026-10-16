@@ -34,6 +34,7 @@ class Lexer:
         self.line = 1
         self.column = 1
         self.length = len(source)
+        self.tokens: List[Token] = []
 
     def current_char(self) -> Optional[str]:
         if self.pos >= self.length:
@@ -63,6 +64,96 @@ class Lexer:
             return True
         return False
 
+    def is_comment_double_slash(self) -> bool:
+        """Determina si un par de barras '//' corresponde a un comentario o al operador de división entera '//'."""
+        if not self.tokens:
+            return True
+
+        last_tok = self.tokens[-1]
+        # Si el último token ocurrió en una línea previa, en la línea actual '//' inicia un comentario
+        if last_tok.line < self.line:
+            return True
+
+        # Un operador binario sólo puede ubicarse inmediatamente tras un operando o delimitador de cierre
+        allowed_prev = {
+            TokenType.ENTERO_LIT,
+            TokenType.REAL_LIT,
+            TokenType.IDENTIFICADOR,
+            TokenType.PARENTESIS_DER,
+            TokenType.CORCHETE_DER,
+            TokenType.BOOLEANO_LIT,
+            TokenType.NULO_LIT,
+        }
+        if last_tok.type not in allowed_prev:
+            return True
+
+        # Si el token previo es un identificador pero la línea es una declaración pura sin inicializador
+        # (ej: 'Libro libro1 // Declarar' o 'ENTERO a // Comentario')
+        if last_tok.type == TokenType.IDENTIFICADOR:
+            line_tokens = [t for t in self.tokens if t.line == self.line]
+            has_assignment = any(t.type == TokenType.ASIGNAR for t in line_tokens)
+            if not has_assignment:
+                type_keywords = {
+                    TokenType.TIPO_ENTERO, TokenType.TIPO_FLOTANTE, TokenType.TIPO_REAL,
+                    TokenType.TIPO_CADENA, TokenType.TIPO_CARACTER, TokenType.TIPO_BOOLEANO,
+                    TokenType.TIPO_ARCHIVO, TokenType.TIPO_VOID, TokenType.TIPO_NULO
+                }
+                first_t = line_tokens[0] if line_tokens else None
+                if first_t and (first_t.type in type_keywords or (first_t.type == TokenType.IDENTIFICADOR and len(line_tokens) >= 2)):
+                    return True
+
+        # Inspeccionar qué sigue a '//' en la misma línea
+        p = self.pos + 2
+        while p < self.length and self.source[p] in (' ', '\t'):
+            p += 1
+
+        # Si la línea termina aquí, no hay operando derecho -> es comentario
+        if p >= self.length or self.source[p] in ('\n', '\r'):
+            return True
+
+        # Si lo siguiente es un separador de comentario como '///', '//---', etc.
+        if self.source[p] in ('/', '-', '=', '*', '#'):
+            return True
+
+        # Analizar el resto de la línea para detectar si es un comentario en lenguaje natural
+        line_end = p
+        while line_end < self.length and self.source[line_end] not in ('\n', '\r'):
+            line_end += 1
+        after_slash = self.source[p:line_end].strip()
+
+        # Extraer tokens preliminares de after_slash
+        import re
+        tokens_after = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*|\d+(?:\.\d+)?|[^\s\w]', after_slash)
+        if not tokens_after:
+            return True
+
+        first_token = tokens_after[0]
+        first_token_upper = first_token.upper()
+
+        # Si la primera palabra tras '//' es una palabra clave de sentencia o tipo (ej: RETORNA, FIN, SI, ENTERO):
+        statement_keywords = {
+            "RETORNAR", "RETORNO", "RETORNA", "RETURN",
+            "INICIO", "FIN", "FUNCION", "PROCEDIMIENTO",
+            "SI", "SINO", "MIENTRAS", "HACER", "PARA",
+            "IMPRIMIR", "ESTRUCTURA", "ALGORITMO", "PROGRAMA",
+            "ENTERO", "FLOTANTE", "REAL", "CADENA", "CARACTER", "BOOLEANO", "ARCHIVO", "VOID"
+        }
+        if first_token_upper in statement_keywords:
+            return True
+
+        # En una expresión aritmética válida, dos operandos consecutivos (ej: ID ID, o ID NUM)
+        # sin operador entre ellos son imposibles (ej: 'RETORNA 3', 'Asignar un valor', 'comentario explicativo')
+        if len(tokens_after) >= 2:
+            t1, t2 = tokens_after[0], tokens_after[1]
+            op_symbols = {'+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||', 'Y', 'O', ',', ';', ')', ']', ':'}
+            t1_is_word = bool(re.match(r'^[a-zA-Z_]', t1))
+            t2_is_word_or_num = bool(re.match(r'^[a-zA-Z0-9_]', t2))
+            if t1_is_word and t2_is_word_or_num and t2 not in op_symbols:
+                return True
+
+        # Es el operador de división entera '//'
+        return False
+
     def skip_whitespace_and_comments(self):
         while self.pos < self.length:
             ch = self.current_char()
@@ -70,6 +161,12 @@ class Lexer:
             # Espacios en blanco
             if ch in (' ', '\t', '\r', '\n'):
                 self.advance()
+                continue
+
+            # Comentario de línea con #
+            if ch == '#':
+                while self.pos < self.length and self.current_char() != '\n':
+                    self.advance()
                 continue
 
             # Comentario multilínea """ ... """ o ''' ... '''
@@ -116,9 +213,13 @@ class Lexer:
 
             # Comentario de línea //
             if ch == '/' and self.peek_char(1) == '/':
-                while self.pos < self.length and self.current_char() != '\n':
-                    self.advance()
-                continue
+                if self.is_comment_double_slash():
+                    while self.pos < self.length and self.current_char() != '\n':
+                        self.advance()
+                    continue
+                else:
+                    # Es el operador de división entera '//', salimos para tokenizarlo
+                    break
 
             # Si no es espacio ni comentario, salimos
             break
@@ -206,7 +307,8 @@ class Lexer:
         return Token(TokenType.IDENTIFICADOR, word, start_line, start_col, len(word))
 
     def tokenize(self) -> List[Token]:
-        tokens: List[Token] = []
+        self.tokens = []
+        tokens = self.tokens
         while self.pos < self.length:
             self.skip_whitespace_and_comments()
             if self.pos >= self.length:
@@ -253,7 +355,10 @@ class Lexer:
                 tokens.append(Token(TokenType.MULT, "*", start_line, start_col, 1))
             elif ch == '/':
                 self.advance()
-                tokens.append(Token(TokenType.DIV, "/", start_line, start_col, 1))
+                if self.match('/'):
+                    tokens.append(Token(TokenType.DIV_ENTERA, "//", start_line, start_col, 2))
+                else:
+                    tokens.append(Token(TokenType.DIV, "/", start_line, start_col, 1))
             elif ch == '%':
                 self.advance()
                 tokens.append(Token(TokenType.MOD, "%", start_line, start_col, 1))

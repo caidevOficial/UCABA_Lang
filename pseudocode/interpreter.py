@@ -402,8 +402,12 @@ class Interpreter:
                 if right == 0:
                     raise PseudoRuntimeError("División por cero.", line=expr.line, column=expr.column, source=self.source)
                 return left / right
+            if op == "//":
+                if right == 0 or int(right) == 0:
+                    raise PseudoRuntimeError("División por cero.", line=expr.line, column=expr.column, source=self.source)
+                return int(left) // int(right)
             if op in ("%", "MOD"):
-                if right == 0:
+                if right == 0 or int(right) == 0:
                     raise PseudoRuntimeError("Módulo por cero.", line=expr.line, column=expr.column, source=self.source)
                 return int(left) % int(right)
 

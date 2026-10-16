@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.10.0-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.11.0-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-33%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-43%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -100,10 +100,10 @@ UCABA ofrece paquetes oficiales nativos y universales para entornos Linux:
 Recomendado para **Ubuntu, Debian, Linux Mint, Pop!_OS, Kali Linux** y derivados:
 ```bash
 # Instalación con apt (resuelve dependencias automáticamente)
-sudo apt install ./ucaba_1.10.0_amd64.deb
+sudo apt install ./ucaba_1.11.0_amd64.deb
 
 # O mediante dpkg:
-# sudo dpkg -i ucaba_1.10.0_amd64.deb
+# sudo dpkg -i ucaba_1.11.0_amd64.deb
 ```
 Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIME del archivo `.ucaba`, el icono del lenguaje y la entrada de escritorio para aplicaciones del sistema.
 
@@ -111,8 +111,8 @@ Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIM
 Compatible con cualquier distribución (Arch Linux, Fedora, openSUSE, Gentoo, Alpine, etc.):
 ```bash
 # Descomprimir el paquete
-tar -xzf ucaba-1.10.0-linux-x64.tar.gz
-cd ucaba-1.10.0-linux-x64
+tar -xzf ucaba-1.11.0-linux-x64.tar.gz
+cd ucaba-1.11.0-linux-x64
 
 # Instalación para el usuario actual (~/.local/bin):
 chmod +x install.sh
@@ -454,7 +454,10 @@ Ultimo nodo (cola): Nodo 5
    ENTERO grupo_b[] = [3, 4]
    ENTERO grupo_total[] = grupo_a + grupo_b // [1, 2, 3, 4]
    ```
-3. **Promoción Numérica:**
+3. **División Entera (`//`) y Módulo (`%`):**
+   - `//`: Operador de división entera entre operandos numéricos. Retorna siempre un resultado de tipo `ENTERO` (ej. `10 // 3` retorna `3`). Coexiste de manera armónica y contextual con comentarios de línea.
+   - `%`: Operador de módulo / resto de la división entera (ej. `10 % 3` retorna `1`). Equivalente como operador infijo a la función incorporada `MOD(a, b)`.
+4. **Promoción Numérica:**
    `ENTERO` se promueve automáticamente a `REAL` o `FLOTANTE` en operaciones matemáticas mixtas.
 
 ---
@@ -474,7 +477,11 @@ FIN
 
 *Comentarios soportados:*
 ```text
-// Este es un comentario de una sola línea
+// Este es un comentario de una sola línea con doble barra
+# También se admite comentario de línea con numeral
+
+/* Comentario de bloque
+   estilo C tradicional */
 
 """
 Este es un bloque de comentarios

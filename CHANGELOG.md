@@ -5,6 +5,25 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [1.11.0] - 2026-10-16
+
+### ➗ Operadores Aritméticos y Gramática
+- **Operador de División Entera (`//`)**:
+  - Soporte completo del operador infijo `//` en el analizador léxico (`Lexer`), sintáctico (`Parser`), verificador de tipos (`TypeChecker`) e intérprete (`Interpreter`).
+  - Retorno garantizado de tipo `ENTERO` con chequeo estático estricto para operandos numéricos y control de división por cero.
+  - Desambiguación léxica inteligente: convivencia transparente entre expresiones con división entera `//` y comentarios de línea con `//`.
+- **Operador de Módulo (`%`)**:
+  - Soporte infijo oficial del símbolo `%` para calcular el residuo/resto de una división entera (equivalente a la función incorporada `MOD(a, b)`).
+  - Validación de tipos estricta y protección contra módulo por cero en tiempo de ejecución.
+- **Soporte de Comentarios de Línea con Numeral (`#`)**:
+  - Se añade `#` como delimitador de comentarios de línea unificado, compatible con la convención de Python y entornos scripting.
+- **Suite de Pruebas Unitarias**:
+  - Creación de `tests/test_operators.py` cubriendo precedencia, llamadas a funciones, arrays, excepciones por cero y coexistencia sintáctica con comentarios (43 tests unitarios superados).
+- **Extensión VS Code**:
+  - Actualización de la sintaxis TextMate (`ucaba.tmLanguage.json`) para resaltar `//`, `%` y `#`.
+
+---
+
 ## [1.10.0] - 2026-10-16
 
 ### 🐧 Soporte Oficial y Empaquetado para GNU/Linux

@@ -779,7 +779,7 @@ class Parser:
     def parse_multiplicative(self) -> Expression:
         left = self.parse_unary()
 
-        while self.current_token().type in (TokenType.MULT, TokenType.DIV, TokenType.MOD):
+        while self.current_token().type in (TokenType.MULT, TokenType.DIV, TokenType.DIV_ENTERA, TokenType.MOD):
             op_tok = self.advance()
             right = self.parse_unary()
             left = BinaryOp(left, op_tok.value, right, op_tok.line, op_tok.column)

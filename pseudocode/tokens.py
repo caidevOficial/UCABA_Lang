@@ -71,6 +71,7 @@ class TokenType(Enum):
     RESTA = auto()         # -
     MULT = auto()          # *
     DIV = auto()           # /
+    DIV_ENTERA = auto()    # //
     MOD = auto()           # %
     INC = auto()           # ++
     DEC = auto()           # --

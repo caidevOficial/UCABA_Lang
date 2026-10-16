@@ -249,38 +249,59 @@ INICIO
         RETORNAR cantidad
     FIN FUNCION
 
+    // Algoritmo Quicksort optimizado (O(N log N))
+    // - Pivote central: evita el peor caso O(N^2) y la recursión profunda en listas ya ordenadas o invertidas
+    // - Soporte para elementos repetidos (partición de 3 vías: menores, iguales, mayores)
+    // - Complejidad espacial y recursiva de solo O(log N)
     FUNCION ordenar_vector_asc_quick(vector[]: ENTERO): ENTERO[]
-        IMPRIMIR("====== ORDENAR VECTOR ASCENDENTE QUICK ======")
         SI(vector.largo < 2)
             RETORNAR vector
-        
-        ENTERO pivot[] = vector[0]
-        ENTERO cant_menores = contar_elementos(vector, pivot[0], 'menor')
-        ENTERO cant_mayores = contar_elementos(vector, pivot[0], 'mayor')
-        ENTERO menores[cant_menores]
-        ENTERO mayores[cant_mayores]
-        IMPRIMIR(cant_mayores)
-        IMPRIMIR(mayores)
-        ENTERO indice_menor = 0
-        ENTERO indice_mayor = 0
-        // IMPRIMIR(vector)
-        IMPRIMIR("PIVOT: " + pivot[0])
-        PARA(ENTERO indice = 0; indice<(vector.largo - 1); indice++)
-            IMPRIMIR("NUMERO ACTUAL: " + vector[indice])
-            SI(vector[indice] < pivot[0])
-                menores[indice_menor] = vector[indice]
-                IMPRIMIR("MENORES: " + menores)
-                indice_menor++
-            SINO SI(vector[indice] > pivot[0])
-                mayores[indice_mayor] = vector[indice]
-                IMPRIMIR("MAYORES: " + mayores)
-                indice_mayor++
+        FIN SI
+
+        // Elegir el elemento central como pivote
+        ENTERO medio = vector.largo / 2
+        ENTERO pivote = vector[medio]
+
+        ENTERO cant_menores = 0
+        ENTERO cant_iguales = 0
+        ENTERO cant_mayores = 0
+
+        // Conteo eficiente en un único recorrido
+        PARA(ENTERO i = 0; i < vector.largo; i++)
+            SI(vector[i] < pivote)
+                cant_menores++
+            SINO SI(vector[i] > pivote)
+                cant_mayores++
+            SINO
+                cant_iguales++
             FIN SI
         FIN PARA
+
+        ENTERO menores[cant_menores]
+        ENTERO iguales[cant_iguales]
+        ENTERO mayores[cant_mayores]
+
+        ENTERO idx_men = 0
+        ENTERO idx_igu = 0
+        ENTERO idx_may = 0
+
+        // Clasificación en un único recorrido
+        PARA(ENTERO i = 0; i < vector.largo; i++)
+            SI(vector[i] < pivote)
+                menores[idx_men] = vector[i]
+                idx_men++
+            SINO SI(vector[i] > pivote)
+                mayores[idx_may] = vector[i]
+                idx_may++
+            SINO
+                iguales[idx_igu] = vector[i]
+                idx_igu++
+            FIN SI
+        FIN PARA
+
         menores = ordenar_vector_asc_quick(menores)
         mayores = ordenar_vector_asc_quick(mayores)
-        RETORNAR (menores + pivot + mayores)
-        IMPRIMIR("====== FIN ORDENAR VECTOR ASCENDENTE QUICK ======")
+        RETORNAR (menores + iguales + mayores)
     FIN FUNCION
 
     FUNCION guardar_liquidacion_anual(matriz[][]: ENTERO, ruta: CADENA)
