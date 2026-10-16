@@ -1,0 +1,36 @@
+INICIO
+
+// ordena mediante algoritmo de selection sort
+FUNCION ORDENAR(a[]: ENTERO):ENTERO[]
+    ENTERO size = a.largo
+    PARA(ENTERO i = 0; i < size - 1; i++)
+        ENTERO indice_menor = i
+        PARA(ENTERO j = i + 1; j < size; j++)
+            SI(a[j] < a[indice_menor])
+                indice_menor = j
+            FIN SI
+        FIN PARA
+        
+        SI(a[indice_menor] != a[i])
+            ENTERO temp = a[i]
+            a[i] = a[indice_menor]
+            a[indice_menor] = temp
+        FIN SI
+    FIN PARA
+    RETORNAR a
+FIN FUNCION
+
+ENTERO size = 1000
+ENTERO vector[size]
+
+PARA(ENTERO i = size; i > 0; i--)
+    vector[size - i] = i
+FIN PARA
+// IMPRIMIR(vector)
+vector = ORDENAR(vector)
+
+// PARA(ENTERO i = 0; i < vector.largo; i++)
+//     IMPRIMIR(vector[i])
+// FIN PARA
+
+FIN

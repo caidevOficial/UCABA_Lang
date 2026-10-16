@@ -2,7 +2,7 @@
   "name": "ucaba-language-support",
   "displayName": "UCABA",
   "description": "Soporte oficial para el lenguaje UCABA (.ucaba): coloreado de sintaxis, diagnósticos en tiempo real, autocompletado y ejecución.",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "author": "Facu Falcone <a.facundo.falcone@gmail.com>",
   "license": "GPL-3.0-or-later",
   "icon": "icon.png",

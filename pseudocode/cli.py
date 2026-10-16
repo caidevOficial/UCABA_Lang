@@ -40,7 +40,58 @@ from pseudocode.parser import Parser
 from pseudocode.errors import PseudocodeError
 
 
-def main():
+def format_elapsed_time(elapsed_s: float, mode: str = "ms") -> str:
+    """
+    Formatea el tiempo de ejecución en milisegundos ('ms') o desglose completo ('full'/'completo').
+
+    Ejemplos:
+      - ms: '[Tiempo total: 37.61 ms]'
+      - full: '[Tiempo total: 1 Hora, 15 Minutos, 30 Segundos, 45 Milisegundos]'
+    """
+    if mode == "ms":
+        return f"[Tiempo total: {elapsed_s * 1000:.2f} ms]"
+
+    total_ms = int(round(elapsed_s * 1000))
+    hours = total_ms // 3600000
+    remainder = total_ms % 3600000
+    minutes = remainder // 60000
+    remainder = remainder % 60000
+    seconds = remainder // 1000
+    milliseconds = remainder % 1000
+
+    h_unit = "Hora" if hours == 1 else "Horas"
+    m_unit = "Minuto" if minutes == 1 else "Minutos"
+    s_unit = "Segundo" if seconds == 1 else "Segundos"
+    ms_unit = "Milisegundo" if milliseconds == 1 else "Milisegundos"
+
+    return f"[Tiempo total: {hours} {h_unit}, {minutes} {m_unit}, {seconds} {s_unit}, {milliseconds} {ms_unit}]"
+
+
+def _normalize_cli_args(args_list: list) -> list:
+    """
+    Normaliza argumentos CLI para que opciones como '--time full' o '--time' se interpreten
+    sin interferir con el argumento posicional obligatorio 'file'.
+    """
+    new_args = []
+    i = 0
+    valid_modes = {"ms", "full", "completo"}
+    while i < len(args_list):
+        arg = args_list[i]
+        if arg == "--time":
+            if i + 1 < len(args_list) and str(args_list[i + 1]).lower() in valid_modes:
+                new_args.append(f"--time={str(args_list[i + 1]).lower()}")
+                i += 2
+                continue
+            else:
+                new_args.append("--time=ms")
+                i += 1
+                continue
+        new_args.append(arg)
+        i += 1
+    return new_args
+
+
+def main(cli_args=None):
     parser = argparse.ArgumentParser(
         prog="ucaba",
         description="UCABA: Lenguaje de programación fuertemente tipado (archivos .ucaba)."
@@ -56,7 +107,19 @@ def main():
     run_parser = subparsers.add_parser("run", help="Ejecuta un archivo UCABA (.ucaba)")
     run_parser.add_argument("file", help="Ruta al archivo .ucaba")
     run_parser.add_argument("--lenient", "-l", action="store_true", help="Modo permisivo para pseudocódigo informal")
-    run_parser.add_argument("--time", action="store_true", help="Muestra el tiempo de ejecución")
+    run_parser.add_argument(
+        "--time",
+        nargs="?",
+        const="ms",
+        default=None,
+        choices=["ms", "full", "completo"],
+        help="Muestra el tiempo de ejecución (por defecto 'ms', o 'full'/'completo')"
+    )
+    run_parser.add_argument(
+        "--time-full",
+        action="store_true",
+        help="Muestra el tiempo de ejecución completo desglosado (Horas, Minutos, Segundos, Milisegundos)"
+    )
 
     # Comando 'check'
     check_parser = subparsers.add_parser("check", help="Verifica tipos y sintaxis sin ejecutar")
@@ -82,11 +145,14 @@ def main():
     subparsers.add_parser("upgrade", parents=[update_parser], add_help=False, help="Alias de 'update'")
 
     # Si se pasa archivo directamente sin comando, por defecto 'run'
+    raw_argv = sys.argv[1:] if cli_args is None else list(cli_args)
+    raw_argv = _normalize_cli_args(raw_argv)
+
     known_commands = ("run", "check", "tokens", "lsp-check", "update", "upgrade", "-h", "--help", "-v", "--version")
-    if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
-        args = parser.parse_args(["run"] + sys.argv[1:])
+    if len(raw_argv) > 0 and raw_argv[0] not in known_commands:
+        args = parser.parse_args(["run"] + raw_argv)
     else:
-        args = parser.parse_args()
+        args = parser.parse_args(raw_argv)
 
     if not args.command:
         parser.print_help()
@@ -153,8 +219,15 @@ def main():
             start_t = time.perf_counter()
             run_file(target_path, lenient=getattr(args, "lenient", False))
             elapsed = time.perf_counter() - start_t
-            if getattr(args, "time", False):
-                print(f"{COLOR_AMARILLO}\n[Tiempo total: {elapsed * 1000:.2f} ms]{NO_COLOR}")
+            time_mode = None
+            if getattr(args, "time_full", False):
+                time_mode = "full"
+            elif getattr(args, "time", None):
+                val = str(getattr(args, "time")).lower()
+                time_mode = "full" if val in ("full", "completo") else "ms"
+
+            if time_mode:
+                print(f"{COLOR_AMARILLO}\n{format_elapsed_time(elapsed, mode=time_mode)}{NO_COLOR}")
 
     except PseudocodeError as e:
         COLOR_ROJO = "\033[31m"
