@@ -314,7 +314,22 @@ def validate_runtime_value(value: Any, expected_type: DataType) -> Any:
     if isinstance(expected_type, VectorType):
         if not isinstance(value, list):
             raise TypeError(f"Se esperaba un vector ({expected_type}), se obtuvo {type(value).__name__}")
-        return [validate_runtime_value(item, expected_type.element_type) for item in value]
+        if not value:
+            return value
+        elem_t = expected_type.element_type
+        if elem_t == TYPE_ENTERO:
+            if all(isinstance(x, int) and not isinstance(x, bool) for x in value):
+                return value
+        elif elem_t == TYPE_REAL:
+            if all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in value):
+                return value
+        elif elem_t == TYPE_CADENA:
+            if all(isinstance(x, str) for x in value):
+                return value
+        elif elem_t == TYPE_BOOLEANO:
+            if all(isinstance(x, bool) for x in value):
+                return value
+        return [validate_runtime_value(item, elem_t) for item in value]
 
     if isinstance(expected_type, MatrixType):
         if not isinstance(value, list):

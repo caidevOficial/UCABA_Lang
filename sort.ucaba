@@ -20,17 +20,75 @@ FUNCION ORDENAR(a[]: ENTERO):ENTERO[]
     RETORNAR a
 FIN FUNCION
 
+    // Algoritmo Quicksort optimizado (O(N log N))
+    // - Pivote central: evita el peor caso O(N^2) y la recursión profunda en listas ya ordenadas o invertidas
+    // - Soporte para elementos repetidos (partición de 3 vías: menores, iguales, mayores)
+    // - Complejidad espacial y recursiva de solo O(log N)
+    FUNCION ordenar_vector_asc_quick(vector[]: ENTERO): ENTERO[]
+        SI(vector.largo < 2)
+            RETORNAR vector
+        FIN SI
+
+        // Elegir el elemento central como pivote
+        ENTERO medio = vector.largo / 2
+        ENTERO pivote = vector[medio]
+
+        ENTERO cant_menores = 0
+        ENTERO cant_iguales = 0
+        ENTERO cant_mayores = 0
+
+        // Conteo eficiente en un único recorrido
+        PARA(ENTERO i = 0; i < vector.largo; i++)
+            SI(vector[i] < pivote)
+                cant_menores++
+            SINO SI(vector[i] > pivote)
+                cant_mayores++
+            SINO
+                cant_iguales++
+            FIN SI
+        FIN PARA
+
+        ENTERO menores[cant_menores]
+        ENTERO iguales[cant_iguales]
+        ENTERO mayores[cant_mayores]
+
+        ENTERO idx_men = 0
+        ENTERO idx_igu = 0
+        ENTERO idx_may = 0
+
+        // Clasificación en un único recorrido
+        PARA(ENTERO i = 0; i < vector.largo; i++)
+            SI(vector[i] < pivote)
+                menores[idx_men] = vector[i]
+                idx_men++
+            SINO SI(vector[i] > pivote)
+                mayores[idx_may] = vector[i]
+                idx_may++
+            SINO
+                iguales[idx_igu] = vector[i]
+                idx_igu++
+            FIN SI
+        FIN PARA
+
+        menores = ordenar_vector_asc_quick(menores)
+        mayores = ordenar_vector_asc_quick(mayores)
+        RETORNAR (menores + iguales + mayores)
+    FIN FUNCION
+
 ENTERO size = 1000
 ENTERO vector[size]
 
 PARA(ENTERO i = size; i > 0; i--)
     vector[size - i] = i
 FIN PARA
-// IMPRIMIR(vector)
-vector = ORDENAR(vector)
 
-// PARA(ENTERO i = 0; i < vector.largo; i++)
-//     IMPRIMIR(vector[i])
-// FIN PARA
+// Ejecutar Quicksort optimizado
+vector = ordenar_vector_asc_quick(vector)
+
+// Opcional: Probar Selection Sort descomentando la siguiente línea:
+// vector = ORDENAR(vector)
+
+IMPRIMIR("Total elementos ordenados: " + vector.largo)
+IMPRIMIR("Primer elemento: " + vector[0] + " | Ultimo elemento: " + vector[vector.largo - 1])
 
 FIN

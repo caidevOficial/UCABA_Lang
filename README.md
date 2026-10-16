@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.8.0-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.9.0-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
   <img src="https://img.shields.io/badge/Tests-33%20passing-22c55e?style=for-the-badge" alt="Tests" />
@@ -80,7 +80,7 @@ La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es m
 2. El asistente te permitirá de forma automatizada:
    - ✅ Instalar el comando nativo `ucaba.exe` en tu sistema.
    - ✅ Añadir `ucaba` a la variable de entorno `PATH` del usuario.
-   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.8.0.vsix`).
+   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.9.0.vsix`).
    - ✅ Asociar los archivos `.ucaba` en Windows con el icono oficial y opciones de ejecución directa.
 
 > [!TIP]
@@ -116,8 +116,24 @@ Ejecuta el código fuente `.ucaba` directamente:
 ```bash
 ucaba run mi_algoritmo.ucaba
 ```
-*Opciones útiles:*
-- `--time [ms|full|completo]` o `--time-full`: Muestra el tiempo de análisis y de ejecución en milisegundos (`ms`, predeterminado si se omite) o detallado completo en formato legible (`full` o `completo`, ej: `[Tiempo total: 1 Hora, 15 Minutos, 30 Segundos, 45 Milisegundos]`).
+
+*Opciones de medición de tiempo de ejecución:*
+- `--time` o `--time ms`: Muestra el tiempo de análisis y ejecución en **milisegundos** (`ms`):
+  ```bash
+  ucaba run sort.ucaba --time
+  # O explícitamente:
+  ucaba run sort.ucaba --time ms
+  # Salida: [Tiempo total: 211.22 ms]
+  ```
+- `--time full`, `--time completo` o `--time-full`: Muestra el tiempo desglosado con precisión en **horas, minutos, segundos y milisegundos**:
+  ```bash
+  ucaba run sort.ucaba --time full
+  # O con el flag directo:
+  ucaba run sort.ucaba --time-full
+  # Salida: [Tiempo total: 0 Horas, 0 Minutos, 0 Segundos, 211 Milisegundos]
+  ```
+
+*Otras opciones útiles:*
 - `--lenient` / `-l`: Modo permisivo para pseudocódigo informal.
 
 ### 2. `ucaba check` — Verificación estática
@@ -143,7 +159,7 @@ ucaba update --silent
 > **Notificación Automática de Versión:**
 > Al igual que `pip` en Python, cada vez que ejecutas un programa o módulo de UCABA, el sistema comprueba en segundo plano (sin ralentizar la ejecución) si hay una nueva versión disponible y te avisará al finalizar con la instrucción para actualizar:
 > ```text
-> [AVISO] Hay una nueva versión de UCABA disponible: 1.7.0 -> 1.8.0
+> [AVISO] Hay una nueva versión de UCABA disponible: 1.8.0 -> 1.9.0
 > Para actualizar automáticamente, ejecuta: ucaba update
 > ```
 

@@ -32,6 +32,7 @@ def install():
     
     # Limpiar versiones previas obsoletas para evitar colisiones
     obsolete_paths = [
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.8.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.7.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.6.1"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.6.0"),
@@ -47,13 +48,13 @@ def install():
             print(f"[CLEANUP] Eliminada versión obsoleta: {old_path}")
 
     destinations = [
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.8.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.9.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
         os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
     ]
     cursor_ext = os.path.join(user_home, ".cursor", "extensions")
     if os.path.exists(cursor_ext):
-        destinations.append(os.path.join(cursor_ext, "ucaba.ucaba-language-support-1.8.0"))
+        destinations.append(os.path.join(cursor_ext, "ucaba.ucaba-language-support-1.9.0"))
 
     for dst in destinations:
         parent = os.path.dirname(dst)

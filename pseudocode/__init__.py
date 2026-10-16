@@ -19,11 +19,17 @@
 Paquete oficial del Lenguaje de Programación UCABA.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __author__ = "Facu Falcone <a.facundo.falcone@gmail.com>"
 
 import sys
 import os
+
+# Incrementar límite de recursión para permitir algoritmos recursivos profundos sin desbordamiento
+try:
+    sys.setrecursionlimit(max(sys.getrecursionlimit(), 50000))
+except Exception:
+    pass
 
 _BANNER_PRINTED = False
 

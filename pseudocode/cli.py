@@ -113,12 +113,12 @@ def main(cli_args=None):
         const="ms",
         default=None,
         choices=["ms", "full", "completo"],
-        help="Muestra el tiempo de ejecución (por defecto 'ms', o 'full'/'completo')"
+        help="Muestra el tiempo de ejecución. Modos: 'ms' (milisegundos, predeterminado), 'full' o 'completo' (horas, minutos, segundos y milisegundos)"
     )
     run_parser.add_argument(
         "--time-full",
         action="store_true",
-        help="Muestra el tiempo de ejecución completo desglosado (Horas, Minutos, Segundos, Milisegundos)"
+        help="Muestra el tiempo de ejecución desglosado (ej: [Tiempo total: 1 Hora, 15 Minutos, 30 Segundos, 45 Milisegundos])"
     )
 
     # Comando 'check'
@@ -233,6 +233,15 @@ def main(cli_args=None):
         COLOR_ROJO = "\033[31m"
         NO_COLOR = "\033[0m"
         print(f"{COLOR_ROJO}\n{e.format_diagnostic(args.file)}\n{NO_COLOR}", file=sys.stderr)
+        sys.exit(1)
+    except RecursionError:
+        COLOR_ROJO = "\033[31m"
+        NO_COLOR = "\033[0m"
+        print(
+            f"{COLOR_ROJO}\n[ERROR DE EJECUCIÓN] Se excedió la profundidad máxima de llamadas recursivas.\n"
+            f"Verifica la condición de corte (caso base) o la selección del pivote en funciones recursivas.\n{NO_COLOR}",
+            file=sys.stderr
+        )
         sys.exit(1)
     except Exception as e:
         COLOR_ROJO = "\033[31m"
