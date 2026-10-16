@@ -19,15 +19,50 @@
 Paquete oficial del Lenguaje de Programación UCABA.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __author__ = "Facu Falcone <a.facundo.falcone@gmail.com>"
 
+import sys
 import os
+
+_BANNER_PRINTED = False
+
+
+def print_welcome_banner(force: bool = False):
+    """Muestra el mensaje institucional de la comunidad UCABA una única vez."""
+    global _BANNER_PRINTED
+    if _BANNER_PRINTED and not force:
+        return
+
+    # Evitar imprimir en modo lsp-check (VS Code espera JSON puro) o si se silencia explícitamente
+    if os.environ.get("UCABA_HIDE_BANNER") == "1" or os.environ.get("UCABA_HIDE_SUPPORT_PROMPT") == "1":
+        return
+    all_args = list(sys.argv) + list(getattr(sys, "orig_argv", []))
+    if any("lsp-check" in str(arg).lower() or "lsp_check" in str(arg).lower() for arg in all_args):
+        return
+
+    _BANNER_PRINTED = True
+    print(f"UCABA (v{__version__})")
+    print("Hello from the UCABA community. [Dev: Facu Falcone]")
+
+
+def saludo():
+    """Función auxiliar para mostrar el saludo institucional de la comunidad UCABA."""
+    print_welcome_banner(force=True)
+
+
 from pseudocode.lexer import Lexer
 from pseudocode.parser import Parser
 from pseudocode.type_checker import TypeChecker
 from pseudocode.interpreter import Interpreter
 from pseudocode.errors import PseudocodeError
+from pseudocode.updater import register_update_notice_on_exit
+
+# Ejecutar el saludo una única vez al cargar el paquete UCABA
+print_welcome_banner()
+
+# Iniciar comprobación en segundo plano y registrar aviso de versión al salir (estilo pip)
+register_update_notice_on_exit(__version__)
 
 
 def resolve_ucaba_path(filepath: str) -> str:

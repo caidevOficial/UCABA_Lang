@@ -1,0 +1,271 @@
+# GNU General Public License v3.0 or later (GPL-3.0-or-later)
+#
+# Copyright (c) 2026 [Facu Falcone](a.facundo.falcone@gmail.com) All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+"""
+Módulo de verificación y actualización automática de UCABA contra GitHub Releases.
+Verifica en segundo plano si existe una versión más reciente (estilo pip) y
+permite actualizar automáticamente ejecutando: ucaba update.
+"""
+
+import os
+import sys
+import json
+import time
+import urllib.request
+import urllib.error
+import threading
+import atexit
+import subprocess
+import tempfile
+from typing import Optional, Tuple, Dict, Any
+
+GITHUB_REPO = "caidevOficial/UCABA_Lang"
+API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+CACHE_TTL_SECONDS = 6 * 3600  # 6 horas de caché
+
+_NEW_RELEASE_INFO: Optional[Dict[str, Any]] = None
+_CHECK_STARTED = False
+
+
+def parse_version(v_str: str) -> Tuple[int, ...]:
+    """Parsea una cadena de versión semántica (ej: 'v1.5.0' o '1.5.2') a tupla de enteros."""
+    clean = str(v_str).strip().lstrip("vV")
+    parts = []
+    for piece in clean.split("."):
+        digits = "".join(ch for ch in piece if ch.isdigit())
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
+def get_cache_file_path() -> str:
+    """Devuelve la ruta al archivo de caché local de versiones."""
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        cache_dir = os.path.join(local_app_data, "UCABA")
+    else:
+        cache_dir = os.path.join(os.path.expanduser("~"), ".ucaba")
+    os.makedirs(cache_dir, exist_ok=True)
+    return os.path.join(cache_dir, "version_cache.json")
+
+
+def read_cached_version() -> Optional[Dict[str, Any]]:
+    """Lee la última comprobación de versión guardada en caché si no ha expirado."""
+    try:
+        cache_file = get_cache_file_path()
+        if os.path.exists(cache_file):
+            with open(cache_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            last_checked = data.get("last_checked", 0)
+            if time.time() - last_checked < CACHE_TTL_SECONDS:
+                return data
+    except Exception:
+        pass
+    return None
+
+
+def write_cached_version(data: Dict[str, Any]):
+    """Guarda en caché local los metadatos de la última versión comprobada."""
+    try:
+        cache_file = get_cache_file_path()
+        data["last_checked"] = time.time()
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+def fetch_latest_release_online(timeout: float = 2.0) -> Optional[Dict[str, Any]]:
+    """Consulta la API pública de GitHub para obtener la última versión lanzada."""
+    try:
+        req = urllib.request.Request(
+            API_URL,
+            headers={
+                "User-Agent": "UCABA-Lang-Updater",
+                "Accept": "application/vnd.github.v3+json"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            if response.status == 200:
+                payload = json.loads(response.read().decode("utf-8"))
+                tag_name = payload.get("tag_name", "")
+                latest_ver = tag_name.lstrip("vV")
+
+                installer_url = ""
+                cli_url = ""
+                vsix_url = ""
+                for asset in payload.get("assets", []):
+                    name = asset.get("name", "")
+                    dl_url = asset.get("browser_download_url", "")
+                    if name.lower() == "instalador_ucaba.exe":
+                        installer_url = dl_url
+                    elif name.lower() == "ucaba.exe":
+                        cli_url = dl_url
+                    elif name.lower().endswith(".vsix"):
+                        vsix_url = dl_url
+
+                info = {
+                    "tag_name": tag_name,
+                    "latest_version": latest_ver,
+                    "html_url": payload.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest"),
+                    "installer_url": installer_url,
+                    "cli_url": cli_url,
+                    "vsix_url": vsix_url,
+                    "body": payload.get("body", "")
+                }
+                write_cached_version(info)
+                return info
+    except Exception:
+        pass
+    return None
+
+
+def check_for_update(current_version: str, allow_network: bool = True) -> Optional[Dict[str, Any]]:
+    """Verifica si existe una versión más reciente que la actual."""
+    cached = read_cached_version()
+    if cached and "latest_version" in cached:
+        info = cached
+    elif allow_network:
+        info = fetch_latest_release_online(timeout=2.0)
+    else:
+        info = None
+
+    if info and "latest_version" in info:
+        curr_tuple = parse_version(current_version)
+        latest_tuple = parse_version(info["latest_version"])
+        if latest_tuple > curr_tuple:
+            return info
+    return None
+
+
+def print_update_notice(info: Dict[str, Any], current_version: str):
+    """Muestra en terminal la notificación de actualización estilo pip."""
+    latest_ver = info.get("latest_version", "desconocida")
+    html_url = info.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest")
+
+    print("\n\033[33m[AVISO] Hay una nueva versión de UCABA disponible: "
+          f"\033[1m{current_version}\033[0m\033[33m -> \033[1;32m{latest_ver}\033[0m")
+    print(f"\033[33mPara actualizar automáticamente, ejecuta: \033[1;37mucaba update\033[0m")
+    print(f"\033[90mO visita: {html_url}\033[0m\n", file=sys.stderr)
+
+
+def _background_check_worker(current_version: str):
+    global _NEW_RELEASE_INFO
+    try:
+        update = check_for_update(current_version, allow_network=True)
+        if update:
+            _NEW_RELEASE_INFO = update
+    except Exception:
+        pass
+
+
+def start_background_check(current_version: str):
+    """Inicia la comprobación de versión en un hilo en segundo plano no bloqueante."""
+    global _CHECK_STARTED
+    if _CHECK_STARTED:
+        return
+
+    # Silenciar en entornos automáticos, tests o LSP
+    if os.environ.get("UCABA_NO_UPDATE_CHECK") == "1" or os.environ.get("UCABA_HIDE_BANNER") == "1":
+        return
+    all_args = list(sys.argv) + list(getattr(sys, "orig_argv", []))
+    if any("lsp-check" in str(arg).lower() or "lsp_check" in str(arg).lower() for arg in all_args):
+        return
+
+    _CHECK_STARTED = True
+
+    # 1. Si ya tenemos en caché local que hay una versión nueva, guardarla inmediatamente
+    cached = read_cached_version()
+    if cached and "latest_version" in cached:
+        if parse_version(cached["latest_version"]) > parse_version(current_version):
+            global _NEW_RELEASE_INFO
+            _NEW_RELEASE_INFO = cached
+            return
+
+    # 2. De lo contrario, consultar en segundo plano sin ralentizar la ejecución del programa
+    t = threading.Thread(target=_background_check_worker, args=(current_version,), daemon=True)
+    t.start()
+
+
+def _atexit_notice_hook(current_version: str):
+    """Muestra la notificación al finalizar la ejecución del programa si se detectó nueva versión."""
+    if _NEW_RELEASE_INFO:
+        print_update_notice(_NEW_RELEASE_INFO, current_version)
+
+
+def register_update_notice_on_exit(current_version: str):
+    """Registra el hook de atexit para mostrar el aviso al terminar el comando."""
+    start_background_check(current_version)
+    atexit.register(_atexit_notice_hook, current_version)
+
+
+def run_interactive_update(current_version: str, force: bool = False, silent: bool = False):
+    """Descarga e instala la última versión de UCABA desde GitHub Releases."""
+    print("==================================================")
+    print("   ACTUALIZADOR OFICIAL DEL LENGUAJE UCABA       ")
+    print("==================================================")
+    print(f"Versión actual instalada: v{current_version}")
+    print("Comprobando últimas versiones en GitHub Releases...")
+
+    info = fetch_latest_release_online(timeout=5.0)
+    if not info:
+        print("[ERROR] No se pudo conectar con GitHub Releases. Verifica tu conexión a internet.")
+        return 1
+
+    latest_ver = info["latest_version"]
+    curr_t = parse_version(current_version)
+    late_t = parse_version(latest_ver)
+
+    if late_t <= curr_t and not force:
+        print(f"\n[OK] ¡Ya tienes la versión más reciente de UCABA instalada (v{current_version})!")
+        return 0
+
+    print(f"\n[ACTUALIZACIÓN DISPONIBLE]: v{current_version} -> v{latest_ver}")
+    installer_url = info.get("installer_url")
+    if not installer_url:
+        print(f"[ERROR] No se encontró el archivo 'Instalador_UCABA.exe' en el release v{latest_ver}.")
+        print(f"Por favor, descarga la actualización manualmente desde:\n{info['html_url']}")
+        return 1
+
+    # Descargar el instalador en un directorio temporal
+    temp_dir = tempfile.mkdtemp(prefix="ucaba_update_")
+    installer_path = os.path.join(temp_dir, "Instalador_UCABA.exe")
+
+    print(f"\nDescargando instalador oficial de UCABA v{latest_ver}...")
+    print(f"Fuente: {installer_url}")
+
+    try:
+        def _reporthook(block_num, block_size, total_size):
+            if total_size > 0:
+                downloaded = block_num * block_size
+                percent = min(100.0, (downloaded / total_size) * 100.0)
+                mb_down = downloaded / (1024 * 1024)
+                mb_total = total_size / (1024 * 1024)
+                sys.stdout.write(f"\rProgreso: [{percent:5.1f}%] {mb_down:5.1f}MB / {mb_total:5.1f}MB")
+                sys.stdout.flush()
+
+        urllib.request.urlretrieve(installer_url, installer_path, reporthook=_reporthook)
+        print("\n\n[OK] Instalador descargado exitosamente.")
+    except Exception as e:
+        print(f"\n[ERROR] Falló la descarga del instalador: {e}")
+        return 1
+
+    print("\nIniciando asistente de instalación...")
+    try:
+        cmd = [installer_path]
+        if silent:
+            cmd.append("--silent")
+        subprocess.Popen(cmd)
+        print("[ÉXITO] El asistente de instalación se ha iniciado en su equipo.")
+        print("Siga las instrucciones en pantalla para completar la actualización.")
+    except Exception as e:
+        print(f"[ERROR] No se pudo ejecutar el instalador: {e}")
+        print(f"Puedes ejecutarlo manualmente desde: {installer_path}")
+        return 1
+
+    return 0

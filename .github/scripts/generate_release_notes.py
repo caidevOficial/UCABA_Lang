@@ -137,6 +137,11 @@ def generate_notes(repo_root: str, output_path: str):
   - Documentación Hover interactiva al posar el cursor sobre tipos y palabras reservadas.
   - Snippets de código actualizados para plantillas instantáneas con <kbd>Tab</kbd>.
 
+- 🚀 **Mensaje Comunitario y Notificador Inteligente de Actualizaciones**:
+  - Saludo de bienvenida oficial de la comunidad: `Hello from the UCABA community. [Dev: Facu Falcone]`.
+  - Notificador automático tipo `pip` en segundo plano contra GitHub Releases al finalizar ejecuciones.
+  - Nuevo comando CLI interactivo `ucaba update` / `ucaba upgrade` para actualizar con un solo clic.
+
 ---
 
 ## 🔒 Sumas de Verificación de Integridad (SHA-256)

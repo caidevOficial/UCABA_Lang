@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.5.0-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.6.0-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
   <img src="https://img.shields.io/badge/Tests-28%20passing-22c55e?style=for-the-badge" alt="Tests" />
@@ -80,7 +80,7 @@ La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es m
 2. El asistente te permitirá de forma automatizada:
    - ✅ Instalar el comando nativo `ucaba.exe` en tu sistema.
    - ✅ Añadir `ucaba` a la variable de entorno `PATH` del usuario.
-   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.5.0.vsix`).
+   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.6.0.vsix`).
    - ✅ Asociar los archivos `.ucaba` en Windows con el icono oficial y opciones de ejecución directa.
 
 > [!TIP]
@@ -108,7 +108,7 @@ python -m pseudocode check mi_programa.ucaba
 El comando `ucaba` ofrece una suite completa de utilidades para desarrolladores y estudiantes:
 
 ```
-usage: ucaba [-h] {run,check,tokens,lsp-check} ...
+usage: ucaba [-h] {run,check,tokens,lsp-check,update,upgrade} ...
 ```
 
 ### 1. `ucaba run` — Ejecutar archivo
@@ -118,7 +118,7 @@ ucaba run mi_algoritmo.ucaba
 ```
 *Opciones útiles:*
 - `--time`: Muestra el tiempo de análisis y de ejecución en milisegundos.
-- `--no-check`: Omite el chequeo estático previo y ejecuta directamente.
+- `--lenient` / `-l`: Modo permisivo para pseudocódigo informal.
 
 ### 2. `ucaba check` — Verificación estática
 Analiza la sintaxis y valida todos los tipos de variables y funciones sin correr el programa:
@@ -126,7 +126,28 @@ Analiza la sintaxis y valida todos los tipos de variables y funciones sin correr
 ucaba check mi_algoritmo.ucaba
 ```
 
-### 3. `ucaba tokens` — Inspección léxica
+### 3. `ucaba update` — Actualización automática (estilo pip)
+Comprueba en GitHub Releases si existe una nueva versión del lenguaje y la instala automáticamente:
+```bash
+# Descarga e instala la versión más reciente
+ucaba update
+
+# Solo comprobar si hay actualización disponible
+ucaba update --check
+
+# Actualización en modo silencioso
+ucaba update --silent
+```
+
+> [!TIP]
+> **Notificación Automática de Versión:**
+> Al igual que `pip` en Python, cada vez que ejecutas un programa o módulo de UCABA, el sistema comprueba en segundo plano (sin ralentizar la ejecución) si hay una nueva versión disponible y te avisará al finalizar con la instrucción para actualizar:
+> ```text
+> [AVISO] Hay una nueva versión de UCABA disponible: 1.6.0 -> 1.7.0
+> Para actualizar automáticamente, ejecuta: ucaba update
+> ```
+
+### 4. `ucaba tokens` — Inspección léxica
 Muestra el flujo de tokens identificados por el lexer (ideal para debugging o enseñanza de compiladores):
 ```bash
 ucaba tokens mi_algoritmo.ucaba
@@ -261,7 +282,7 @@ FIN
 
 ### 🔗 Estructuras Autorreferenciales y Tipo `NULO` (Listas y Punteros)
 
-A partir de la versión **1.5**, UCABA cuenta con soporte para **estructuras autorreferenciales** (estructuras que contienen campos de su mismo tipo) y el tipo/literal universal **`NULO`** (equivalente a `null` o `None`).
+A partir de la versión **1.6**, UCABA cuenta con soporte para **estructuras autorreferenciales** (estructuras que contienen campos de su mismo tipo) y el tipo/literal universal **`NULO`** (equivalente a `null` o `None`).
 
 Esto permite construir y manipular estructuras de datos dinámicas avanzadas como **Listas Enlazadas, Pilas, Colas y Árboles**.
 

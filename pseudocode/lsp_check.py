@@ -20,6 +20,9 @@ Módulo de diagnóstico y análisis en tiempo real para Language Server / VS Cod
 Analiza código fuente desde stdin o argumentos y devuelve diagnósticos en formato JSON.
 """
 
+import os
+os.environ["UCABA_HIDE_BANNER"] = "1"
+
 import sys
 import json
 from typing import List, Dict, Any

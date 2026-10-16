@@ -19,3 +19,6 @@ ehthumbs.db
 
 # Generated release notes
 release_notes.md
+
+# Agents
+.agents/

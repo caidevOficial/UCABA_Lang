@@ -35,8 +35,8 @@ from tkinter import ttk, messagebox
 from tkinter.scrolledtext import ScrolledText
 
 # Versión oficial del instalador y del lenguaje UCABA
-APP_VERSION = "1.5"
-APP_VERSION_FULL = "1.5.0"
+APP_VERSION = "1.6"
+APP_VERSION_FULL = "1.6.0"
 
 
 def setup_console():

@@ -34,7 +34,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from pseudocode import run_file, check_file, resolve_ucaba_path
+from pseudocode import __version__, run_file, check_file, resolve_ucaba_path
 from pseudocode.lexer import Lexer
 from pseudocode.parser import Parser
 from pseudocode.errors import PseudocodeError
@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--version", "-v",
         action="version",
-        version="UCABA 1.5.0 - Copyright (C) 2026 Facu Falcone <a.facundo.falcone@gmail.com> (GNU GPLv3)"
+        version=f"UCABA {__version__} - Copyright (C) 2026 Facu Falcone <a.facundo.falcone@gmail.com> (GNU GPLv3)"
     )
     subparsers = parser.add_subparsers(dest="command", help="Comandos disponibles")
 
@@ -73,8 +73,17 @@ def main():
     lsp_parser.add_argument("--lenient", "-l", action="store_true", default=True, help="Modo permisivo para pseudocódigo informal")
     lsp_parser.add_argument("--strict", action="store_true", help="Modo estricto")
 
+    # Comando 'update'
+    update_parser = subparsers.add_parser("update", help="Comprueba y actualiza UCABA a la versión más reciente desde GitHub")
+    update_parser.add_argument("--force", "-f", action="store_true", help="Fuerza la reinstalación aunque ya esté actualizado")
+    update_parser.add_argument("--silent", "-s", action="store_true", help="Instalación en segundo plano desatendida")
+    update_parser.add_argument("--check", "-c", action="store_true", help="Solo comprueba si existe una versión nueva sin instalar")
+
+    subparsers.add_parser("upgrade", parents=[update_parser], add_help=False, help="Alias de 'update'")
+
     # Si se pasa archivo directamente sin comando, por defecto 'run'
-    if len(sys.argv) > 1 and sys.argv[1] not in ("run", "check", "tokens", "lsp-check", "-h", "--help", "-v", "--version"):
+    known_commands = ("run", "check", "tokens", "lsp-check", "update", "upgrade", "-h", "--help", "-v", "--version")
+    if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         args = parser.parse_args(["run"] + sys.argv[1:])
     else:
         args = parser.parse_args()
@@ -84,6 +93,20 @@ def main():
         sys.exit(0)
 
     try:
+        if args.command in ("update", "upgrade"):
+            from pseudocode.updater import run_interactive_update, check_for_update
+            if getattr(args, "check", False):
+                print(f"Comprobando versiones en GitHub ({__version__})...")
+                upd = check_for_update(__version__, allow_network=True)
+                if upd:
+                    print(f"\n[AVISO] Hay una nueva versión de UCABA disponible: {__version__} -> {upd['latest_version']}")
+                    print(f"Para actualizar ejecuta: ucaba update")
+                else:
+                    print(f"\n[OK] UCABA ya está en la versión más reciente (v{__version__}).")
+                sys.exit(0)
+            ret_code = run_interactive_update(__version__, force=getattr(args, "force", False), silent=getattr(args, "silent", False))
+            sys.exit(ret_code)
+
         if args.command == "lsp-check":
             from pseudocode.lsp_check import check_source_for_diagnostics
             import json
