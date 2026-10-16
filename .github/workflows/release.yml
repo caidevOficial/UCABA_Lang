@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Compilar Instalador y Crear Release
+  build-windows:
+    name: Compilar Artefactos de Windows y VSIX
     runs-on: windows-latest
 
     steps:
@@ -50,6 +50,97 @@ jobs:
         run: |
           python build_installer.py
 
+      - name: Subir Artefactos de Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            dist/Instalador_UCABA.exe
+            dist/ucaba.exe
+            extension-vscode/*.vsix
+
+  build-linux:
+    name: Compilar Binario ELF y Paquetes Linux (.deb y .tar.gz)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar Repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar Herramientas de Sistema y PyInstaller
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg binutils
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Ejecutar Suite de Pruebas Unitarias en Linux
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Compilar Binario Nativo ELF ucaba
+        run: |
+          pyinstaller --name ucaba --onefile --clean --paths . pseudocode/cli.py
+
+      - name: Construir Paquetes Linux (.deb y .tar.gz)
+        run: |
+          python build_linux_package.py --binary dist/ucaba
+
+      - name: Subir Artefactos de Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/*.deb
+            dist/*.tar.gz
+
+  publish-release:
+    name: Publicar Release Oficial Multiplataforma
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar Repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Descargar Artefactos de Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifacts
+          path: windows-artifacts
+
+      - name: Descargar Artefactos de Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: linux-artifacts
+
+      - name: Consolidar Estructura de Artefactos
+        run: |
+          mkdir -p dist extension-vscode
+          find windows-artifacts -name "*.exe" -exec cp -v {} dist/ \;
+          find windows-artifacts -name "*.vsix" -exec cp -v {} extension-vscode/ \;
+          find linux-artifacts -name "*.deb" -exec cp -v {} dist/ \;
+          find linux-artifacts -name "*.tar.gz" -exec cp -v {} dist/ \;
+          echo "=== Contenido de dist/ ==="
+          ls -la dist/
+          echo "=== Contenido de extension-vscode/ ==="
+          ls -la extension-vscode/
+
       - name: Generar Notas de Release y Checksums SHA-256
         run: |
           python .github/scripts/generate_release_notes.py
@@ -58,11 +149,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: UCABA ${{ env.RELEASE_TAG }} - Instalador Oficial y Extensión
+          name: UCABA ${{ env.RELEASE_TAG }} - Instaladores Multiplataforma (Windows y Linux)
           body_path: release_notes.md
           files: |
             dist/Instalador_UCABA.exe
             dist/ucaba.exe
+            dist/*.deb
+            dist/*.tar.gz
             extension-vscode/*.vsix
           draft: false
           prerelease: false

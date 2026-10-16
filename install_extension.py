@@ -28,33 +28,39 @@ def install():
     vsix_files = [os.path.join(ext_src, f) for f in os.listdir(ext_src) if f.endswith(".vsix")]
     vsix_path = sorted(vsix_files, key=os.path.getmtime, reverse=True)[0] if vsix_files else None
 
+    try:
+        from pseudocode import __version__ as ucaba_version
+    except Exception:
+        ucaba_version = "1.9.0"
+
     user_home = os.path.expanduser("~")
+    current_folder = f"ucaba.ucaba-language-support-{ucaba_version}"
     
-    # Limpiar versiones previas obsoletas para evitar colisiones
-    obsolete_paths = [
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.8.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.7.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.6.1"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.6.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.5.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
+    # Limpiar dinámicamente versiones previas obsoletas para evitar colisiones
+    ext_roots = [
+        os.path.join(user_home, ".vscode", "extensions"),
+        os.path.join(user_home, ".cursor", "extensions"),
+        os.path.join(user_home, ".antigravity-ide", "extensions")
     ]
-    for old_path in obsolete_paths:
-        if os.path.exists(old_path):
-            shutil.rmtree(old_path, ignore_errors=True)
-            print(f"[CLEANUP] Eliminada versión obsoleta: {old_path}")
+    for ext_root in ext_roots:
+        if os.path.exists(ext_root):
+            for item in os.listdir(ext_root):
+                if item.startswith("ucaba.ucaba-language-support-") and item != current_folder:
+                    old_path = os.path.join(ext_root, item)
+                    try:
+                        shutil.rmtree(old_path, ignore_errors=True)
+                        print(f"[CLEANUP] Eliminada versión obsoleta: {old_path}")
+                    except Exception as e:
+                        print(f"[AVISO] No se pudo eliminar versión previa {old_path}: {e}")
 
     destinations = [
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.9.0"),
+        os.path.join(user_home, ".vscode", "extensions", current_folder),
         os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
         os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
     ]
     cursor_ext = os.path.join(user_home, ".cursor", "extensions")
     if os.path.exists(cursor_ext):
-        destinations.append(os.path.join(cursor_ext, "ucaba.ucaba-language-support-1.9.0"))
+        destinations.append(os.path.join(cursor_ext, current_folder))
 
     for dst in destinations:
         parent = os.path.dirname(dst)

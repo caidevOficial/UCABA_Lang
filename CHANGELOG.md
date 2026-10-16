@@ -19,6 +19,20 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - **Diagnóstico Educativo de `RecursionError`**:
   - Captura limpia y mensaje formativo en la CLI ante recursiones infinitas o casos base inalcanzables.
 
+### 🐧 Soporte Oficial y Empaquetado para GNU/Linux
+- **Paquete Nativo Debian / Ubuntu (`.deb`)**:
+  - Generación de `ucaba_<version>_amd64.deb` con instalación de binario en `/usr/bin/ucaba`, registro de tipo MIME `application/x-ucaba` para archivos `.ucaba`, iconos en tema de sistema (`hicolor/256x256`) y acceso directo de escritorio (`ucaba.desktop`).
+  - Scripts de control `postinst` y `postrm` con actualización automática de bases de datos de escritorio y MIME, junto con registro automático de la extensión si VS Code o Cursor están presentes.
+- **Tarball Standalone Universal (`.tar.gz`)**:
+  - Generación de `ucaba-<version>-linux-x64.tar.gz` compatible con cualquier distribución Linux (Arch, Fedora, Debian, etc.), incluyendo binario ELF nativo, scripts `install.sh` y `uninstall.sh` con detección automática de permisos (root vs usuario en `~/.local/bin`), paquete VSIX y licencia.
+- **Constructor Autónomo Multiplataforma (`build_linux_package.py`)**:
+  - Herramienta Python capaz de generar tanto `.deb` (usando `dpkg-deb` o un ensamblador puro del formato 'ar') como `.tar.gz` de forma reproducible.
+- **Integración Continua Multiplataforma (GitHub Actions)**:
+  - Workflow de release actualizado para compilar en paralelo en Windows (`windows-latest`) y Linux (`ubuntu-latest`), publicando instaladores y binarios para ambas plataformas en cada release oficial.
+- **Gestión Dinámica de Extensiones y Limpieza de VSIX**:
+  - Refactorización de `install_extension.py` para purgar dinámicamente versiones anteriores obsoletas mediante coincidencia de patrones.
+  - Limpieza de paquetes `.vsix` obsoletos en `extension-vscode/`, conservando únicamente la versión activa `1.9.0`.
+
 ### 📖 Documentación y CLI
 - **Documentación Completa de `--time`**:
   - Inclusión en `--help` y `README.md` de las opciones `--time ms` (tiempo de ejecución en milisegundos) y `--time full` / `--time-full` (desglose legible en horas, minutos, segundos y milisegundos).

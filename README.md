@@ -70,17 +70,18 @@ Permite escribir algoritmos estructurados con palabras clave naturales en españ
 
 ---
 
-## 🚀 Instalación y Ecosistema
+## 🚀 Instalación y Ecosistema Multiplataforma
 
-### 📦 Instalador Gráfico Autónomo
+### 🪟 En Windows
 
-La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es mediante el instalador todo-en-uno:
+#### 📦 Instalador Gráfico Autónomo (Recomendado)
+La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es mediante el asistente todo-en-uno:
 
-1. Ejecuta **`dist/Instalador_UCABA.exe`**.
+1. Descarga y ejecuta **`Instalador_UCABA.exe`** desde los releases oficiales.
 2. El asistente te permitirá de forma automatizada:
-   - ✅ Instalar el comando nativo `ucaba.exe` en tu sistema.
+   - ✅ Instalar el comando nativo `ucaba.exe` en tu sistema (`%LOCALAPPDATA%\Programs\UCABA\bin`).
    - ✅ Añadir `ucaba` a la variable de entorno `PATH` del usuario.
-   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.9.0.vsix`).
+   - ✅ Instalar la extensión oficial de **Visual Studio Code** y **Antigravity IDE**.
    - ✅ Asociar los archivos `.ucaba` en Windows con el icono oficial y opciones de ejecución directa.
 
 > [!TIP]
@@ -88,6 +89,55 @@ La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es m
 > ```powershell
 > .\Instalador_UCABA.exe --silent
 > ```
+
+---
+
+### 🐧 En GNU/Linux
+
+UCABA ofrece paquetes oficiales nativos y universales para entornos Linux:
+
+#### 1. Paquete Debian / Ubuntu (`.deb`)
+Recomendado para **Ubuntu, Debian, Linux Mint, Pop!_OS, Kali Linux** y derivados:
+```bash
+# Instalación con apt (resuelve dependencias automáticamente)
+sudo apt install ./ucaba_1.9.0_amd64.deb
+
+# O mediante dpkg:
+# sudo dpkg -i ucaba_1.9.0_amd64.deb
+```
+Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIME del archivo `.ucaba`, el icono del lenguaje y la entrada de escritorio para aplicaciones del sistema.
+
+#### 2. Tarball Portable Universal (`.tar.gz`)
+Compatible con cualquier distribución (Arch Linux, Fedora, openSUSE, Gentoo, Alpine, etc.):
+```bash
+# Descomprimir el paquete
+tar -xzf ucaba-1.9.0-linux-x64.tar.gz
+cd ucaba-1.9.0-linux-x64
+
+# Instalación para el usuario actual (~/.local/bin):
+chmod +x install.sh
+./install.sh
+
+# O instalación global para todos los usuarios:
+# sudo ./install.sh
+```
+
+Para desinstalar en cualquier momento:
+```bash
+./uninstall.sh
+```
+
+#### 🛠️ Generación de Paquetes Linux (`build_linux_package.py`)
+Puedes generar los paquetes `.deb` y `.tar.gz` tú mismo de forma automatizada:
+```bash
+# Compilar binario y empaquetar (.deb y .tar.gz)
+python build_linux_package.py --compile
+
+# O empaquetar un binario existente:
+python build_linux_package.py --binary dist/ucaba
+```
+
+---
 
 ### 🐍 Uso como Módulo de Python
 

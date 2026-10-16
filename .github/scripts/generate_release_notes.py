@@ -154,6 +154,27 @@ def generate_notes(repo_root: str, output_path: str):
 
     installer_path = os.path.join(repo_root, "dist", "Instalador_UCABA.exe")
     cli_path = os.path.join(repo_root, "dist", "ucaba.exe")
+    
+    tarball_name = f"ucaba-{version}-linux-x64.tar.gz"
+    tarball_path = os.path.join(repo_root, "dist", tarball_name)
+    if not os.path.exists(tarball_path):
+        # Buscar cualquier tarball de linux en dist/
+        dist_dir = os.path.join(repo_root, "dist")
+        if os.path.exists(dist_dir):
+            tb_candidates = [os.path.join(dist_dir, f) for f in os.listdir(dist_dir) if f.startswith("ucaba-") and f.endswith("-linux-x64.tar.gz")]
+            if tb_candidates:
+                tarball_path = tb_candidates[0]
+                tarball_name = os.path.basename(tarball_path)
+
+    deb_name = f"ucaba_{version}_amd64.deb"
+    deb_path = os.path.join(repo_root, "dist", deb_name)
+    if not os.path.exists(deb_path):
+        dist_dir = os.path.join(repo_root, "dist")
+        if os.path.exists(dist_dir):
+            deb_candidates = [os.path.join(dist_dir, f) for f in os.listdir(dist_dir) if f.endswith(".deb")]
+            if deb_candidates:
+                deb_path = deb_candidates[0]
+                deb_name = os.path.basename(deb_path)
 
     # Localizar el VSIX más reciente
     ext_dir = os.path.join(repo_root, "extension-vscode")
@@ -167,17 +188,42 @@ def generate_notes(repo_root: str, output_path: str):
     cli_sha = calculate_sha256(cli_path)
     cli_size = get_file_size_mb(cli_path)
 
+    tarball_sha = calculate_sha256(tarball_path)
+    tarball_size = get_file_size_mb(tarball_path)
+
+    deb_sha = calculate_sha256(deb_path)
+    deb_size = get_file_size_mb(deb_path)
+
     vsix_sha = calculate_sha256(vsix_path) if vsix_path else "N/A"
     vsix_size = get_file_size_mb(vsix_path) if vsix_path else "N/A"
 
     version_highlights = extract_version_highlights(repo_root, version)
     commits_log = get_recent_commits(repo_root)
 
+    # Armar tabla de artefactos dinámicamente
+    artifacts_rows = [
+        f"| **`Instalador_UCABA.exe`** | Windows x64 | `{installer_size}` | Asistente de instalación gráfico todo-en-uno para Windows (configura PATH, registro e iconos). |",
+        f"| **`ucaba.exe`** | Windows x64 | `{cli_size}` | Compilador y ejecutor autónomo CLI para Windows (`ucaba run`, `ucaba check`). |",
+        f"| **`{deb_name}`** | Linux (Debian/Ubuntu) | `{deb_size}` | Paquete instalable nativo `.deb` para Ubuntu, Debian, Mint y derivados con integración MIME y desktop. |",
+        f"| **`{tarball_name}`** | Linux (Universal) | `{tarball_size}` | Tarball standalone universal con binario ELF nativo, scripts `install.sh` y `uninstall.sh`. |",
+        f"| **`{vsix_name}`** | Multiplataforma | `{vsix_size}` | Extensión oficial para Visual Studio Code, Cursor y Antigravity IDE (linter, coloreado y snippets). |"
+    ]
+    artifacts_table = "\n".join(artifacts_rows)
+
+    checksum_lines = [
+        f"Instalador_UCABA.exe : {installer_sha}",
+        f"ucaba.exe            : {cli_sha}",
+        f"{deb_name:<20} : {deb_sha}",
+        f"{tarball_name:<20} : {tarball_sha}",
+        f"{vsix_name:<20} : {vsix_sha}"
+    ]
+    checksum_text = "\n".join(checksum_lines)
+
     content = f"""# ⚡ UCABA {tag} - Release Oficial
 
 <p align="left">
   <img src="https://img.shields.io/badge/Versi%C3%B3n-{version}-a81a7d?style=for-the-badge" alt="Versión" />
-  <img src="https://img.shields.io/badge/Plataforma-Windows_x64-0078d4?style=for-the-badge&logo=windows" alt="Windows" />
+  <img src="https://img.shields.io/badge/Plataformas-Windows_x64%20%7C%20Linux_x64-0078d4?style=for-the-badge&logo=linux" alt="Plataformas" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia" />
   <img src="https://img.shields.io/badge/Tests-{tests_count}%20passing-22c55e?style=for-the-badge" alt="Tests" />
 </p>
@@ -186,13 +232,11 @@ def generate_notes(repo_root: str, output_path: str):
 
 ---
 
-## 📦 Componentes y Artefactos Incluidos
+## 📦 Componentes y Artefactos Oficiales de Descarga
 
-| Archivo | Tamaño | Descripción |
-| :--- | :--- | :--- |
-| **`Instalador_UCABA.exe`** | `{installer_size}` | Asistente de instalación gráfico todo-en-uno para Windows. Configura PATH, asocia `.ucaba` e instala la extensión. |
-| **`ucaba.exe`** | `{cli_size}` | Compilador y ejecutor autónomo por línea de comandos para Windows (`ucaba run`, `ucaba check`). |
-| **`{vsix_name}`** | `{vsix_size}` | Extensión oficial para Visual Studio Code y Antigravity IDE (coloreado, linter estático y snippets). |
+| Archivo | Plataforma | Tamaño | Descripción |
+| :--- | :--- | :--- | :--- |
+{artifacts_table}
 
 ---
 
@@ -204,33 +248,60 @@ def generate_notes(repo_root: str, output_path: str):
 
 ## 🔒 Sumas de Verificación de Integridad (SHA-256)
 
-Para verificar la autenticidad e integridad de los ejecutables descargados:
+Para verificar la autenticidad e integridad de los paquetes descargados:
 
 ```text
-Instalador_UCABA.exe : {installer_sha}
-ucaba.exe            : {cli_sha}
-{vsix_name} : {vsix_sha}
+{checksum_text}
 ```
 
 ---
 
-## 🚀 Guía Rápida de Instalación
+## 🚀 Guías de Instalación por Plataforma
 
-### Método 1: Asistente Gráfico (Recomendado)
+### 🪟 En Windows
+
+#### Método 1: Asistente Gráfico (Recomendado)
 1. Descarga y ejecuta **`Instalador_UCABA.exe`**.
 2. Presiona **"Instalar Ahora"**. El asistente:
-   - Copiará `ucaba.exe` en tu perfil de usuario (`%LOCALAPPDATA%\\Programs\\UCABA\\bin`).
-   - Añadirá automáticamente UCABA a la variable de entorno `PATH`.
+   - Instalará `ucaba.exe` en `%LOCALAPPDATA%\\Programs\\UCABA\\bin`.
+   - Añadirá automáticamente la ruta al `PATH` del usuario.
    - Registrará la extensión oficial en **Visual Studio Code** y **Antigravity**.
-   - Asociará los archivos `.ucaba` con el icono oficial del lenguaje.
+   - Asociará la extensión `.ucaba` con el icono institucional del lenguaje.
 
-### Método 2: Instalación Silenciosa / Desatendida (CLI)
-Abre PowerShell o CMD y ejecuta:
+#### Método 2: Instalación Desatendida / Silenciosa (CLI)
 ```powershell
 .\\Instalador_UCABA.exe --silent
 ```
 
-### Método 3: Extensión Manual en VS Code
+---
+
+### 🐧 En GNU/Linux
+
+#### Método 1: Paquete Debian / Ubuntu (`.deb`)
+En Ubuntu, Debian, Linux Mint, Pop!_OS o derivados:
+```bash
+sudo apt install ./ucaba_{version}_amd64.deb
+# O alternativamente con dpkg:
+# sudo dpkg -i ucaba_{version}_amd64.deb
+```
+Instala `ucaba` en `/usr/bin/ucaba`, registra el icono, la entrada de escritorio y la asociación MIME `.ucaba`.
+
+#### Método 2: Tarball Portable Universal (`.tar.gz`)
+Compatible con cualquier distribución (Arch, Fedora, openSUSE, Debian, etc.):
+```bash
+tar -xzf ucaba-{version}-linux-x64.tar.gz
+cd ucaba-{version}-linux-x64
+
+# Instalación para el usuario actual (~/.local/bin):
+./install.sh
+
+# O instalación global para todos los usuarios:
+# sudo ./install.sh
+```
+
+---
+
+### 🔌 Extensión de Visual Studio Code / Cursor (Manual)
 ```bash
 code --install-extension {vsix_name} --force
 ```
