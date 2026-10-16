@@ -96,7 +96,7 @@ def generate_notes(repo_root: str, output_path: str):
   <img src="https://img.shields.io/badge/Versi%C3%B3n-{version}-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Plataforma-Windows_x64-0078d4?style=for-the-badge&logo=windows" alt="Windows" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia" />
-  <img src="https://img.shields.io/badge/Tests-28%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-29%20passing-22c55e?style=for-the-badge" alt="Tests" />
 </p>
 
 ¡Nueva versión **{version}** de **UCABA**, el lenguaje de pseudocódigo en español fuertemente tipado para el aprendizaje moderno de algoritmos y estructuras de datos!
@@ -114,6 +114,12 @@ def generate_notes(repo_root: str, output_path: str):
 ---
 
 ## 🌟 Novedades y Características Principales de esta Versión
+
+- 💡 **IntelliSense y Autocompletado de Miembros por Punto (`.`) en VS Code / Antigravity**:
+  - Al escribir un punto (`.`) luego de cualquier variable de estructura (ej: `pepe.`), el editor despliega instantáneamente la lista de atributos con sus tipos y documentación asociada (como las clases en Python/TypeScript).
+  - Soporte completo para objetos de tipo `ARCHIVO`: despliega sus métodos `LEER_LINEA()`, `ESCRIBIR_LINEA(texto)`, `CERRAR_ARCHIVO()` y propiedad `findearchivo`.
+  - Soporte de resolución recursiva encadenada e indexación para listas y colecciones (ej: `actual.proximo_nodo.`, `estante[0].`).
+  - Tooltips enriquecidos en Hover al posar el cursor sobre cualquier propiedad o atributo.
 
 - 🏗️ **Estructuras de Datos Heterogéneas (`ESTRUCTURA ... FIN ESTRUCTURA`)**:
   - Definición de tipos compuestos por el usuario con múltiples atributos tipados.

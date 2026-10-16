@@ -499,6 +499,24 @@ class TestEstructuras(unittest.TestCase):
         self.assertIn("ES NULL: VERDADERO", out)
         self.assertIn("ES NONE: VERDADERO", out)
 
+    def test_estructura_persona_atributos(self):
+        code = """
+        ESTRUCTURA persona
+            CADENA nombre
+            ENTERO edad
+        FIN ESTRUCTURA
+
+        INICIO
+            Persona pepe
+            pepe.nombre = "Pepe"
+            pepe.edad = 25
+            IMPRIMIR("PERSONA: " + pepe.nombre + " " + pepe.edad)
+        FIN
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertIn("PERSONA: Pepe 25", out)
+
 
 if __name__ == "__main__":
     unittest.main()

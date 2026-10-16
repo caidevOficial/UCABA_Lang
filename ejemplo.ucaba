@@ -4,7 +4,7 @@ INICIO
     ESTRUCTURA Nodo:
         CADENA nombre
         Nodo proximo_nodo
-    Fin Estructura
+    Fin ESTRUCTURA
 
     Nodo nodo_pila = NULO
     Nodo nodo_ultimo = NULO

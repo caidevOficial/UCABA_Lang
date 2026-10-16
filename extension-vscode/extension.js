@@ -298,23 +298,422 @@ function activate(context) {
     });
 
     // -------------------------------------------------------------
-    // Autocompletado (CompletionItemProvider)
+    // Utilidades de Análisis de Símbolos, Estructuras y Alcance
+    // -------------------------------------------------------------
+    const TYPE_KEYWORDS = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|NULO';
+    const FN_HEADER_RE = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?::\s*([A-Za-z]+(?:\s*\[\s*\])*))?/i;
+    const FN_END_RE = /^\s*FIN\s+(?:FUNCION|PROCEDIMIENTO)\b/i;
+    const STRUCT_HEADER_RE = /^\s*Estructura\s+([A-Za-z_][A-Za-z0-9_]*)\s*:?/i;
+    const STRUCT_END_RE = /^\s*FIN\s*(?:_|\s+)?(?:ESTRUCTURA|STRUCT)\b/i;
+
+    function escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /** Devuelve los comentarios `//` contiguos que preceden a una línea (documentación). */
+    function getLeadingComment(doc, lineNo) {
+        const lines = [];
+        for (let i = lineNo - 1; i >= 0; i--) {
+            const m = doc.lineAt(i).text.match(/^\s*\/\/\s?(.*)$/);
+            if (!m) break;
+            lines.unshift(m[1]);
+        }
+        return lines.join('\n');
+    }
+
+    /**
+     * Parsea una línea de declaración de campo dentro de una ESTRUCTURA.
+     * Soporta:
+     *   CADENA nombre
+     *   ENTERO edad = 0
+     *   Nodo proximo_nodo
+     *   REAL notas[10] // comentario
+     */
+    function parseStructFieldLine(lineText) {
+        if (!lineText || /^\s*\/\//.test(lineText)) return null;
+        const m = lineText.match(/^\s*([A-Za-z_][A-Za-z0-9_]*((?:\s*\[[^\]]*\])*))\s+([A-Za-z_][A-Za-z0-9_]*)((?:\s*\[[^\]]*\])*)\s*(?:=\s*[^/]+)?(?:\s*\/\/\s*(.*))?$/);
+        if (!m) return null;
+        const baseType = m[1].replace(/\[[^\]]*\]/g, '').trim();
+        const dims = (m[1].match(/\[/g) || []).length + (m[4].match(/\[/g) || []).length;
+        return {
+            type: baseType + '[]'.repeat(dims),
+            baseType: baseType,
+            name: m[3],
+            dims: dims,
+            doc: m[5] ? m[5].trim() : '',
+            raw: lineText.trim()
+        };
+    }
+
+    /** Busca la definición de una Estructura por nombre en un documento. */
+    function findStructInDocument(doc, name) {
+        if (!doc || !name) return null;
+        const nameLower = name.toLowerCase();
+        for (let i = 0; i < doc.lineCount; i++) {
+            const m = doc.lineAt(i).text.match(STRUCT_HEADER_RE);
+            if (m && m[1].toLowerCase() === nameLower) {
+                const fields = [];
+                const parsedFields = [];
+                for (let j = i + 1; j < doc.lineCount; j++) {
+                    const lineText = doc.lineAt(j).text.trim();
+                    if (STRUCT_END_RE.test(lineText)) break;
+                    if (lineText && !lineText.startsWith('//')) {
+                        fields.push(lineText);
+                        const pf = parseStructFieldLine(lineText);
+                        if (pf) parsedFields.push(pf);
+                    }
+                }
+                return {
+                    doc,
+                    line: i,
+                    name: m[1],
+                    fields,
+                    parsedFields,
+                    comment: getLeadingComment(doc, i)
+                };
+            }
+        }
+        return null;
+    }
+
+    /** Busca una estructura en el documento actual o en los documentos abiertos del workspace. */
+    function findStructAnywhere(doc, name) {
+        if (!name) return null;
+        let s = findStructInDocument(doc, name);
+        if (s) return s;
+        if (vscode.workspace && vscode.workspace.textDocuments) {
+            for (const otherDoc of vscode.workspace.textDocuments) {
+                if (otherDoc !== doc && (otherDoc.languageId === 'ucaba' || (otherDoc.fileName && otherDoc.fileName.endsWith('.ucaba')))) {
+                    s = findStructInDocument(otherDoc, name);
+                    if (s) return s;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Recolecta todas las estructuras definidas en el documento. */
+    function getAllStructs(doc) {
+        const structs = new Map();
+        if (!doc) return structs;
+        for (let i = 0; i < doc.lineCount; i++) {
+            const m = doc.lineAt(i).text.match(STRUCT_HEADER_RE);
+            if (m) {
+                const s = findStructInDocument(doc, m[1]);
+                if (s) structs.set(s.name.toLowerCase(), s);
+            }
+        }
+        return structs;
+    }
+
+    /**
+     * Indica si la posición está dentro de un comentario o de una cadena de texto,
+     * recorriendo el documento desde el inicio (soporta """...""", slash-asterisco, // y "..." / '...').
+     */
+    function isInCommentOrString(document, position) {
+        const text = document.getText();
+        const target = document.offsetAt(position);
+        let i = 0;
+        while (i < target) {
+            const two = text.substr(i, 2);
+            const three = text.substr(i, 3);
+            if (three === '"""') {
+                const end = text.indexOf('"""', i + 3);
+                if (end === -1 || end + 3 > target) return true;
+                i = end + 3;
+            } else if (two === '/*') {
+                const end = text.indexOf('*/', i + 2);
+                if (end === -1 || end + 2 > target) return true;
+                i = end + 2;
+            } else if (two === '//') {
+                let end = text.indexOf('\n', i);
+                if (end === -1) end = text.length;
+                if (end > target) return true;
+                i = end;
+            } else if (text[i] === '"' || text[i] === "'") {
+                const quote = text[i];
+                let j = i + 1;
+                while (j < text.length && text[j] !== quote && text[j] !== '\n') {
+                    if (text[j] === '\\') j++;
+                    j++;
+                }
+                if (j >= target) return true;
+                i = j + 1;
+            } else {
+                i++;
+            }
+        }
+        return false;
+    }
+
+    /** Busca la definición de una FUNCION/PROCEDIMIENTO por nombre en un documento. */
+    function findFunctionInDocument(doc, name) {
+        if (!doc || !name) return null;
+        const nameLower = name.toLowerCase();
+        for (let i = 0; i < doc.lineCount; i++) {
+            const m = doc.lineAt(i).text.match(FN_HEADER_RE);
+            if (m && m[2].toLowerCase() === nameLower) {
+                return {
+                    doc,
+                    line: i,
+                    kind: m[1].toUpperCase(),
+                    name: m[2],
+                    params: m[3].trim(),
+                    returnType: (m[4] || '').replace(/\s+/g, ''),
+                    comment: getLeadingComment(doc, i)
+                };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Busca la declaración de una variable o parámetro respetando el alcance:
+     * hacia arriba desde la línea actual, saltando cuerpos de otras funciones.
+     */
+    function findVariableDeclaration(doc, name, fromLine) {
+        if (!doc || !name) return null;
+        const esc = escapeRegex(name);
+
+        const structNames = [];
+        for (let k = 0; k < doc.lineCount; k++) {
+            const sm = doc.lineAt(k).text.match(STRUCT_HEADER_RE);
+            if (sm) structNames.push(escapeRegex(sm[1]));
+        }
+        const allTypes = structNames.length > 0 ? `${TYPE_KEYWORDS}|${structNames.join('|')}` : `${TYPE_KEYWORDS}|[A-Za-z_][A-Za-z0-9_]*`;
+
+        const varRe = new RegExp(`\\b(${allTypes})\\s+${esc}\\b((?:\\s*\\[[^\\]]*\\])*)`, 'i');
+        const paramRe = new RegExp(`^${esc}((?:\\s*\\[[^\\]]*\\])*)\\s*:\\s*([A-Za-z_][A-Za-z0-9_]*)$`, 'i');
+        const paramReAlt = new RegExp(`^([A-Za-z_][A-Za-z0-9_]*)\\s+${esc}((?:\\s*\\[[^\\]]*\\])*)$`, 'i');
+        let depth = 0;
+
+        for (let i = fromLine; i >= 0; i--) {
+            const text = doc.lineAt(i).text;
+            if (/^\s*\/\//.test(text)) continue;
+
+            if (i !== fromLine && FN_END_RE.test(text)) {
+                depth++;
+                continue;
+            }
+
+            const header = text.match(FN_HEADER_RE);
+            if (header) {
+                if (depth > 0) {
+                    depth--;
+                    continue;
+                }
+                const params = header[3].split(',');
+                for (const p of params) {
+                    const pTrim = p.trim();
+                    const pm = pTrim.match(paramRe);
+                    if (pm) {
+                        const dims = (pm[1].match(/\[/g) || []).length;
+                        return { kind: 'parámetro', type: pm[2] + '[]'.repeat(dims), name, line: i };
+                    }
+                    const pm2 = pTrim.match(paramReAlt);
+                    if (pm2) {
+                        const dims = (pm2[1].match(/\[/g) || []).length;
+                        return { kind: 'parámetro', type: pm2[1] + '[]'.repeat(dims), name, line: i };
+                    }
+                }
+                continue;
+            }
+
+            if (depth > 0) continue;
+
+            const vm = text.match(varRe);
+            if (vm) {
+                const dims = (vm[2].match(/\[/g) || []).length;
+                return { kind: 'variable', type: vm[1] + '[]'.repeat(dims), name, line: i };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resuelve el tipo de dato de una expresión (soporta accesos encadenados e indexación,
+     * ej: "pepe", "file", "actual.proximo_nodo", "estante[0]").
+     */
+    function resolveExpressionType(doc, exprString, fromLine) {
+        if (!exprString || typeof exprString !== 'string') return null;
+        const segments = exprString.split('.');
+        if (segments.length === 0) return null;
+
+        const firstSegment = segments[0].trim();
+        const firstBase = firstSegment.replace(/\[[^\]]*\]/g, '').trim();
+        const firstDims = (firstSegment.match(/\[/g) || []).length;
+
+        let decl = findVariableDeclaration(doc, firstBase, fromLine);
+        let currType = null;
+
+        if (decl && decl.type) {
+            currType = decl.type;
+        } else {
+            const directStruct = findStructAnywhere(doc, firstBase);
+            if (directStruct) {
+                currType = directStruct.name;
+            } else if (/^file\b/i.test(firstBase) || /^archivo\b/i.test(firstBase)) {
+                currType = 'ARCHIVO';
+            }
+        }
+
+        if (!currType) return null;
+
+        for (let d = 0; d < firstDims; d++) {
+            if (currType.endsWith('[]')) {
+                currType = currType.slice(0, -2);
+            }
+        }
+
+        for (let i = 1; i < segments.length; i++) {
+            const seg = segments[i].trim();
+            const memberName = seg.replace(/\[[^\]]*\]/g, '').trim();
+            const memberDims = (seg.match(/\[/g) || []).length;
+
+            const st = findStructAnywhere(doc, currType);
+            if (!st || !st.parsedFields) return null;
+
+            const field = st.parsedFields.find(f => f.name.toLowerCase() === memberName.toLowerCase());
+            if (!field) return null;
+
+            currType = field.type;
+            for (let d = 0; d < memberDims; d++) {
+                if (currType.endsWith('[]')) {
+                    currType = currType.slice(0, -2);
+                }
+            }
+        }
+
+        return currType;
+    }
+
+    // -------------------------------------------------------------
+    // Autocompletado Inteligente (CompletionItemProvider)
     // -------------------------------------------------------------
     const completionProvider = vscode.languages.registerCompletionItemProvider('ucaba', {
         provideCompletionItems(document, position, token, context) {
+            if (isInCommentOrString(document, position)) {
+                return null;
+            }
+
             const linePrefix = document.lineAt(position).text.substr(0, position.character);
 
-            // Si es un acceso a propiedad con punto (ej: mi_vector.)
-            if (linePrefix.endsWith('.')) {
-                const largoItem = new vscode.CompletionItem('largo', vscode.CompletionItemKind.Property);
-                largoItem.detail = 'Propiedad: cantidad de elementos';
-                largoItem.documentation = new vscode.MarkdownString('Retorna la cantidad de elementos de un vector, filas de una matriz o longitud de una cadena.');
+            // Verificar si el usuario está accediendo a un miembro mediante un punto (ej: pepe., file., actual.proximo_nodo.)
+            const memberMatch = linePrefix.match(/([A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?)*)\s*\.\s*([A-Za-z0-9_]*)$/);
 
-                const findearchivoItem = new vscode.CompletionItem('findearchivo', vscode.CompletionItemKind.Method);
-                findearchivoItem.detail = 'Método: fin de archivo';
-                findearchivoItem.documentation = new vscode.MarkdownString('Retorna VERDADERO si se alcanzó el fin del archivo.');
+            if (memberMatch) {
+                const targetExpr = memberMatch[1].trim();
+                const resolvedType = resolveExpressionType(document, targetExpr, position.line);
+                const allStructs = getAllStructs(document);
+                const memberItems = [];
 
-                return [largoItem, findearchivoItem];
+                // Caso 1: El objeto es de tipo ARCHIVO (o variable de archivo)
+                if (resolvedType && resolvedType.toUpperCase() === 'ARCHIVO') {
+                    // LEER_LINEA()
+                    const leerItem = new vscode.CompletionItem('LEER_LINEA', vscode.CompletionItemKind.Method);
+                    leerItem.insertText = new vscode.SnippetString('LEER_LINEA()');
+                    leerItem.detail = '(método) LEER_LINEA(): CADENA';
+                    leerItem.documentation = new vscode.MarkdownString('Lee y retorna la siguiente línea de texto del archivo.');
+                    leerItem.sortText = '0_LEER_LINEA';
+                    memberItems.push(leerItem);
+
+                    // ESCRIBIR_LINEA(texto)
+                    const escribirItem = new vscode.CompletionItem('ESCRIBIR_LINEA', vscode.CompletionItemKind.Method);
+                    escribirItem.insertText = new vscode.SnippetString('ESCRIBIR_LINEA(${1:texto})');
+                    escribirItem.detail = '(método) ESCRIBIR_LINEA(texto: CADENA)';
+                    escribirItem.documentation = new vscode.MarkdownString('Escribe una línea de texto en el archivo.');
+                    escribirItem.sortText = '1_ESCRIBIR_LINEA';
+                    memberItems.push(escribirItem);
+
+                    // CERRAR_ARCHIVO()
+                    const cerrarItem = new vscode.CompletionItem('CERRAR_ARCHIVO', vscode.CompletionItemKind.Method);
+                    cerrarItem.insertText = new vscode.SnippetString('CERRAR_ARCHIVO()');
+                    cerrarItem.detail = '(método) CERRAR_ARCHIVO()';
+                    cerrarItem.documentation = new vscode.MarkdownString('Cierra el archivo liberando su descriptor en el sistema operativo.');
+                    cerrarItem.sortText = '2_CERRAR_ARCHIVO';
+                    memberItems.push(cerrarItem);
+
+                    // findearchivo
+                    const finItem = new vscode.CompletionItem('findearchivo', vscode.CompletionItemKind.Property);
+                    finItem.detail = '(propiedad) findearchivo: BOOLEANO';
+                    finItem.documentation = new vscode.MarkdownString('Retorna `VERDADERO` si se alcanzó el fin del archivo.');
+                    finItem.sortText = '3_findearchivo';
+                    memberItems.push(finItem);
+
+                    return memberItems;
+                }
+
+                // Caso 2: El tipo resuelto es una ESTRUCTURA definida por el usuario
+                const structObj = resolvedType ? findStructAnywhere(document, resolvedType) : null;
+                if (structObj && structObj.parsedFields && structObj.parsedFields.length > 0) {
+                    structObj.parsedFields.forEach(f => {
+                        const fItem = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Field);
+                        fItem.detail = `(campo) ${f.type} ${structObj.name}.${f.name}`;
+                        let docMd = `### Campo de Estructura \`${structObj.name}\`\n\n- **Nombre:** \`${f.name}\`\n- **Tipo:** \`${f.type}\``;
+                        if (f.doc) {
+                            docMd += `\n- **Descripción:** ${f.doc}`;
+                        }
+                        fItem.documentation = new vscode.MarkdownString(docMd);
+                        fItem.sortText = '0_' + f.name;
+                        memberItems.push(fItem);
+                    });
+                    return memberItems;
+                }
+
+                // Caso 3: Es un vector, matriz o CADENA -> propiedad .largo
+                if (resolvedType && (resolvedType.includes('[]') || resolvedType.toUpperCase() === 'CADENA')) {
+                    const largoItem = new vscode.CompletionItem('largo', vscode.CompletionItemKind.Property);
+                    largoItem.detail = '(propiedad) largo: ENTERO';
+                    largoItem.documentation = new vscode.MarkdownString('Retorna la cantidad de elementos del vector, filas de la matriz o longitud de la cadena.');
+                    largoItem.sortText = '0_largo';
+                    memberItems.push(largoItem);
+                    return memberItems;
+                }
+
+                // Caso 4: Tipo no determinado con certeza (fallback inteligente)
+                // Ofrecemos los atributos de las estructuras definidas en el documento
+                allStructs.forEach(st => {
+                    if (st.parsedFields) {
+                        st.parsedFields.forEach(f => {
+                            const fItem = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Field);
+                            fItem.detail = `(campo) ${f.type} ${st.name}.${f.name}`;
+                            fItem.documentation = new vscode.MarkdownString(`### Campo de Estructura \`${st.name}\`\n\n- **Tipo:** \`${f.type}\``);
+                            fItem.sortText = '1_' + st.name + '_' + f.name;
+                            memberItems.push(fItem);
+                        });
+                    }
+                });
+
+                // Métodos de archivo como fallback
+                const fallbackLeer = new vscode.CompletionItem('LEER_LINEA', vscode.CompletionItemKind.Method);
+                fallbackLeer.insertText = new vscode.SnippetString('LEER_LINEA()');
+                fallbackLeer.detail = '(método) LEER_LINEA(): CADENA (ARCHIVO)';
+                fallbackLeer.sortText = '2_LEER_LINEA';
+                memberItems.push(fallbackLeer);
+
+                const fallbackEscribir = new vscode.CompletionItem('ESCRIBIR_LINEA', vscode.CompletionItemKind.Method);
+                fallbackEscribir.insertText = new vscode.SnippetString('ESCRIBIR_LINEA(${1:texto})');
+                fallbackEscribir.detail = '(método) ESCRIBIR_LINEA(texto) (ARCHIVO)';
+                fallbackEscribir.sortText = '2_ESCRIBIR_LINEA';
+                memberItems.push(fallbackEscribir);
+
+                const fallbackCerrar = new vscode.CompletionItem('CERRAR_ARCHIVO', vscode.CompletionItemKind.Method);
+                fallbackCerrar.insertText = new vscode.SnippetString('CERRAR_ARCHIVO()');
+                fallbackCerrar.detail = '(método) CERRAR_ARCHIVO() (ARCHIVO)';
+                fallbackCerrar.sortText = '2_CERRAR_ARCHIVO';
+                memberItems.push(fallbackCerrar);
+
+                const fallbackFin = new vscode.CompletionItem('findearchivo', vscode.CompletionItemKind.Property);
+                fallbackFin.detail = '(propiedad) findearchivo: BOOLEANO (ARCHIVO)';
+                fallbackFin.sortText = '2_findearchivo';
+                memberItems.push(fallbackFin);
+
+                const fallbackLargo = new vscode.CompletionItem('largo', vscode.CompletionItemKind.Property);
+                fallbackLargo.detail = '(propiedad) largo: ENTERO (Vector / Matriz / Cadena)';
+                fallbackLargo.sortText = '3_largo';
+                memberItems.push(fallbackLargo);
+
+                return memberItems;
             }
 
             const items = [];
@@ -335,6 +734,15 @@ function activate(context) {
                 const item = new vscode.CompletionItem(t.name, vscode.CompletionItemKind.TypeParameter);
                 item.detail = 'Tipo de dato UCABA';
                 item.documentation = new vscode.MarkdownString(t.desc);
+                items.push(item);
+            });
+
+            // Estructuras definidas en el documento como tipos sugeridos
+            const docStructs = getAllStructs(document);
+            docStructs.forEach(st => {
+                const item = new vscode.CompletionItem(st.name, vscode.CompletionItemKind.Struct);
+                item.detail = `Estructura personalizada '${st.name}'`;
+                item.documentation = new vscode.MarkdownString(`### Estructura \`${st.name}\`\n\n${st.fields.map(f => `- \`${f}\``).join('\n')}`);
                 items.push(item);
             });
 
@@ -360,9 +768,9 @@ function activate(context) {
 
             // Snippet de Estructura
             const structSnippet = new vscode.CompletionItem('ESTRUCTURA', vscode.CompletionItemKind.Struct);
-            structSnippet.insertText = new vscode.SnippetString('Estructura ${1:Nombre}:\n    ${2:CADENA campo1}\nFin Estructura');
+            structSnippet.insertText = new vscode.SnippetString('ESTRUCTURA ${1:Nombre}:\n    ${2:CADENA campo1}\nFIN ESTRUCTURA');
             structSnippet.detail = 'Definición de Estructura';
-            structSnippet.documentation = new vscode.MarkdownString('Define una estructura de datos personalizada con campos tipados.');
+            structSnippet.documentation = new vscode.MarkdownString('Define una estructura de datos personalizada con campos fuertemente tipados.');
             items.push(structSnippet);
 
             // Funciones incorporadas (Built-ins)
@@ -372,6 +780,13 @@ function activate(context) {
                     kind: vscode.CompletionItemKind.Function,
                     snippet: 'MOSTRAR ${1:expresion}',
                     detail: 'MOSTRAR ...',
+                    doc: 'Imprime una o más expresiones por consola.'
+                },
+                {
+                    name: 'IMPRIMIR',
+                    kind: vscode.CompletionItemKind.Function,
+                    snippet: 'IMPRIMIR(${1:expresion})',
+                    detail: 'IMPRIMIR(expresion)',
                     doc: 'Imprime una o más expresiones por consola.'
                 },
                 {
@@ -398,9 +813,9 @@ function activate(context) {
                 {
                     name: 'ABRIR_ARCHIVO',
                     kind: vscode.CompletionItemKind.Function,
-                    snippet: 'ABRIR_ARCHIVO(\"${1:ruta}\", \"${2|r,w,a|}\")',
-                    detail: 'ABRIR_ARCHIVO(ruta, modo): ENTERO',
-                    doc: 'Abre un archivo en modo lectura ("r"), escritura ("w") o anexo ("a").'
+                    snippet: 'ABRIR_ARCHIVO(\"${1:ruta}\", \"${2|lectura,escritura,anexo|}\")',
+                    detail: 'ABRIR_ARCHIVO(ruta, modo): ARCHIVO',
+                    doc: 'Abre un archivo y devuelve su manejador.'
                 },
                 {
                     name: 'LEER_LINEA',
@@ -450,7 +865,7 @@ function activate(context) {
         'CADENA': '```ucaba\nCADENA texto = "Hola"\n```\nTipo de texto / cadena de caracteres.',
         'CARACTER': '```ucaba\nCARACTER letra = \'A\'\n```\nTipo para un único carácter alfanumérico.',
         'BOOLEANO': '```ucaba\nBOOLEANO flag = VERDADERO\n```\nTipo lógico booleano (`VERDADERO` o `FALSO`).',
-        'ARCHIVO': '```ucaba\nARCHIVO f = ABRIR_ARCHIVO("datos.txt", "r")\n```\nManejador de archivos para lectura o escritura.',
+        'ARCHIVO': '```ucaba\nARCHIVO f = ABRIR_ARCHIVO("datos.txt", "lectura")\n```\nManejador de archivos para lectura o escritura.',
         'RETORNAR': '```ucaba\nRETORNAR valor\n```\nDevuelve un valor desde una función o finaliza la ejecución de un procedimiento.',
         'FUNCION': '```ucaba\nFUNCION nombre(p1: tipo): tipo_retorno\n    RETORNAR valor\nFIN FUNCION\n```\nDefine una función que devuelve un valor.',
         'PROCEDIMIENTO': '```ucaba\nPROCEDIMIENTO nombre(p1: tipo)\n    // bloque\nFIN PROCEDIMIENTO\n```\nDefine un procedimiento (sin valor de retorno).',
@@ -461,7 +876,7 @@ function activate(context) {
         'ESPAR': '```ucaba\nESPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es par, `FALSO` si no.',
         'ESIMPAR': '```ucaba\nESIMPAR(numero): BOOLEANO\n```\nRetorna `VERDADERO` si el argumento entero es impar, `FALSO` si no.',
         'ABRIR_ARCHIVO': '```ucaba\nABRIR_ARCHIVO(ruta: CADENA, modo: CADENA): ARCHIVO\n```\nAbre un archivo y devuelve su manejador.',
-        'ESTRUCTURA': '```ucaba\nEstructura Nombre:\n    CADENA campo1\n    ENTERO campo2\nFin Estructura\n```\nDefine una estructura de datos personalizada con campos fuertemente tipados.',
+        'ESTRUCTURA': '```ucaba\nESTRUCTURA Nombre:\n    CADENA campo1\n    ENTERO campo2\nFIN ESTRUCTURA\n```\nDefine una estructura de datos personalizada con campos fuertemente tipados.',
         'INICIO': 'Marca el comienzo del programa principal.',
         'FIN': 'Cierra un bloque (`FIN SI`, `FIN PARA`, `FIN MIENTRAS`, `FIN FUNCION`, `FIN PROCEDIMIENTO`, `FIN ESTRUCTURA`) o el programa.',
         'SI': '```ucaba\nSI (condicion)\n    // bloque\nSINO\n    // bloque\nFIN SI\n```\nEstructura condicional.',
@@ -488,169 +903,6 @@ function activate(context) {
         'cerrar_archivo': '(método) `CERRAR_ARCHIVO()`\n\nCierra el archivo abierto liberando su descriptor.'
     };
 
-    const TYPE_KEYWORDS = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|NULO';
-    const FN_HEADER_RE = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?::\s*([A-Za-z]+(?:\s*\[\s*\])*))?/i;
-    const FN_END_RE = /^\s*FIN\s+(?:FUNCION|PROCEDIMIENTO)\b/i;
-    const STRUCT_HEADER_RE = /^\s*Estructura\s+([A-Za-z_][A-Za-z0-9_]*)\s*:?/i;
-    const STRUCT_END_RE = /^\s*FIN\s+ESTRUCTURA\b/i;
-
-    function escapeRegex(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    /** Busca la definición de una Estructura por nombre en un documento. */
-    function findStructInDocument(doc, name) {
-        const nameLower = name.toLowerCase();
-        for (let i = 0; i < doc.lineCount; i++) {
-            const m = doc.lineAt(i).text.match(STRUCT_HEADER_RE);
-            if (m && m[1].toLowerCase() === nameLower) {
-                const fields = [];
-                for (let j = i + 1; j < doc.lineCount; j++) {
-                    const lineText = doc.lineAt(j).text.trim();
-                    if (STRUCT_END_RE.test(lineText)) break;
-                    if (lineText && !lineText.startsWith('//')) {
-                        fields.push(lineText);
-                    }
-                }
-                return {
-                    doc,
-                    line: i,
-                    name: m[1],
-                    fields,
-                    comment: getLeadingComment(doc, i)
-                };
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Indica si la posición está dentro de un comentario o de una cadena de texto,
-     * recorriendo el documento desde el inicio (soporta """...""", slash-asterisco, // y "..." / '...').
-     */
-    function isInCommentOrString(document, position) {
-        const text = document.getText();
-        const target = document.offsetAt(position);
-        let i = 0;
-        while (i < target) {
-            const two = text.substr(i, 2);
-            const three = text.substr(i, 3);
-            if (three === '"""') {
-                const end = text.indexOf('"""', i + 3);
-                if (end === -1 || end + 3 > target) return true;
-                i = end + 3;
-            } else if (two === '/*') {
-                const end = text.indexOf('*/', i + 2);
-                if (end === -1 || end + 2 > target) return true;
-                i = end + 2;
-            } else if (two === '//') {
-                let end = text.indexOf('\n', i);
-                if (end === -1) end = text.length;
-                if (end > target) return true;
-                i = end;
-            } else if (text[i] === '"' || text[i] === "'") {
-                const quote = text[i];
-                let j = i + 1;
-                while (j < text.length && text[j] !== quote && text[j] !== '\n') {
-                    if (text[j] === '\\') j++;
-                    j++;
-                }
-                if (j >= target) return true;
-                i = j + 1;
-            } else {
-                i++;
-            }
-        }
-        return false;
-    }
-
-    /** Devuelve los comentarios `//` contiguos que preceden a una línea (documentación). */
-    function getLeadingComment(doc, lineNo) {
-        const lines = [];
-        for (let i = lineNo - 1; i >= 0; i--) {
-            const m = doc.lineAt(i).text.match(/^\s*\/\/\s?(.*)$/);
-            if (!m) break;
-            lines.unshift(m[1]);
-        }
-        return lines.join('\n');
-    }
-
-    /** Busca la definición de una FUNCION/PROCEDIMIENTO por nombre en un documento. */
-    function findFunctionInDocument(doc, name) {
-        const nameLower = name.toLowerCase();
-        for (let i = 0; i < doc.lineCount; i++) {
-            const m = doc.lineAt(i).text.match(FN_HEADER_RE);
-            if (m && m[2].toLowerCase() === nameLower) {
-                return {
-                    doc,
-                    line: i,
-                    kind: m[1].toUpperCase(),
-                    name: m[2],
-                    params: m[3].trim(),
-                    returnType: (m[4] || '').replace(/\s+/g, ''),
-                    comment: getLeadingComment(doc, i)
-                };
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Busca la declaración de una variable o parámetro respetando el alcance:
-     * hacia arriba desde la línea actual, saltando cuerpos de otras funciones.
-     */
-    function findVariableDeclaration(doc, name, fromLine) {
-        const esc = escapeRegex(name);
-
-        // Recolectar nombres de estructuras definidas en el documento
-        const structNames = [];
-        for (let k = 0; k < doc.lineCount; k++) {
-            const sm = doc.lineAt(k).text.match(STRUCT_HEADER_RE);
-            if (sm) structNames.push(escapeRegex(sm[1]));
-        }
-        const allTypes = structNames.length > 0 ? `${TYPE_KEYWORDS}|${structNames.join('|')}` : TYPE_KEYWORDS;
-
-        const varRe = new RegExp(`\\b(${allTypes})\\s+${esc}\\b((?:\\s*\\[[^\\]]*\\])*)`, 'i');
-        const paramRe = new RegExp(`^${esc}((?:\\s*\\[[^\\]]*\\])*)\\s*:\\s*([A-Za-z_][A-Za-z0-9_]*)$`, 'i');
-        let depth = 0;
-
-        for (let i = fromLine; i >= 0; i--) {
-            const text = doc.lineAt(i).text;
-            if (/^\s*\/\//.test(text)) continue;
-
-            if (i !== fromLine && FN_END_RE.test(text)) {
-                depth++;
-                continue;
-            }
-
-            const header = text.match(FN_HEADER_RE);
-            if (header) {
-                if (depth > 0) {
-                    depth--;
-                    continue;
-                }
-                // Cabecera de la función que contiene la posición: revisar sus parámetros
-                const pm = header[3].split(',')
-                    .map(p => p.trim().match(paramRe))
-                    .find(Boolean);
-                if (pm) {
-                    const dims = (pm[1].match(/\[/g) || []).length;
-                    return { kind: 'parámetro', type: pm[2] + '[]'.repeat(dims), name, line: i };
-                }
-                continue;
-            }
-
-            if (depth > 0) continue;
-
-            const vm = text.match(varRe);
-            if (vm) {
-                const dims = (vm[2].match(/\[/g) || []).length;
-                return { kind: 'variable', type: vm[1] + '[]'.repeat(dims), name, line: i };
-            }
-        }
-        return null;
-    }
-
     function makeHover(markdown, range) {
         const md = new vscode.MarkdownString(markdown);
         md.isTrusted = false;
@@ -668,10 +920,31 @@ function activate(context) {
             const isProperty = wordRange.start.character > 0 &&
                 /\.\s*$/.test(lineText.substring(0, wordRange.start.character));
 
-            // 1. Propiedades y métodos con punto (vector.largo, archivo.findearchivo, ...)
+            // 1. Propiedades y métodos con punto (vector.largo, archivo.findearchivo, struct.campo, ...)
             if (isProperty) {
                 const prop = propertyDocs[word.toLowerCase()];
-                return prop ? makeHover(prop, wordRange) : null;
+                if (prop) return makeHover(prop, wordRange);
+
+                // Si es un acceso a propiedad de una estructura (ej: pepe.nombre)
+                const preLine = lineText.substring(0, wordRange.start.character);
+                const dotMatch = preLine.match(/([A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?)*)\s*\.\s*$/);
+                if (dotMatch) {
+                    const targetExpr = dotMatch[1].trim();
+                    const targetType = resolveExpressionType(document, targetExpr, position.line);
+                    if (targetType) {
+                        const st = findStructAnywhere(document, targetType);
+                        if (st && st.parsedFields) {
+                            const f = st.parsedFields.find(x => x.name.toLowerCase() === word.toLowerCase());
+                            if (f) {
+                                let md = '```ucaba\n(campo) ' + f.type + ' ' + st.name + '.' + f.name + '\n```';
+                                md += `\n\n*Campo de la estructura* \`${st.name}\``;
+                                if (f.doc) md += '\n\n' + f.doc;
+                                return makeHover(md, wordRange);
+                            }
+                        }
+                    }
+                }
+                return null;
             }
 
             // 2. Palabras reservadas, tipos y funciones incorporadas

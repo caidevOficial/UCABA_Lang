@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.6.1-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.7.0-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-28%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-29%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -80,7 +80,7 @@ La forma más sencilla de configurar todo el ecosistema de UCABA en Windows es m
 2. El asistente te permitirá de forma automatizada:
    - ✅ Instalar el comando nativo `ucaba.exe` en tu sistema.
    - ✅ Añadir `ucaba` a la variable de entorno `PATH` del usuario.
-   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.6.1.vsix`).
+   - ✅ Instalar la extensión oficial de **Visual Studio Code** (`ucaba-language-support-1.7.0.vsix`).
    - ✅ Asociar los archivos `.ucaba` en Windows con el icono oficial y opciones de ejecución directa.
 
 > [!TIP]
