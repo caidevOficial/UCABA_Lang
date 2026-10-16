@@ -19,7 +19,7 @@
 Paquete oficial del Lenguaje de Programación UCABA.
 """
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 __author__ = "Facu Falcone <a.facundo.falcone@gmail.com>"
 
 import sys
@@ -28,8 +28,22 @@ import os
 _BANNER_PRINTED = False
 
 
+def _enable_windows_ansi():
+    """Habilita el procesamiento de secuencias ANSI en la consola de Windows si es necesario."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            hStdOut = kernel32.GetStdHandle(-11)
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(hStdOut, ctypes.byref(mode)):
+                kernel32.SetConsoleMode(hStdOut, mode.value | 0x0004)
+        except Exception:
+            pass
+
+
 def print_welcome_banner(force: bool = False):
-    """Muestra el mensaje institucional de la comunidad UCABA una única vez."""
+    """Muestra el mensaje institucional de la comunidad UCABA con el color fucsia oficial."""
     global _BANNER_PRINTED
     if _BANNER_PRINTED and not force:
         return
@@ -42,8 +56,18 @@ def print_welcome_banner(force: bool = False):
         return
 
     _BANNER_PRINTED = True
-    print(f"UCABA (v{__version__})")
-    print("Hello from the UCABA community. [Dev: Facu Falcone]")
+    _enable_windows_ansi()
+
+    # Color fucsia oficial de UCABA (#d946ef / #c02694)
+    if os.environ.get("NO_COLOR") or os.environ.get("UCABA_NO_COLOR"):
+        color_fucsia = ""
+        color_reset = ""
+    else:
+        color_fucsia = "\033[95m\033[1;38;2;217;70;239m"
+        color_reset = "\033[0m"
+
+    print(f"{color_fucsia}UCABA (v{__version__})")
+    print(f"Hello from the UCABA community. [Dev: Facu Falcone]{color_reset}")
 
 
 def saludo():
