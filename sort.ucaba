@@ -85,23 +85,23 @@ FIN FUNCION
         FIN SI
     FIN FUNCION
 
-// ENTERO size = 100000
-// ENTERO vector[size]
+ENTERO size = 100000
+ENTERO vector[size]
 
-// PARA(ENTERO i = size; i > 0; i--)
-//     vector[size - i] = i
-// FIN PARA
+PARA(ENTERO i = size; i > 0; i--)
+    vector[size - i] = i
+FIN PARA
 
 // Ejecutar Quicksort optimizado
-// vector = ordenar_vector_asc_quick(vector)
+vector = ordenar_vector_asc_quick(vector)
 
-// // Opcional: Probar Selection Sort descomentando la siguiente línea:
-// // vector = ORDENAR(vector)
+// Opcional: Probar Selection Sort descomentando la siguiente línea:
+// vector = ORDENAR(vector)
 
-// IMPRIMIR("Total elementos ordenados: " + vector.largo)
-// IMPRIMIR("Primer elemento: " + vector[0] + " | Ultimo elemento: " + vector[vector.largo - 1])
+IMPRIMIR("Total elementos ordenados: " + vector.largo)
+IMPRIMIR("Primer elemento: " + vector[0] + " | Ultimo elemento: " + vector[vector.largo - 1])
 
-ENTERO n = 10
-IMPRIMIR(fibonacci(n))
+// ENTERO n = 10
+// IMPRIMIR(fibonacci(n))
 
 FIN

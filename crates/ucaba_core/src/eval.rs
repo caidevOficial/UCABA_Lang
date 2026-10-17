@@ -69,6 +69,21 @@ pub fn check_type_compatibility(var_type: &DataType, val: &mut Value) -> Result<
         (DataType::Booleano, Value::Booleano(_)) => Ok(()),
         (DataType::Archivo, Value::Archivo(_)) | (DataType::Archivo, Value::Nulo) => Ok(()),
         (DataType::Vector(inner), Value::Vector(vec)) => {
+            if vec.is_empty() {
+                return Ok(());
+            }
+            let matches_homogeneous = match (inner.as_ref(), &vec[0]) {
+                (DataType::Entero, Value::Entero(_)) => true,
+                (DataType::Real, Value::Real(_)) => true,
+                (DataType::Flotante, Value::Flotante(_)) => true,
+                (DataType::Cadena, Value::Cadena(_)) => true,
+                (DataType::Caracter, Value::Caracter(_)) => true,
+                (DataType::Booleano, Value::Booleano(_)) => true,
+                _ => false,
+            };
+            if matches_homogeneous {
+                return Ok(());
+            }
             for elem in vec.iter_mut() {
                 check_type_compatibility(inner, elem)?;
             }
@@ -771,7 +786,6 @@ impl Interpreter {
                 }
             }
             Expression::IndexAccess { target, index } => {
-                let target_val = self.eval_expression(target)?;
                 let index_val = self.eval_expression(index)?;
                 let idx = match index_val {
                     Value::Entero(n) => n as usize,
@@ -786,6 +800,47 @@ impl Interpreter {
                     }
                 };
 
+                // Optimización rápida: Si el target es una variable directa, leer sin clonar el vector completo
+                if let Expression::Variable(var_name) = target.as_ref() {
+                    for scope in self.scopes.iter().rev() {
+                        if let Some(val) = scope.variables.get(var_name) {
+                            match val {
+                                Value::Vector(vec) => {
+                                    if idx >= vec.len() {
+                                        return Err(UcabaError::Runtime {
+                                            message: format!(
+                                                "Índice fuera de límites: {} (tamaño: {})",
+                                                idx,
+                                                vec.len()
+                                            ),
+                                            line: 0,
+                                            column: 0,
+                                        });
+                                    }
+                                    return Ok(vec[idx].clone());
+                                }
+                                Value::Cadena(s) => {
+                                    if let Some(ch) = s.chars().nth(idx) {
+                                        return Ok(Value::Caracter(ch));
+                                    } else {
+                                        return Err(UcabaError::Runtime {
+                                            message: format!(
+                                                "Índice fuera de límites: {} (longitud: {})",
+                                                idx,
+                                                s.chars().count()
+                                            ),
+                                            line: 0,
+                                            column: 0,
+                                        });
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                let target_val = self.eval_expression(target)?;
                 match target_val {
                     Value::Vector(vec) => {
                         if idx >= vec.len() {
@@ -809,6 +864,19 @@ impl Interpreter {
                 }
             }
             Expression::MemberAccess { target, member } => {
+                if member == "largo" {
+                    if let Expression::Variable(var_name) = target.as_ref() {
+                        for scope in self.scopes.iter().rev() {
+                            if let Some(val) = scope.variables.get(var_name) {
+                                match val {
+                                    Value::Vector(v) => return Ok(Value::Entero(v.len() as i64)),
+                                    Value::Cadena(s) => return Ok(Value::Entero(s.chars().count() as i64)),
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
                 let target_val = self.eval_expression(target)?;
                 if member == "largo" {
                     match target_val {
@@ -1073,8 +1141,9 @@ impl Interpreter {
 
                 // Vector + Vector (Concatenación)
                 if let (Value::Vector(v1), Value::Vector(v2)) = (left, right) {
-                    let mut combined = v1.clone();
-                    combined.extend(v2.clone());
+                    let mut combined = Vec::with_capacity(v1.len() + v2.len());
+                    combined.extend_from_slice(v1);
+                    combined.extend_from_slice(v2);
                     return Ok(Value::Vector(combined));
                 }
 
