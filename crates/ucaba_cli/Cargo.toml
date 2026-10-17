@@ -1,0 +1,20 @@
+[package]
+name = "ucaba_cli"
+version = "2.0.0"
+edition = "2021"
+authors = ["Facu Falcone <a.facundo.falcone@gmail.com>"]
+description = "CLI oficial del lenguaje de pseudocódigo en español UCABA"
+license = "GPL-3.0-or-later"
+
+[[bin]]
+name = "ucaba"
+path = "src/main.rs"
+
+[dependencies]
+ucaba_core = { path = "../ucaba_core" }
+clap = { version = "4.5", features = ["derive"] }
+colored = "3.0"
+
+[build-dependencies]
+winres = "0.1"
+

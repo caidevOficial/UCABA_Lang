@@ -1,8 +1,8 @@
 {
   "name": "ucaba-language-support",
   "displayName": "UCABA",
-  "description": "Soporte oficial para el lenguaje UCABA (.ucaba): coloreado de sintaxis, diagnósticos en tiempo real, autocompletado y ejecución.",
-  "version": "1.11.6",
+  "description": "Soporte oficial para el lenguaje UCABA (.ucaba): coloreado de sintaxis, diagnósticos instantáneos con motor nativo v2.0 en Rust, autocompletado y consola interactiva REPL.",
+  "version": "2.0.0",
   "author": "Facu Falcone <a.facundo.falcone@gmail.com>",
   "license": "GPL-3.0-or-later",
   "icon": "icon.png",
@@ -68,6 +68,11 @@
         "command": "ucaba.checkFile",
         "title": "UCABA: Verificar sintaxis y tipos del archivo",
         "category": "UCABA"
+      },
+      {
+        "command": "ucaba.startRepl",
+        "title": "UCABA: Iniciar consola interactiva REPL",
+        "category": "UCABA"
       }
     ],
     "menus": {
@@ -75,19 +80,29 @@
         {
           "command": "ucaba.runFile",
           "when": "resourceExtname == .ucaba",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "ucaba.startRepl",
+          "when": "resourceExtname == .ucaba",
+          "group": "navigation@2"
         }
       ],
       "editor/context": [
         {
           "command": "ucaba.runFile",
           "when": "resourceExtname == .ucaba",
-          "group": "1_modification"
+          "group": "1_modification@1"
         },
         {
           "command": "ucaba.checkFile",
           "when": "resourceExtname == .ucaba",
-          "group": "1_modification"
+          "group": "1_modification@2"
+        },
+        {
+          "command": "ucaba.startRepl",
+          "when": "resourceExtname == .ucaba",
+          "group": "1_modification@3"
         }
       ]
     },

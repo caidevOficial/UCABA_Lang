@@ -49,22 +49,52 @@ function getUcabaRunner() {
         return { isCli: true, executable: configuredCli.trim() };
     }
 
+    // 1. Binario local de release o debug en el workspace actual
+    if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+        const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const candidateBins = process.platform === 'win32'
+            ? [
+                path.join(root, 'target', 'release', 'ucaba.exe'),
+                path.join(root, 'target', 'debug', 'ucaba.exe')
+            ]
+            : [
+                path.join(root, 'target', 'release', 'ucaba'),
+                path.join(root, 'target', 'debug', 'ucaba')
+            ];
+        for (const candidate of candidateBins) {
+            if (fs.existsSync(candidate)) {
+                return { isCli: true, executable: candidate };
+            }
+        }
+    }
+
+    // 2. Instalación estándar en Windows
     if (process.platform === 'win32') {
         const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
         const defaultCli = path.join(localAppData, 'Programs', 'UCABA', 'bin', 'ucaba.exe');
         if (fs.existsSync(defaultCli)) {
             return { isCli: true, executable: defaultCli };
         }
+    } else {
+        // 2b. Rutas estándar en Linux y macOS
+        const unixCandidates = ['/usr/local/bin/ucaba', '/usr/bin/ucaba', path.join(process.env.HOME || '', '.local', 'bin', 'ucaba')];
+        for (const unixBin of unixCandidates) {
+            if (fs.existsSync(unixBin)) {
+                return { isCli: true, executable: unixBin };
+            }
+        }
     }
 
+    // 3. Binario en PATH
     try {
         const testRes = cp.spawnSync(process.platform === 'win32' ? 'ucaba.exe' : 'ucaba', ['--help'], { shell: true, timeout: 1000 });
         const output = (testRes.stdout ? testRes.stdout.toString() : '') + (testRes.stderr ? testRes.stderr.toString() : '');
         if (testRes.status === 0 && !output.includes('UCABA Stub Test Binary')) {
-            return { isCli: true, executable: 'ucaba' };
+            return { isCli: true, executable: process.platform === 'win32' ? 'ucaba.exe' : 'ucaba' };
         }
     } catch (e) {}
 
+    // 4. Fallback a Python si no se encuentra el binario nativo de Rust
     return { isCli: false, executable: getPythonPath() };
 }
 
@@ -182,7 +212,7 @@ function activate(context) {
             env.PYTHONPATH = workingDir;
         }
 
-        const args = runner.isCli ? ['lsp-check', '--lenient'] : ['-m', 'pseudocode.lsp_check', '--lenient'];
+        const args = runner.isCli ? ['lsp-check', '--lenient', '--stdin'] : ['-m', 'pseudocode.lsp_check', '--lenient'];
         const proc = cp.spawn(runner.executable, args, {
             cwd: workingDir,
             env: env,
@@ -1283,6 +1313,16 @@ function activate(context) {
                 const args = runner.isCli ? ['check', filePath] : ['-m', 'pseudocode', 'check', filePath];
                 terminal.sendText(buildTerminalCommand(terminal, runner.executable, args));
             });
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('ucaba.startRepl', () => {
+            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('UCABA REPL');
+            terminal.show();
+            const runner = getUcabaRunner();
+            const args = runner.isCli ? ['repl'] : ['-m', 'pseudocode', 'repl'];
+            terminal.sendText(buildTerminalCommand(terminal, runner.executable, args));
         })
     );
 }

@@ -1,0 +1,1039 @@
+// GNU General Public License v3.0 or later (GPL-3.0-or-later)
+//
+// Copyright (c) 2026 [Facu Falcone](a.facundo.falcone@gmail.com) All rights reserved.
+
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use eframe::egui::{self, Color32, Margin, RichText, Rounding, Stroke};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
+
+// Assets embebidos directamente en el binario del instalador
+const UCABA_EXE_BYTES: &[u8] = include_bytes!("../../../target/release/ucaba.exe");
+const UCABA_ICON_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.ico");
+const UCABA_ICON_PNG_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.png");
+const UCABA_LOGO_BYTES: &[u8] = include_bytes!("../../../ucaba_logo_header.png");
+const VSCODE_VSIX_BYTES: &[u8] = include_bytes!("../../../extension-vscode/ucaba-language-support-2.0.0.vsix");
+const UCABA_VERSION: &str = "2.0.0-alpha.1";
+
+fn current_time_str() -> String {
+    let dur = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = dur.as_secs();
+    let sec = secs % 60;
+    let min = (secs / 60) % 60;
+    let hour = (secs / 3600) % 24;
+    format!("{:02}:{:02}:{:02}", hour, min, sec)
+}
+
+enum InstallMsg {
+    Progress(f32, String),
+    Log(String),
+    DoneInstall,
+    DoneUninstall,
+    Error(String),
+}
+
+struct InstallerApp {
+    status_text: String,
+    progress: f32,
+    is_busy: bool,
+    is_completed: bool,
+    is_uninstalled: bool,
+    logs: Vec<String>,
+    logo_texture: Option<egui::TextureHandle>,
+
+    install_dir: String,
+    opt_install_cli: bool,
+    opt_add_path: bool,
+    opt_install_vscode: bool,
+    opt_associate_ext: bool,
+
+    rx: Option<Receiver<InstallMsg>>,
+}
+
+impl Default for InstallerApp {
+    fn default() -> Self {
+        let default_dir = std::env::var("LOCALAPPDATA")
+            .map(|p| format!(r"{}\Programs\UCABA\bin", p))
+            .unwrap_or_else(|_| r"C:\UCABA\bin".to_string());
+
+        Self {
+            status_text: "Listo para instalar.".to_string(),
+            progress: 0.0,
+            is_busy: false,
+            is_completed: false,
+            is_uninstalled: false,
+            logs: vec![
+                format!(
+                    "[{}] Asistente de instalación de UCABA v{} iniciado | Autor: <Facu Falcone>",
+                    current_time_str(),
+                    UCABA_VERSION
+                ),
+                format!(
+                    "[{}] Seleccione los componentes deseados y presione 'Instalar Ahora'.",
+                    current_time_str()
+                ),
+            ],
+            logo_texture: None,
+
+            install_dir: default_dir,
+            opt_install_cli: true,
+            opt_add_path: true,
+            opt_install_vscode: true,
+            opt_associate_ext: true,
+
+            rx: None,
+        }
+    }
+}
+
+impl eframe::App for InstallerApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Cargar textura del logo en el primer cuadro si aún no está en memoria
+        if self.logo_texture.is_none() {
+            if let Ok(img) = image::load_from_memory(UCABA_LOGO_BYTES) {
+                let rgba = img.to_rgba8();
+                let size = [rgba.width() as usize, rgba.height() as usize];
+                let pixels = rgba.into_raw();
+                let color_image = egui::ColorImage::from_rgba_unmultiplied(size, &pixels);
+                self.logo_texture = Some(ctx.load_texture("ucaba_logo", color_image, egui::TextureOptions::LINEAR));
+            }
+        }
+
+        // Configuración de paleta institucional Dark Magenta (#150817 base, #240a26 paneles)
+        let mut visuals = egui::Visuals::dark();
+        visuals.panel_fill = Color32::from_rgb(21, 8, 23); // #150817
+        visuals.window_fill = Color32::from_rgb(21, 8, 23);
+        visuals.extreme_bg_color = Color32::from_rgb(13, 4, 14); // #0d040e
+        visuals.faint_bg_color = Color32::from_rgb(36, 10, 38); // #240a26
+        visuals.override_text_color = Some(Color32::from_rgb(252, 231, 243)); // #fce7f3
+
+        // Widgets inactivos y bordes
+        visuals.widgets.inactive.bg_fill = Color32::from_rgb(46, 12, 50); // #2e0c32
+        visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(74, 18, 78)); // #4a124e
+        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(252, 231, 243));
+
+        // Hover interactivo
+        visuals.widgets.hovered.bg_fill = Color32::from_rgb(192, 38, 148); // #c02694
+        visuals.widgets.hovered.bg_stroke = Stroke::new(1.5_f32, Color32::from_rgb(244, 114, 182)); // #f472b6
+        visuals.widgets.hovered.fg_stroke = Stroke::new(1.5_f32, Color32::WHITE);
+
+        // Click activo
+        visuals.widgets.active.bg_fill = Color32::from_rgb(147, 21, 109);
+        visuals.widgets.active.bg_stroke = Stroke::new(2.0_f32, Color32::from_rgb(244, 114, 182));
+        visuals.widgets.active.fg_stroke = Stroke::new(2.0_f32, Color32::WHITE);
+
+        visuals.selection.bg_fill = Color32::from_rgb(168, 26, 125); // #a81a7d
+        ctx.set_visuals(visuals);
+
+        // Polling de mensajes del hilo de instalación/desinstalación
+        let mut msg_received = false;
+        if let Some(ref rx) = self.rx {
+            while let Ok(msg) = rx.try_recv() {
+                msg_received = true;
+                match msg {
+                    InstallMsg::Progress(val, st) => {
+                        self.progress = val;
+                        self.status_text = st;
+                    }
+                    InstallMsg::Log(line) => {
+                        self.logs.push(format!("[{}] {}", current_time_str(), line));
+                    }
+                    InstallMsg::DoneInstall => {
+                        self.progress = 1.0;
+                        self.is_busy = false;
+                        self.is_completed = true;
+                        self.status_text = "¡Instalación completada exitosamente!".to_string();
+                        self.logs.push(format!("[{}] >>> ¡PROCESO FINALIZADO CON ÉXITO! <<<", current_time_str()));
+                        self.logs.push(format!("[{}] Ya puede ejecutar 'ucaba run <archivo.ucaba>' en cualquier consola.", current_time_str()));
+                    }
+                    InstallMsg::DoneUninstall => {
+                        self.progress = 1.0;
+                        self.is_busy = false;
+                        self.is_uninstalled = true;
+                        self.status_text = "¡Desinstalación completada con éxito!".to_string();
+                    }
+                    InstallMsg::Error(err) => {
+                        self.is_busy = false;
+                        self.status_text = format!("Error: {}", err);
+                        self.logs.push(format!("[{}] [ERROR CRÍTICO]: {}", current_time_str(), err));
+                    }
+                }
+            }
+        }
+        if msg_received {
+            ctx.request_repaint();
+        }
+
+        // ====================================================================
+        // 1. PANEL SUPERIOR (CABECERA INSTITUCIONAL)
+        // ====================================================================
+        let header_frame = egui::Frame::none()
+            .fill(Color32::from_rgb(36, 10, 38)) // #240a26
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(74, 18, 78))) // #4a124e
+            .inner_margin(Margin { left: 20.0, right: 20.0, top: 14.0, bottom: 14.0 });
+
+        egui::TopBottomPanel::top("header_panel")
+            .frame(header_frame)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    // Isotipo institucional oficial
+                    if let Some(texture) = &self.logo_texture {
+                        ui.add(egui::Image::new(texture).fit_to_exact_size(egui::vec2(52.0, 52.0)));
+                        ui.add_space(14.0);
+                    }
+
+                    // Bloque de títulos y badges
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new("UCABA")
+                                    .size(24.0)
+                                    .color(Color32::WHITE)
+                                    .strong(),
+                            );
+                            ui.add_space(8.0);
+
+                            // Pill de versión
+                            egui::Frame::none()
+                                .fill(Color32::from_rgb(112, 26, 117)) // #701a75
+                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(244, 114, 182))) // #f472b6
+                                .rounding(Rounding::same(4.0))
+                                .inner_margin(Margin { left: 8.0, right: 8.0, top: 2.0, bottom: 2.0 })
+                                .show(ui, |ui| {
+                                    ui.label(
+                                        RichText::new("v2.0")
+                                            .size(11.0)
+                                            .strong()
+                                            .color(Color32::from_rgb(253, 244, 255)),
+                                    );
+                                });
+
+                            ui.add_space(6.0);
+
+                            // Pill de motor Rust
+                            egui::Frame::none()
+                                .fill(Color32::from_rgb(56, 13, 63)) // #380d3f
+                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(189, 36, 145))) // #bd2491
+                                .rounding(Rounding::same(4.0))
+                                .inner_margin(Margin { left: 8.0, right: 8.0, top: 2.0, bottom: 2.0 })
+                                .show(ui, |ui| {
+                                    ui.label(
+                                        RichText::new("Rust Engine")
+                                            .size(10.0)
+                                            .strong()
+                                            .color(Color32::from_rgb(252, 231, 243)),
+                                    );
+                                });
+                        });
+
+                        ui.add_space(2.0);
+                        ui.label(
+                            RichText::new(format!(
+                                "Instalador del Lenguaje (v{}) & Extensión para Visual Studio Code",
+                                UCABA_VERSION
+                            ))
+                            .size(11.5)
+                            .color(Color32::from_rgb(244, 114, 182)),
+                        );
+                    });
+
+                    // Insignia de Autoría a la derecha
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        egui::Frame::none()
+                            .fill(Color32::from_rgb(56, 13, 63)) // #380d3f
+                            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(168, 26, 125))) // #a81a7d
+                            .rounding(Rounding::same(6.0))
+                            .inner_margin(Margin { left: 14.0, right: 14.0, top: 6.0, bottom: 6.0 })
+                            .show(ui, |ui| {
+                                ui.label(
+                                    RichText::new("Autor: <Facu Falcone>")
+                                        .size(11.0)
+                                        .strong()
+                                        .color(Color32::from_rgb(252, 231, 243)),
+                                );
+                            });
+                    });
+                });
+            });
+
+        // ====================================================================
+        // 2. PANEL INFERIOR (ESTADO Y BOTONERA DE ACCIÓN)
+        // ====================================================================
+        let footer_frame = egui::Frame::none()
+            .fill(Color32::from_rgb(36, 10, 38)) // #240a26
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(74, 18, 78))) // #4a124e
+            .inner_margin(Margin { left: 20.0, right: 20.0, top: 12.0, bottom: 12.0 });
+
+        egui::TopBottomPanel::bottom("footer_panel")
+            .frame(footer_frame)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    // Estado dinámico
+                    let (status_icon, status_color) = if self.is_completed || self.is_uninstalled {
+                        ("✔ ", Color32::from_rgb(74, 222, 128)) // Verde
+                    } else if self.is_busy {
+                        ("⏳ ", Color32::from_rgb(56, 189, 248)) // Azul celeste
+                    } else if self.status_text.starts_with("Error") {
+                        ("✖ ", Color32::from_rgb(248, 113, 113)) // Rojo
+                    } else {
+                        ("● ", Color32::from_rgb(244, 114, 182)) // Rosa suave
+                    };
+
+                    ui.label(
+                        RichText::new(format!("{}{}", status_icon, self.status_text))
+                            .size(11.5)
+                            .color(status_color)
+                            .strong(),
+                    );
+
+                    // Botonera alineada a la derecha
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        // Botón Primario: Instalar Ahora
+                        let install_btn = egui::Button::new(
+                            RichText::new("  Instalar Ahora  ")
+                                .size(13.0)
+                                .color(Color32::WHITE)
+                                .strong(),
+                        )
+                        .fill(if self.is_busy {
+                            Color32::from_rgb(70, 20, 60)
+                        } else {
+                            Color32::from_rgb(168, 26, 125) // #a81a7d
+                        });
+
+                        if ui
+                            .add_enabled(!self.is_busy, install_btn)
+                            .on_hover_text("Inicia la instalación completa de UCABA 2.0 y su extensión")
+                            .clicked()
+                        {
+                            self.start_installation();
+                        }
+
+                        ui.add_space(8.0);
+
+                        // Botón Secundario: Desinstalar
+                        let uninstall_btn = egui::Button::new(
+                            RichText::new(" Desinstalar ")
+                                .size(11.5)
+                                .color(Color32::WHITE),
+                        )
+                        .fill(Color32::from_rgb(136, 19, 55)); // #881337
+
+                        if ui
+                            .add_enabled(!self.is_busy, uninstall_btn)
+                            .on_hover_text("Remueve el binario ucaba.exe, quita del PATH y retira extensiones")
+                            .clicked()
+                        {
+                            self.start_uninstallation();
+                        }
+
+                        ui.add_space(8.0);
+
+                        // Botón Salir / Cerrar
+                        let exit_btn = egui::Button::new(
+                            RichText::new("  Cerrar  ")
+                                .size(11.5)
+                                .color(Color32::from_rgb(252, 231, 243)),
+                        )
+                        .fill(Color32::from_rgb(59, 21, 62)); // #3b153e
+
+                        if ui.add(exit_btn).clicked() {
+                            std::process::exit(0);
+                        }
+                    });
+                });
+            });
+
+        // ====================================================================
+        // 3. PANEL CENTRAL (OPCIONES, PROGRESO Y CONSOLA DE LOGS)
+        // ====================================================================
+        let central_frame = egui::Frame::none()
+            .fill(Color32::from_rgb(21, 8, 23)) // #150817
+            .inner_margin(Margin { left: 20.0, right: 20.0, top: 14.0, bottom: 14.0 });
+
+        egui::CentralPanel::default()
+            .frame(central_frame)
+            .show(ctx, |ui| {
+                // Tarjeta 1: Opciones de Configuración
+                let card_frame = egui::Frame::none()
+                    .fill(Color32::from_rgb(26, 9, 29))
+                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(61, 12, 64)))
+                    .rounding(Rounding::same(8.0))
+                    .inner_margin(Margin { left: 16.0, right: 16.0, top: 12.0, bottom: 12.0 });
+
+                card_frame.show(ui, |ui| {
+                    ui.label(
+                        RichText::new("Componentes y Tareas de Instalación:")
+                            .size(13.0)
+                            .color(Color32::from_rgb(250, 232, 255))
+                            .strong(),
+                    );
+                    ui.add_space(6.0);
+
+                    ui.add_enabled(
+                        !self.is_busy,
+                        egui::Checkbox::new(
+                            &mut self.opt_install_cli,
+                            RichText::new("Instalar ejecutable nativo 'ucaba.exe' en %LOCALAPPDATA%\\Programs\\UCABA\\bin")
+                                .size(11.5)
+                                .color(Color32::from_rgb(252, 231, 243)),
+                        ),
+                    );
+                    ui.add_space(3.0);
+
+                    ui.add_enabled(
+                        !self.is_busy,
+                        egui::Checkbox::new(
+                            &mut self.opt_add_path,
+                            RichText::new("Agregar UCABA a la variable de entorno PATH (usar 'ucaba' desde cualquier terminal)")
+                                .size(11.5)
+                                .color(Color32::from_rgb(252, 231, 243)),
+                        ),
+                    );
+                    ui.add_space(3.0);
+
+                    ui.add_enabled(
+                        !self.is_busy,
+                        egui::Checkbox::new(
+                            &mut self.opt_install_vscode,
+                            RichText::new("Instalar extensión oficial en Visual Studio Code y Antigravity (coloreado, linter y LSP)")
+                                .size(11.5)
+                                .color(Color32::from_rgb(252, 231, 243)),
+                        ),
+                    );
+                    ui.add_space(3.0);
+
+                    ui.add_enabled(
+                        !self.is_busy,
+                        egui::Checkbox::new(
+                            &mut self.opt_associate_ext,
+                            RichText::new("Asociar archivos .ucaba en Windows (icono oficial del lenguaje y comando 'Abrir/Ejecutar')")
+                                .size(11.5)
+                                .color(Color32::from_rgb(252, 231, 243)),
+                        ),
+                    );
+
+                    ui.add_space(8.0);
+                    ui.separator();
+                    ui.add_space(6.0);
+
+                    // Ruta de instalación editable
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new("Directorio de Instalación:")
+                                .size(11.0)
+                                .color(Color32::from_rgb(244, 114, 182))
+                                .strong(),
+                        );
+                        ui.add_space(4.0);
+                        ui.add_enabled(
+                            !self.is_busy,
+                            egui::TextEdit::singleline(&mut self.install_dir)
+                                .desired_width(f32::INFINITY)
+                                .font(egui::TextStyle::Monospace),
+                        );
+                    });
+                });
+
+                ui.add_space(10.0);
+
+                // Barra de Progreso
+                let progress_bar = egui::ProgressBar::new(self.progress)
+                    .show_percentage()
+                    .animate(self.is_busy)
+                    .fill(Color32::from_rgb(168, 26, 125));
+                ui.add_sized([ui.available_width(), 16.0], progress_bar);
+
+                ui.add_space(10.0);
+
+                // Fila de Cabecera de la Consola de Logs
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("Registro de eventos:")
+                            .size(12.0)
+                            .color(Color32::from_rgb(244, 114, 182))
+                            .strong(),
+                    );
+
+                    if self.is_completed {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            let open_cmd_btn = egui::Button::new(
+                                RichText::new(" ▶ Probar 'ucaba --version' en PowerShell ")
+                                    .size(11.0)
+                                    .color(Color32::WHITE)
+                                    .strong(),
+                            )
+                            .fill(Color32::from_rgb(37, 99, 235)); // Azul brillante
+
+                            if ui.add(open_cmd_btn).clicked() {
+                                let _ = Command::new("powershell.exe")
+                                    .arg("-NoExit")
+                                    .arg("-Command")
+                                    .arg("ucaba --version; Write-Host ''; Write-Host '¡UCABA 2.0 está listo para ser utilizado!' -ForegroundColor Magenta")
+                                    .spawn();
+                            }
+                        });
+                    }
+                });
+
+                ui.add_space(4.0);
+
+                // Tarjeta 2: Consola de Logs estilo Terminal
+                let log_frame = egui::Frame::none()
+                    .fill(Color32::from_rgb(13, 4, 14)) // #0d040e
+                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(61, 12, 64))) // #3d0c40
+                    .rounding(Rounding::same(6.0))
+                    .inner_margin(Margin { left: 10.0, right: 10.0, top: 8.0, bottom: 8.0 });
+
+                log_frame.show(ui, |ui| {
+                    egui::ScrollArea::vertical()
+                        .max_height(ui.available_height())
+                        .stick_to_bottom(true)
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            for log in &self.logs {
+                                ui.monospace(
+                                    RichText::new(log)
+                                        .color(Color32::from_rgb(245, 208, 254))
+                                        .size(11.0),
+                                );
+                            }
+                        });
+                });
+            });
+    }
+}
+
+impl InstallerApp {
+    fn start_installation(&mut self) {
+        self.is_busy = true;
+        self.is_completed = false;
+        self.is_uninstalled = false;
+        self.progress = 0.05;
+        self.status_text = "Iniciando instalación...".to_string();
+        self.logs.push(format!("[{}] Iniciando tareas de instalación seleccionadas...", current_time_str()));
+
+        let (tx, rx) = channel();
+        self.rx = Some(rx);
+
+        let cfg = InstallConfig {
+            target_dir: self.install_dir.clone(),
+            install_cli: self.opt_install_cli,
+            add_path: self.opt_add_path,
+            install_vscode: self.opt_install_vscode,
+            associate_ext: self.opt_associate_ext,
+        };
+
+        thread::spawn(move || {
+            if let Err(e) = run_installation_pipeline(tx.clone(), cfg) {
+                let _ = tx.send(InstallMsg::Error(e));
+            }
+        });
+    }
+
+    fn start_uninstallation(&mut self) {
+        self.is_busy = true;
+        self.is_completed = false;
+        self.is_uninstalled = false;
+        self.progress = 0.05;
+        self.status_text = "Iniciando desinstalación...".to_string();
+        self.logs.push(format!("[{}] Iniciando tareas de desinstalación...", current_time_str()));
+
+        let (tx, rx) = channel();
+        self.rx = Some(rx);
+
+        let target_dir = self.install_dir.clone();
+
+        thread::spawn(move || {
+            run_uninstallation_pipeline(tx, target_dir);
+        });
+    }
+}
+
+struct InstallConfig {
+    target_dir: String,
+    install_cli: bool,
+    add_path: bool,
+    install_vscode: bool,
+    associate_ext: bool,
+}
+
+fn run_installation_pipeline(tx: Sender<InstallMsg>, cfg: InstallConfig) -> Result<(), String> {
+    let target_path = PathBuf::from(&cfg.target_dir);
+    let exe_path = target_path.join("ucaba.exe");
+    let icon_path = target_path.join("ucaba_icon.ico");
+
+    // 1. Crear directorio destino
+    tx.send(InstallMsg::Progress(0.15, "Preparando directorio de instalación...".to_string())).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&target_path)
+        .map_err(|e| format!("No se pudo crear '{}': {}", cfg.target_dir, e))?;
+    tx.send(InstallMsg::Log(format!("[OK] Directorio listo: {}", cfg.target_dir))).map_err(|e| e.to_string())?;
+
+    // 2. Extraer ucaba.exe
+    if cfg.install_cli {
+        tx.send(InstallMsg::Progress(0.35, "Extrayendo motor nativo ucaba.exe...".to_string())).map_err(|e| e.to_string())?;
+        fs::write(&exe_path, UCABA_EXE_BYTES)
+            .map_err(|e| format!("Error escribiendo ucaba.exe: {}", e))?;
+        tx.send(InstallMsg::Log(format!("[OK] ucaba.exe copiado exitosamente ({} bytes)", UCABA_EXE_BYTES.len()))).map_err(|e| e.to_string())?;
+    }
+
+    // 3. Extraer icono institucional
+    if let Err(e) = fs::write(&icon_path, UCABA_ICON_BYTES) {
+        tx.send(InstallMsg::Log(format!("[AVISO] Icono no extraído: {}", e))).map_err(|e| e.to_string())?;
+    } else {
+        tx.send(InstallMsg::Log("[OK] ucaba_icon.ico extraído correctamente".to_string())).map_err(|e| e.to_string())?;
+    }
+
+    // 4. Agregar a variable PATH del usuario
+    if cfg.add_path {
+        tx.send(InstallMsg::Progress(0.55, "Configurando variable PATH del usuario...".to_string())).map_err(|e| e.to_string())?;
+        match add_to_user_path(&cfg.target_dir) {
+            Ok(_) => {
+                broadcast_env_change();
+                tx.send(InstallMsg::Log("[OK] PATH actualizado y notificación de sistema enviada".to_string())).map_err(|e| e.to_string())?;
+            }
+            Err(e) => {
+                tx.send(InstallMsg::Log(format!("[AVISO] PATH: {}", e))).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    // 5. Asociar extensión .ucaba
+    if cfg.associate_ext && exe_path.exists() {
+        tx.send(InstallMsg::Progress(0.70, "Registrando asociación de archivos .ucaba...".to_string())).map_err(|e| e.to_string())?;
+        if let Err(e) = register_file_association(&exe_path, &icon_path) {
+            tx.send(InstallMsg::Log(format!("[AVISO] Asociación .ucaba: {}", e))).map_err(|e| e.to_string())?;
+        } else {
+            tx.send(InstallMsg::Log("[OK] Asociación de archivos .ucaba registrada en Windows con icono oficial".to_string())).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // 6. Instalar extensión en VS Code
+    if cfg.install_vscode {
+        tx.send(InstallMsg::Progress(0.88, "Instalando extensión en Visual Studio Code...".to_string())).map_err(|e| e.to_string())?;
+        let temp_vsix = std::env::temp_dir().join("ucaba_ext_temp.vsix");
+        if fs::write(&temp_vsix, VSCODE_VSIX_BYTES).is_ok() {
+            let vs_res = install_vsix_extension(&temp_vsix);
+            let _ = fs::remove_file(&temp_vsix);
+            match vs_res {
+                Ok(_) => {
+                    tx.send(InstallMsg::Log("[OK] Extensión de Visual Studio Code instalada con éxito".to_string())).map_err(|e| e.to_string())?;
+                }
+                Err(w) => {
+                    tx.send(InstallMsg::Log(format!("[AVISO] Extensión VS Code: {}", w))).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+
+    // 8. Registro en Agregar/Quitar programas de Windows
+    register_uninstaller(&target_path, &icon_path);
+
+    tx.send(InstallMsg::Progress(1.0, "Instalación completada".to_string())).map_err(|e| e.to_string())?;
+    tx.send(InstallMsg::DoneInstall).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn run_uninstallation_pipeline(tx: Sender<InstallMsg>, target_dir: String) {
+    let _ = tx.send(InstallMsg::Progress(0.20, "Removiendo archivos del lenguaje...".to_string()));
+    let _ = tx.send(InstallMsg::Log("[1/4] Removiendo archivos del lenguaje UCABA...".to_string()));
+    let target_path = PathBuf::from(&target_dir);
+    if target_path.exists() {
+        let root_to_delete = if target_path.ends_with("bin") {
+            target_path.parent().unwrap_or(&target_path)
+        } else {
+            &target_path
+        };
+        if let Err(e) = fs::remove_dir_all(root_to_delete) {
+            let _ = tx.send(InstallMsg::Log(format!("[AVISO] No se pudo borrar todo el directorio: {}", e)));
+        } else {
+            let _ = tx.send(InstallMsg::Log(format!("[OK] Directorio eliminado: {}", root_to_delete.display())));
+        }
+    }
+
+    let _ = tx.send(InstallMsg::Progress(0.45, "Restaurando variable de entorno PATH...".to_string()));
+    let _ = tx.send(InstallMsg::Log("[2/4] Quitando UCABA de la variable de entorno PATH...".to_string()));
+    let _ = remove_from_user_path(&target_dir);
+    let _ = tx.send(InstallMsg::Log("[OK] Variable PATH restaurada exitosamente.".to_string()));
+
+    let _ = tx.send(InstallMsg::Progress(0.70, "Removiendo asociaciones de archivos...".to_string()));
+    let _ = tx.send(InstallMsg::Log("[3/4] Removiendo asociaciones de archivos .ucaba en Windows...".to_string()));
+    remove_file_association();
+    remove_uninstaller();
+    let _ = tx.send(InstallMsg::Log("[OK] Asociaciones y registro de desinstalación eliminados.".to_string()));
+
+    let _ = tx.send(InstallMsg::Progress(0.85, "Removiendo extensión de editores...".to_string()));
+    let _ = tx.send(InstallMsg::Log("[4/4] Removiendo extensión de VS Code / Cursor / Antigravity...".to_string()));
+    let _ = Command::new("code")
+        .arg("--uninstall-extension")
+        .arg("ucaba.ucaba-language-support")
+        .output();
+
+    if let Ok(user_home) = std::env::var("USERPROFILE") {
+        let home = PathBuf::from(user_home);
+        let targets = [
+            home.join(r".vscode\extensions\ucaba.ucaba-language-support-1.11.6"),
+            home.join(r".vscode\extensions\ucaba-language-support"),
+            home.join(r".antigravity-ide\extensions\ucaba-language-support"),
+            home.join(r"Desktop\UCABA.lnk"),
+            home.join(r"AppData\Roaming\Microsoft\Windows\Start Menu\Programs\UCABA.lnk"),
+        ];
+        for t in targets {
+            if t.exists() {
+                if t.is_dir() {
+                    let _ = fs::remove_dir_all(&t);
+                } else {
+                    let _ = fs::remove_file(&t);
+                }
+                let _ = tx.send(InstallMsg::Log(format!("[OK] Eliminado residuo: {}", t.display())));
+            }
+        }
+    }
+
+    let _ = tx.send(InstallMsg::Progress(1.0, "Desinstalación completada con éxito".to_string()));
+    let _ = tx.send(InstallMsg::Log(">>> ¡DESINSTALACIÓN FINALIZADA CON ÉXITO! <<<".to_string()));
+    let _ = tx.send(InstallMsg::DoneUninstall);
+}
+
+fn add_to_user_path(target_dir: &str) -> Result<(), String> {
+    use std::ptr::null_mut;
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE, REG_EXPAND_SZ,
+    };
+
+    let subkey: Vec<u16> = "Environment\0".encode_utf16().collect();
+    let val_name: Vec<u16> = "PATH\0".encode_utf16().collect();
+
+    let mut hkey: HKEY = null_mut();
+    let res = unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, subkey.as_ptr(), 0, KEY_READ | KEY_WRITE, &mut hkey) };
+    if res != 0 {
+        return Err(format!("Error abriendo clave de registro Environment: código {}", res));
+    }
+
+    let mut buf = vec![0u16; 8192];
+    let mut buf_size = (buf.len() * 2) as u32;
+    let mut val_type = 0;
+
+    let q_res = unsafe {
+        RegQueryValueExW(
+            hkey,
+            val_name.as_ptr(),
+            null_mut(),
+            &mut val_type,
+            buf.as_mut_ptr() as *mut u8,
+            &mut buf_size,
+        )
+    };
+
+    let current_path = if q_res == 0 {
+        let len = (buf_size as usize / 2).saturating_sub(1);
+        String::from_utf16_lossy(&buf[..len])
+    } else {
+        String::new()
+    };
+
+    if !current_path.split(';').any(|p| p.trim().eq_ignore_ascii_case(target_dir)) {
+        let new_path = if current_path.is_empty() {
+            target_dir.to_string()
+        } else {
+            format!("{};{}", current_path, target_dir)
+        };
+
+        let wide_new: Vec<u16> = new_path.encode_utf16().chain(std::iter::once(0)).collect();
+        let target_type = if val_type == 0 { REG_EXPAND_SZ } else { val_type };
+
+        unsafe {
+            RegSetValueExW(
+                hkey,
+                val_name.as_ptr(),
+                0,
+                target_type,
+                wide_new.as_ptr() as *const u8,
+                (wide_new.len() * 2) as u32,
+            );
+        }
+    }
+
+    unsafe { RegCloseKey(hkey) };
+    Ok(())
+}
+
+fn remove_from_user_path(target_dir: &str) -> Result<(), String> {
+    use std::ptr::null_mut;
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE, REG_EXPAND_SZ,
+    };
+
+    let subkey: Vec<u16> = "Environment\0".encode_utf16().collect();
+    let val_name: Vec<u16> = "PATH\0".encode_utf16().collect();
+
+    let mut hkey: HKEY = null_mut();
+    let res = unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, subkey.as_ptr(), 0, KEY_READ | KEY_WRITE, &mut hkey) };
+    if res != 0 {
+        return Err(format!("Error abriendo clave Environment: código {}", res));
+    }
+
+    let mut buf = vec![0u16; 8192];
+    let mut buf_size = (buf.len() * 2) as u32;
+    let mut val_type = 0;
+
+    let q_res = unsafe {
+        RegQueryValueExW(
+            hkey,
+            val_name.as_ptr(),
+            null_mut(),
+            &mut val_type,
+            buf.as_mut_ptr() as *mut u8,
+            &mut buf_size,
+        )
+    };
+
+    if q_res == 0 {
+        let len = (buf_size as usize / 2).saturating_sub(1);
+        let current_path = String::from_utf16_lossy(&buf[..len]);
+        let filtered: Vec<&str> = current_path
+            .split(';')
+            .filter(|p| !p.trim().is_empty() && !p.trim().eq_ignore_ascii_case(target_dir))
+            .collect();
+
+        let new_path = filtered.join(";");
+        let wide_new: Vec<u16> = new_path.encode_utf16().chain(std::iter::once(0)).collect();
+        let target_type = if val_type == 0 { REG_EXPAND_SZ } else { val_type };
+
+        unsafe {
+            RegSetValueExW(
+                hkey,
+                val_name.as_ptr(),
+                0,
+                target_type,
+                wide_new.as_ptr() as *const u8,
+                (wide_new.len() * 2) as u32,
+            );
+        }
+    }
+
+    unsafe { RegCloseKey(hkey) };
+    broadcast_env_change();
+    Ok(())
+}
+
+fn broadcast_env_change() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+    };
+
+    let env_str: Vec<u16> = "Environment\0".encode_utf16().collect();
+    let mut res = 0;
+    unsafe {
+        SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            0,
+            env_str.as_ptr() as isize,
+            SMTO_ABORTIFHUNG,
+            2000,
+            &mut res,
+        );
+    }
+}
+
+fn refresh_shell_icons() {
+    use windows_sys::Win32::UI::Shell::{SHChangeNotify, SHCNE_ASSOCCHANGED, SHCNF_IDLIST};
+    unsafe {
+        SHChangeNotify(SHCNE_ASSOCCHANGED as i32, SHCNF_IDLIST, std::ptr::null(), std::ptr::null());
+    }
+}
+
+fn register_file_association(exe_path: &Path, icon_path: &Path) -> Result<(), String> {
+    let ps_script = format!(
+        r#"
+        $extPath = "HKCU:\Software\Classes\.ucaba"
+        $progPath = "HKCU:\Software\Classes\UCABAFile"
+        New-Item -Path $extPath -Force | Out-Null
+        Set-ItemProperty -Path $extPath -Name "(Default)" -Value "UCABAFile"
+        New-Item -Path $progPath -Force | Out-Null
+        Set-ItemProperty -Path $progPath -Name "(Default)" -Value "Código Fuente UCABA"
+        $iconPath = "{}"
+        if (Test-Path $iconPath) {{
+            $iconReg = "$progPath\DefaultIcon"
+            New-Item -Path $iconReg -Force | Out-Null
+            Set-ItemProperty -Path $iconReg -Name "(Default)" -Value "$iconPath,0"
+        }}
+        $cmdReg = "$progPath\shell\open\command"
+        New-Item -Path $cmdReg -Force | Out-Null
+        Set-ItemProperty -Path $cmdReg -Name "(Default)" -Value 'cmd.exe /k "\"{}\" run \"%1\""'
+        "#,
+        icon_path.to_string_lossy(),
+        exe_path.to_string_lossy()
+    );
+
+    let _ = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(ps_script)
+        .output();
+
+    refresh_shell_icons();
+    Ok(())
+}
+
+fn remove_file_association() {
+    let ps_script = r#"
+        Remove-Item -Path "HKCU:\Software\Classes\.ucaba" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKCU:\Software\Classes\UCABAFile" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKCU:\Software\Classes\UCABA.Program" -Recurse -Force -ErrorAction SilentlyContinue
+    "#;
+    let _ = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(ps_script)
+        .output();
+
+    refresh_shell_icons();
+}
+
+fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
+    let output = Command::new("code")
+        .arg("--install-extension")
+        .arg(vsix_path)
+        .arg("--force")
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            return Ok(());
+        }
+    }
+
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        let code_cmd = PathBuf::from(local).join(r"Programs\Microsoft VS Code\bin\code.cmd");
+        if code_cmd.exists() {
+            let res = Command::new(&code_cmd)
+                .arg("--install-extension")
+                .arg(vsix_path)
+                .arg("--force")
+                .output();
+            if let Ok(out) = res {
+                if out.status.success() {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    Err("No se detectó el comando 'code' de VS Code. Instala el .vsix manualmente si usas VS Code portable.".to_string())
+}
+
+fn register_uninstaller(target_dir: &Path, icon_path: &Path) {
+    let ps_script = format!(
+        r#"
+        $unPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\UCABA"
+        New-Item -Path $unPath -Force | Out-Null
+        Set-ItemProperty -Path $unPath -Name "DisplayName" -Value "UCABA Lenguaje de Programación (v{})"
+        Set-ItemProperty -Path $unPath -Name "DisplayVersion" -Value "{}"
+        Set-ItemProperty -Path $unPath -Name "Publisher" -Value "Facu Falcone"
+        Set-ItemProperty -Path $unPath -Name "DisplayIcon" -Value "{}"
+        Set-ItemProperty -Path $unPath -Name "InstallLocation" -Value "{}"
+        Set-ItemProperty -Path $unPath -Name "UninstallString" -Value 'powershell -Command "Remove-Item -Recurse -Force \"{}\""'
+        "#,
+        UCABA_VERSION,
+        UCABA_VERSION,
+        icon_path.to_string_lossy(),
+        target_dir.to_string_lossy(),
+        target_dir.to_string_lossy()
+    );
+
+    let _ = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(ps_script)
+        .output();
+}
+
+fn remove_uninstaller() {
+    let ps_script = r#"
+        Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\UCABA" -Recurse -Force -ErrorAction SilentlyContinue
+    "#;
+    let _ = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(ps_script)
+        .output();
+}
+
+fn main() -> eframe::Result<()> {
+    // Si se pasa flag silencioso
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--silent" || a == "-s") {
+        let (tx, rx) = channel();
+        let target_dir = std::env::var("LOCALAPPDATA")
+            .map(|p| format!(r"{}\Programs\UCABA\bin", p))
+            .unwrap_or_else(|_| r"C:\UCABA\bin".to_string());
+
+        let cfg = InstallConfig {
+            target_dir,
+            install_cli: true,
+            add_path: true,
+            install_vscode: true,
+            associate_ext: true,
+        };
+
+        let res = run_installation_pipeline(tx, cfg);
+        while let Ok(msg) = rx.try_recv() {
+            match msg {
+                InstallMsg::Log(l) => println!("{}", l),
+                InstallMsg::Error(e) => eprintln!("Error: {}", e),
+                _ => {}
+            }
+        }
+        if res.is_ok() {
+            println!("Instalación silenciosa completada.");
+            std::process::exit(0);
+        } else {
+            std::process::exit(1);
+        }
+    }
+
+    #[cfg(windows)]
+    unsafe {
+        let app_id: Vec<u16> = "UCABA.Language.Installer\0".encode_utf16().collect();
+        let _ = windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(app_id.as_ptr());
+    }
+
+    let icon_data = image::load_from_memory(UCABA_ICON_PNG_BYTES).ok().map(|img| {
+        let rgba = img.to_rgba8();
+        let (width, height) = (rgba.width(), rgba.height());
+        egui::IconData {
+            rgba: rgba.into_raw(),
+            width,
+            height,
+        }
+    });
+
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([880.0, 640.0])
+        .with_min_inner_size([840.0, 600.0])
+        .with_resizable(true)
+        .with_title("Instalador UCABA v2.0 & Extensión para Visual Studio Code");
+
+    if let Some(icon) = icon_data {
+        viewport = viewport.with_icon(icon);
+    }
+
+    let options = eframe::NativeOptions {
+        viewport,
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Instalador UCABA v2.0 & Extensión para Visual Studio Code",
+        options,
+        Box::new(|_cc| Ok(Box::new(InstallerApp::default()))),
+    )
+}

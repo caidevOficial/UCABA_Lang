@@ -31,7 +31,7 @@ def install():
     try:
         from pseudocode import __version__ as ucaba_version
     except Exception:
-        ucaba_version = "1.11.6"
+        ucaba_version = "2.0.0"
 
     user_home = os.path.expanduser("~")
     current_folder = f"ucaba.ucaba-language-support-{ucaba_version}"

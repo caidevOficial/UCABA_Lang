@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.11.6-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.0-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-52%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-69%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -27,6 +27,10 @@
   - [Instalador Gráfico Autónomo](#-instalador-gráfico-autónomo)
   - [Uso como Módulo de Python](#-uso-como-módulo-de-python)
 - [💻 Interfaz de Línea de Comandos (`ucaba`)](#-interfaz-de-línea-de-comandos-ucaba)
+  - [1. `ucaba run` — Ejecutar archivo](#1-ucaba-run--ejecutar-archivo)
+  - [2. `ucaba repl` — Consola interactiva](#2-ucaba-repl--consola-interactiva-repl)
+  - [3. `ucaba check` — Verificación estática](#3-ucaba-check--verificación-estática)
+  - [4. `ucaba lsp-check` — Diagnóstico en tiempo real](#4-ucaba-lsp-check--diagnóstico-en-tiempo-real-para-ides-lsp)
 - [🎨 Extensión Oficial para Visual Studio Code](#-extensión-oficial-para-visual-studio-code)
 - [💎 Sistema de Tipos (Fuertemente Tipado)](#-sistema-de-tipos-fuertemente-tipado)
   - [Tabla de Tipos Primitivos](#tabla-de-tipos-primitivos)
@@ -61,12 +65,15 @@ Permite escribir algoritmos estructurados con palabras clave naturales en españ
 ## ✨ Características Principales
 
 - 🛡️ **Fuertemente Tipado:** Validación estática de variables, firmas de funciones, aridad y tipos de retorno.
+- 🚀 **Motor Nativo en Rust (v2.0):** Compilado nativo con arranque instantáneo (<1 ms), ejecución de ultra-alta velocidad (~300x más rápido en algoritmos complejos: QuickSort en 1 ms frente a 3.240 ms previos) y cero dependencias de runtime.
+- 💻 **Consola Interactiva REPL:** Nuevo entorno interactivo `ucaba repl` para evaluar expresiones y algoritmos didácticos al vuelo con tabla de variables (`:vars`) y balanceo multilínea.
 - 📐 **Precisión Numérica Determinística:** Distinción clara entre `FLOTANTE` (IEEE 754 de 32 bits) y `REAL` (IEEE 754 de 64 bits de doble precisión).
 - 🧩 **Arreglos Dinámicos y Matrices:** Vectores (`TIPO[]`) y matrices bidimensionales (`TIPO[][]`) con introspección mediante la propiedad `.largo` y concatenación con el operador `+`.
 - 📁 **Manejo Nativo de Archivos:** Tipo `ARCHIVO` integrado con lectura secuencial (`.LEER_LINEA()`), escritura (`.ESCRIBIR_LINEA()`) y detección de fin de archivo (`.findearchivo`).
-- ⚡ **CLI Nativo y Autónomo:** Binario `ucaba.exe` listo para ejecutarse en Windows sin requerir instalación previa de Python.
-- 🎨 **Herramientas de Desarrollo:** Extensión oficial para VS Code con resaltado sintáctico, autocompletado, diagnósticos visuales y ejecución con un clic.
-- 🖼️ **Instalador Todo-en-Uno:** Asistente gráfico moderno con tema Dark Magenta, soporte High-DPI y registro en Windows.
+- ⚡ **CLI Nativo y Autónomo:** Binario `ucaba.exe` ultra-compacto (~830 KB) con icono y metadatos Windows PE integrados.
+- 🧠 **Servidor de Diagnóstico LSP en Tiempo Real:** Comando `ucaba lsp-check` con respuesta en <0.2 ms y salida JSON estándar para VS Code e IDEs.
+- 🎨 **Herramientas de Desarrollo:** Extensión oficial para VS Code con resaltado sintáctico, autocompletado, diagnósticos visuales instantáneos y ejecución de REPL integrado.
+- 🖼️ **Instalador Todo-en-Uno (Rust GUI):** Asistente gráfico moderno en Rust (`eframe`/`egui`) con tema Dark Magenta, soporte High-DPI, ~4.8 MB (4x más liviano que versiones anteriores) y modo silencioso (`--silent`).
 
 ---
 
@@ -193,13 +200,78 @@ ucaba run sort.ucaba --time-full
 *Otras opciones útiles:*
 - `--lenient` / `-l`: Modo permisivo para pseudocódigo informal.
 
-### 2. `ucaba check` — Verificación estática
+### 2. `ucaba repl` — Consola Interactiva REPL
+Inicia una consola interactiva línea a línea para evaluar expresiones y algoritmos en tiempo real. Permite explorar funciones, variables y estructuras sin necesidad de crear archivos en disco:
+```bash
+# Iniciar la consola interactiva explícitamente:
+ucaba repl
+
+# O simplemente ejecutando el comando sin argumentos:
+ucaba
+```
+
+*Ejemplo de sesión en el REPL:*
+```text
+UCABA (v2.0.0-alpha.1)
+Consola Interactiva REPL. Escribe expresiones o código de pseudocódigo.
+Comandos especiales: :ayuda, :variables, :limpiar, :salir
+
+ucaba> ENTERO edad = 25
+ucaba> edad * 2
+=> 50
+ucaba> FUNCION doble(n: ENTERO): ENTERO
+...        RETORNAR n * 2
+...    FIN FUNCION
+ucaba> doble(edad)
+=> 50
+ucaba> :variables
+┌────────┬────────┬───────┐
+│ NOMBRE │ TIPO   │ VALOR │
+├────────┼────────┼───────┤
+│ edad   │ ENTERO │ 25    │
+└────────┴────────┴───────┘
+ucaba> :salir
+¡Hasta luego!
+```
+
+*Metacomandos integrados:*
+- `:ayuda` / `:help`: Muestra la ayuda rápida y atajos interactivos.
+- `:variables` / `:vars`: Despliega la tabla ASCII de variables actualmente en memoria.
+- `:limpiar` / `:clear`: Reinicia el entorno y variables del intérprete.
+- `:cancel` / `:c`: Cancela una entrada multilínea en caso de error de tipeo.
+- `:salir` / `:exit` / `:quit`: Cierra la sesión interactiva limpiamente.
+
+### 3. `ucaba check` — Verificación estática
 Analiza la sintaxis y valida todos los tipos de variables y funciones sin correr el programa:
 ```bash
 ucaba check mi_algoritmo.ucaba
 ```
 
-### 3. `ucaba update` — Actualización automática (estilo pip)
+### 4. `ucaba lsp-check` — Diagnóstico en tiempo real para IDEs (LSP)
+Motor de validación estática sub-milisegundo (<0.2 ms) diseñado para integrarse con Language Server Protocols y editores como VS Code, Cursor o Antigravity IDE:
+```bash
+# Validar archivo fuente y emitir diagnósticos en formato JSON estándar:
+ucaba lsp-check mi_algoritmo.ucaba --json
+
+# O alimentar el analizador directamente por stdin (sin tocar disco):
+cat mi_algoritmo.ucaba | ucaba lsp-check --stdin --json
+```
+*Salida JSON representativa:*
+```json
+{
+  "valid": false,
+  "diagnostics": [
+    {
+      "line": 4,
+      "column": 12,
+      "message": "Tipo incompatible: no se puede asignar CADENA a ENTERO",
+      "severity": "error"
+    }
+  ]
+}
+```
+
+### 4. `ucaba update` — Actualización automática (estilo pip)
 Comprueba en GitHub Releases si existe una nueva versión del lenguaje y la instala automáticamente:
 ```bash
 # Descarga e instala la versión más reciente
@@ -237,8 +309,9 @@ El repositorio incluye la extensión oficial empaquetada en `extension-vscode/`:
 </p>
 
 ### Funcionalidades:
-- 🌈 **Color de Sintaxis Avanzado:** Gramática TextMate completa para palabras clave, tipos de datos, cadenas, números y comentarios (`//` y `"""`).
-- 🔍 **Diagnósticos en Tiempo Real (Linter):** Muestra advertencias y errores de tipos directamente en el editor con subrayados rojos y panel de problemas.
+- 🌈 **Color de Sintaxis Avanzado:** Gramática TextMate completa para palabras clave, tipos de datos, cadenas, números y comentarios (`//`, `#` y `/* */`).
+- ⚡ **Diagnósticos Instantáneos (<1 ms):** Valida sintaxis y tipos estáticos directamente con el motor nativo de Rust (`ucaba lsp-check --json --stdin`), marcando errores con subrayado y en el panel de problemas al escribir.
+- 💻 **Consola Interactiva REPL Integrada:** Inicia la consola interactiva con un clic desde el botón en la barra de herramientas o mediante el comando `UCABA: Iniciar consola interactiva REPL`.
 - ▶️ **Botón "Ejecutar UCABA":** Botón de reproducción integrado en la barra de herramientas del editor para ejecutar el archivo actual con un clic.
 - ⚡ **Snippets Rápidos:** Escribe `func`, `proc`, `para`, `mientras`, `si` o `archivo` y presiona <kbd>Tab</kbd> para generar plantillas de código instantáneas.
 

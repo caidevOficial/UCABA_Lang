@@ -37,14 +37,21 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def get_version() -> str:
-    """Obtiene la versión canónica desde pseudocode/__init__.py."""
+    """Obtiene la versión canónica desde crates/ucaba_cli/Cargo.toml o pseudocode/__init__.py."""
+    cli_cargo = os.path.join(REPO_ROOT, "crates", "ucaba_cli", "Cargo.toml")
+    if os.path.exists(cli_cargo):
+        with open(cli_cargo, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("version ="):
+                    raw = line.split("=")[1].strip().strip('"').strip("'")
+                    return raw.split("-")[0]
     init_path = os.path.join(REPO_ROOT, "pseudocode", "__init__.py")
     if os.path.exists(init_path):
         with open(init_path, "r", encoding="utf-8") as f:
             for line in f:
                 if line.startswith("__version__"):
                     return line.split("=")[1].strip().strip('"').strip("'")
-    return "1.11.6"
+    return "2.0.0"
 
 
 def find_latest_vsix() -> str:
@@ -1056,29 +1063,49 @@ def main():
     # 1. Obtener o compilar binario
     binary_path = args.binary
     if args.compile:
-        print("\n--- Compilando binario nativo Linux con PyInstaller ---")
-        cmd = [
-            sys.executable, "-m", "PyInstaller",
-            "--name", "ucaba",
-            "--onefile",
-            "--clean",
-            "--paths", ".",
-            os.path.join("pseudocode", "cli.py")
-        ]
-        res = subprocess.run(cmd, cwd=REPO_ROOT)
-        if res.returncode != 0:
-            raise RuntimeError(f"Error al compilar con PyInstaller: {res.returncode}")
-        binary_path = os.path.join(REPO_ROOT, "dist", "ucaba")
+        cargo_bin = shutil.which("cargo")
+        compiled = False
+        if cargo_bin and sys.platform.startswith("linux"):
+            print("\n--- Compilando binario nativo Linux con Cargo (crates/ucaba_cli) ---")
+            res = subprocess.run([cargo_bin, "build", "--release", "-p", "ucaba_cli"], cwd=REPO_ROOT)
+            if res.returncode == 0:
+                cargo_target = os.path.join(REPO_ROOT, "target", "release", "ucaba")
+                if os.path.exists(cargo_target):
+                    dist_ucaba = os.path.join(REPO_ROOT, "dist", "ucaba")
+                    shutil.copy2(cargo_target, dist_ucaba)
+                    binary_path = dist_ucaba
+                    compiled = True
+        if not compiled:
+            print("\n--- Compilando binario autónomo Linux con PyInstaller ---")
+            cmd = [
+                sys.executable, "-m", "PyInstaller",
+                "--name", "ucaba",
+                "--onefile",
+                "--clean",
+                "--paths", ".",
+                os.path.join("pseudocode", "cli.py")
+            ]
+            res = subprocess.run(cmd, cwd=REPO_ROOT)
+            if res.returncode != 0:
+                raise RuntimeError(f"Error al compilar con PyInstaller: {res.returncode}")
+            binary_path = os.path.join(REPO_ROOT, "dist", "ucaba")
 
     if not binary_path:
-        default_candidate = os.path.join(REPO_ROOT, "dist", "ucaba")
-        if os.path.exists(default_candidate):
-            with open(default_candidate, "rb") as f:
-                header = f.read(256)
-            if b"UCABA Stub Test Binary" not in header:
-                binary_path = default_candidate
-            else:
-                print(f" [AVISO] Se detectó un binario stub obsoleto en {default_candidate}. Se regenerará como ejecutable autónomo universal.")
+        cross_candidate = os.path.join(REPO_ROOT, "target", "x86_64-unknown-linux-gnu", "release", "ucaba")
+        cargo_candidate = os.path.join(REPO_ROOT, "target", "release", "ucaba")
+        if os.path.exists(cross_candidate):
+            binary_path = cross_candidate
+        elif os.path.exists(cargo_candidate) and not cargo_candidate.endswith(".exe"):
+            binary_path = cargo_candidate
+        else:
+            default_candidate = os.path.join(REPO_ROOT, "dist", "ucaba")
+            if os.path.exists(default_candidate):
+                with open(default_candidate, "rb") as f:
+                    header = f.read(256)
+                if b"UCABA Stub Test Binary" not in header:
+                    binary_path = default_candidate
+                else:
+                    print(f" [AVISO] Se detectó un binario stub obsoleto en {default_candidate}. Se regenerará como ejecutable autónomo universal.")
 
     if not binary_path or args.mock_binary:
         if args.mock_binary:

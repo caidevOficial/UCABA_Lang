@@ -22,6 +22,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Instalar Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
@@ -32,23 +35,21 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Instalar Dependencias de Compilación
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
+      - name: Ejecutar Suite de Tests en Rust (69 Tests)
+        run: cargo test --workspace
 
-      - name: Ejecutar Suite de Pruebas Unitarias
+      - name: Ejecutar Tests de Python Históricos
         env:
           UCABA_NO_UPDATE_CHECK: "1"
         run: |
           python -m unittest discover -s tests -p "test_*.py"
 
-      - name: Empaquetar Extensión de VS Code (VSIX)
+      - name: Empaquetar Extensión de VS Code (VSIX v2.0)
         working-directory: ./extension-vscode
         run: |
           npx -y @vscode/vsce package --no-git-tag-version
 
-      - name: Compilar ucaba.exe e Instalador_UCABA.exe
+      - name: Compilar ucaba.exe e Instalador_UCABA.exe (Rust)
         run: |
           python build_installer.py
 
@@ -62,7 +63,7 @@ jobs:
             extension-vscode/*.vsix
 
   build-linux:
-    name: Compilar Binario ELF y Paquetes Linux (.deb y .tar.gz)
+    name: Compilar Binario Nativo Rust ELF y Paquetes Linux (.deb y .tar.gz)
     runs-on: ubuntu-latest
 
     steps:
@@ -71,27 +72,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Instalar Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Instalar Herramientas de Sistema y PyInstaller
+      - name: Instalar Herramientas de Sistema
         run: |
           sudo apt-get update
           sudo apt-get install -y dpkg binutils
-          python -m pip install --upgrade pip
-          pip install pyinstaller
 
-      - name: Ejecutar Suite de Pruebas Unitarias en Linux
+      - name: Ejecutar Suite de Tests en Rust en Linux
+        run: cargo test --workspace
+
+      - name: Ejecutar Tests de Python en Linux
         env:
           UCABA_NO_UPDATE_CHECK: "1"
         run: |
           python -m unittest discover -s tests -p "test_*.py"
 
-      - name: Compilar Binario Nativo ELF ucaba
+      - name: Compilar Binario Nativo ELF ucaba (Rust)
         run: |
-          pyinstaller --name ucaba --onefile --clean --paths . pseudocode/cli.py
+          cargo build --release -p ucaba_cli
+          mkdir -p dist
+          cp target/release/ucaba dist/ucaba
+          chmod +x dist/ucaba
 
       - name: Construir Paquetes Linux (.deb y .tar.gz)
         run: |
@@ -102,6 +110,7 @@ jobs:
         with:
           name: linux-artifacts
           path: |
+            dist/ucaba
             dist/*.deb
             dist/*.tar.gz
 
@@ -138,6 +147,7 @@ jobs:
           mkdir -p dist extension-vscode
           find windows-artifacts -name "*.exe" -exec cp -v {} dist/ \;
           find windows-artifacts -name "*.vsix" -exec cp -v {} extension-vscode/ \;
+          find linux-artifacts -name "ucaba" -exec cp -v {} dist/ \;
           find linux-artifacts -name "*.deb" -exec cp -v {} dist/ \;
           find linux-artifacts -name "*.tar.gz" -exec cp -v {} dist/ \;
           echo "=== Contenido de dist/ ==="
@@ -158,6 +168,7 @@ jobs:
           files: |
             dist/Instalador_UCABA.exe
             dist/ucaba.exe
+            dist/ucaba
             dist/*.deb
             dist/*.tar.gz
             extension-vscode/*.vsix

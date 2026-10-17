@@ -4,7 +4,8 @@ Extensión oficial para **Visual Studio Code** y **Antigravity IDE** que brinda 
 
 ## Características
 
-- 🔍 **Detección de errores en tiempo real**: Subrayado rojo (errores de sintaxis y tipos) y amarillo (advertencias) a medida que escribes código.
+- ⚡ **Diagnósticos Instantáneos (< 1 ms)**: Integración nativa con el motor v2.0 en Rust (`ucaba lsp-check --json --stdin`), detectando errores de sintaxis y tipos estáticos en tiempo real mientras escribes sin retardos.
+- 💻 **Consola Interactiva REPL Integrada**: Ejecuta `UCABA: Iniciar consola interactiva REPL` desde la paleta de comandos o desde el botón en la barra superior para probar expresiones, funciones y algoritmos al instante.
 - 🎨 **Coloreado de Sintaxis Completo**: Palabras clave (`INICIO`, `FIN`, `FUNCION`, `RETORNAR`, `SI`, `PARA`, `MIENTRAS`), tipos de datos (`ENTERO`, `FLOTANTE`, `REAL`, `CADENA`, etc.), operadores (incluida la división entera `//` y el módulo `%`) y comentarios (`//`, `#`, `/* */`).
 - 🖼️ **Icono de archivo `.ucaba`**: Los archivos del lenguaje muestran el logo de UCABA en el explorador y en las pestañas.
 - 💡 **Autocompletado Inteligente (IntelliSense)**:
@@ -20,18 +21,15 @@ Extensión oficial para **Visual Studio Code** y **Antigravity IDE** que brinda 
 
 ## Requisitos
 
-- Python 3.8 o superior con el paquete `pseudocode` accesible en el entorno.
+- **Motor UCABA v2.0 (Recomendado)**: El ejecutable autónomo `ucaba` (o `ucaba.exe` en Windows). No requiere instalar Python ni dependencias externas.
+- **Modo Compatibilidad (Opcional)**: Python 3.8+ con el paquete `pseudocode` si no se dispone del binario nativo.
 
 ## Instalación en Visual Studio Code
 
 ### Opción 1: Automática desde la terminal (Recomendada)
-Ejecuta en la raíz del proyecto:
+Ejecuta con el comando de VS Code:
 ```bash
-python install_extension.py
-```
-O directamente con el comando de VS Code:
-```bash
-code --install-extension extension-vscode/ucaba-language-support-1.11.6.vsix --force
+code --install-extension extension-vscode/ucaba-language-support-2.0.0.vsix --force
 ```
 
 ### Opción 2: Gráfica desde la interfaz de VS Code
@@ -39,7 +37,7 @@ code --install-extension extension-vscode/ucaba-language-support-1.11.6.vsix --f
 2. Ve al panel de **Extensiones** (`Ctrl + Shift + X`).
 3. Haz clic en el menú de los **tres puntos (`...`)** en la esquina superior derecha del panel de extensiones.
 4. Selecciona **"Instalar desde VSIX..."** (*Install from VSIX...*).
-5. Navega a `./extension-vscode/` y selecciona el archivo `ucaba-language-support-1.11.6.vsix`.
+5. Navega a `./extension-vscode/` y selecciona el archivo `ucaba-language-support-2.0.0.vsix`.
 6. En la paleta de comandos (`Ctrl + Shift + P`), escribe y selecciona **Developer: Reload Window** (o reinicia VS Code).
 
 ---

@@ -22,3 +22,6 @@ release_notes.md
 
 # Agents
 .agents/
+
+# Rust build target
+target/

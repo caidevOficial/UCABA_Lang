@@ -101,7 +101,7 @@ FIN FUNCION
 // IMPRIMIR("Total elementos ordenados: " + vector.largo)
 // IMPRIMIR("Primer elemento: " + vector[0] + " | Ultimo elemento: " + vector[vector.largo - 1])
 
-ENTERO n = 26
+ENTERO n = 10
 IMPRIMIR(fibonacci(n))
 
 FIN
