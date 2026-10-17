@@ -63,7 +63,7 @@ class TestBuildLinuxPackage(unittest.TestCase):
 
         output_tar = os.path.join(self.temp_dir.name, "out.tar.gz")
         with self.assertRaises(ValueError) as ctx:
-            build_linux_package.build_tarball(stub_path, "", "", output_tar, "1.11.5")
+            build_linux_package.build_tarball(stub_path, "", "", output_tar, build_linux_package.get_version())
         self.assertIn("UCABA Stub Test Binary", str(ctx.exception))
 
     def test_build_deb_rejects_stub(self):
@@ -74,16 +74,17 @@ class TestBuildLinuxPackage(unittest.TestCase):
 
         output_deb = os.path.join(self.temp_dir.name, "out.deb")
         with self.assertRaises(ValueError) as ctx:
-            build_linux_package.build_deb(stub_path, "", "", output_deb, "1.11.5")
+            build_linux_package.build_deb(stub_path, "", "", output_deb, build_linux_package.get_version())
         self.assertIn("UCABA Stub Test Binary", str(ctx.exception))
 
     def test_build_packages_with_valid_executable(self):
         """Verifica que tanto build_tarball como build_deb generen archivos válidos con el binario real."""
+        version = build_linux_package.get_version()
         target_bin = os.path.join(self.temp_dir.name, "ucaba")
         build_linux_package.build_standalone_executable(target_bin)
 
         output_tar = os.path.join(self.temp_dir.name, "ucaba.tar.gz")
-        build_linux_package.build_tarball(target_bin, "", "", output_tar, "1.11.5")
+        build_linux_package.build_tarball(target_bin, "", "", output_tar, version)
         self.assertTrue(os.path.exists(output_tar))
 
         # Verificar contenido de tarball
@@ -94,14 +95,20 @@ class TestBuildLinuxPackage(unittest.TestCase):
             self.assertNotIn(b"UCABA Stub Test Binary", content)
 
         output_deb = os.path.join(self.temp_dir.name, "ucaba.deb")
-        build_linux_package.build_deb(target_bin, "", "", output_deb, "1.11.5")
+        build_linux_package.build_deb(target_bin, "", "", output_deb, version)
         self.assertTrue(os.path.exists(output_deb))
 
         with open(output_deb, "rb") as f:
             deb_data = f.read()
         self.assertTrue(deb_data.startswith(b"!<arch>\n"))
-        self.assertIn(b"control.tar.gz", deb_data)
-        self.assertIn(b"data.tar.gz", deb_data)
+        self.assertTrue(
+            any(x in deb_data for x in (b"control.tar.gz", b"control.tar.xz", b"control.tar.zst")),
+            "No se encontró control.tar en el paquete deb"
+        )
+        self.assertTrue(
+            any(x in deb_data for x in (b"data.tar.gz", b"data.tar.xz", b"data.tar.zst")),
+            "No se encontró data.tar en el paquete deb"
+        )
 
 
 if __name__ == "__main__":

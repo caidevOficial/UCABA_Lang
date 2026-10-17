@@ -19,10 +19,17 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 ### 🐛 Correcciones del Lenguaje
 - **División entera dentro de índices**: expresiones como `matriz[p // columnas][p % columnas] = valor` (o `v[n // 2]`) ya no se interpretaban como división entera sino como comentario, provocando un `ParseError`. El lexer ya no aplica la heurística de "declaración + comentario" dentro de corchetes o paréntesis sin cerrar. Se añade `test_division_entera_dentro_de_indices` a `tests/test_operators.py`.
 
+### 🎨 Iconos y Empaquetado Oficial
+- **Iconos de archivos `.ucaba`**:
+  - **Extensión VS Code / Antigravity / Cursor**: se declara el icono de lenguaje (`contributes.languages[].icon`) con `icons/ucaba-file.png`, de modo que los archivos `.ucaba` muestran el logo de UCABA en el explorador y en las pestañas (al estilo de Python o Rust).
+  - **Windows**: el instalador notifica al Explorador (`SHChangeNotify`) tras registrar la asociación para refrescar el icono sin reiniciar el sistema.
+  - **Linux**: el tipo MIME usa el nombre estándar `application-x-ucaba` y se instala el icono bajo ese nombre; se refresca la caché de iconos (`gtk-update-icon-cache`) en `install.sh`, `uninstall.sh`, `postinst` y `postrm`.
+- **Constructor de paquetes Linux (`build_linux_package.py`)**:
+  - Generación de ejecutables ZipApp standalone universales, paquetes `.deb` y `.tar.gz` con validación estricta de binarios reales y suite de pruebas en `tests/test_build_linux_package.py`.
+
 ### 🚀 Release y CI
 - **Notas de release (`generate_release_notes.py`)**: se elimina `shell=True` en las llamadas a `git`, que en Linux (runner `ubuntu-latest`) impedía obtener el registro de commits desde el último tag. Ahora cada release incluye las novedades de esta sección del CHANGELOG y la lista de commits reales.
 - **Versionado**: sincronización de la versión `1.11.6` en intérprete, instaladores, metadatos de Windows, paquetes Linux y extensión (`ucaba-language-support-1.11.6.vsix`).
-- **Corrección**: el CHANGELOG de la 1.11.5 contenía un carácter de control inválido en el nombre MIME `application-x-ucaba`.
 
 ---
 
