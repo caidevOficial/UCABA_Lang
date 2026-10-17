@@ -61,5 +61,40 @@ class TestCliTimeFormatting(unittest.TestCase):
         )
 
 
+class TestUpdater(unittest.TestCase):
+    def test_parse_version(self):
+        from pseudocode.updater import parse_version
+        self.assertEqual(parse_version("1.11.0"), (1, 11, 0))
+        self.assertEqual(parse_version("v1.11.6"), (1, 11, 6))
+        self.assertTrue(parse_version("v1.11.6") > parse_version("1.11.0"))
+        self.assertFalse(parse_version("1.11.0") > parse_version("1.11.6"))
+
+    def test_check_version_status_online_update_available(self):
+        from unittest.mock import patch
+        from pseudocode.updater import check_version_status
+        fake_release = {"latest_version": "1.11.6", "tag_name": "v1.11.6"}
+        with patch("pseudocode.updater.fetch_latest_release_online", return_value=fake_release):
+            status, info = check_version_status("1.11.0", force_online=True)
+            self.assertEqual(status, "UPDATE_AVAILABLE")
+            self.assertEqual(info["latest_version"], "1.11.6")
+
+    def test_check_version_status_online_up_to_date(self):
+        from unittest.mock import patch
+        from pseudocode.updater import check_version_status
+        fake_release = {"latest_version": "1.11.6", "tag_name": "v1.11.6"}
+        with patch("pseudocode.updater.fetch_latest_release_online", return_value=fake_release):
+            status, info = check_version_status("1.11.6", force_online=True)
+            self.assertEqual(status, "UP_TO_DATE")
+
+    def test_check_version_status_online_network_error(self):
+        from unittest.mock import patch
+        from pseudocode.updater import check_version_status
+        with patch("pseudocode.updater.fetch_latest_release_online", return_value=None):
+            status, info = check_version_status("1.11.0", force_online=True)
+            self.assertEqual(status, "NETWORK_ERROR")
+            self.assertIsNone(info)
+
+
 if __name__ == "__main__":
     unittest.main()
+

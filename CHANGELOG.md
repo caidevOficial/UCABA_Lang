@@ -13,10 +13,11 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - **Operadores aritméticos**: nueva tabla de operadores en el `README.md` (`+`, `-`, `*`, `/`, `//`, `%`) con tipo de retorno, ejemplos y la diferencia entre `/` (división real) y `//` (división entera, siempre `ENTERO`).
 - **División entera (`//`)**: se elimina la nota obsoleta que indicaba que UCABA no tenía división entera; el ejemplo de *Selection Sort* ahora usa `//` y `%` para recorrer la matriz sin aplanarla.
 - **Medición de tiempo (`--time`, `--time ms`, `--time full`, `--time completo`, `--time-full`)**: documentación unificada con tabla de modos, ejemplos y salidas esperadas en el `README.md` y en la especificación del lenguaje.
-- **Cobertura de pruebas**: el badge del `README.md` refleja los 48 tests unitarios actuales.
+- **Cobertura de pruebas**: el badge del `README.md` refleja los 52 tests unitarios actuales.
 - **Extensión VS Code**: el `README.md` de la extensión documenta el resaltado de `//`, `%` y `#` y el icono de archivos `.ucaba`.
 
-### 🐛 Correcciones del Lenguaje
+### 🐛 Correcciones del Lenguaje y CLI
+- **Comprobación explícita de actualizaciones (`ucaba update --check`)**: `check_for_update` utilizaba el archivo de caché local (con TTL de 6 horas) sin consultar la API de GitHub cuando el usuario solicitaba expresamente verificar si había una nueva versión. Se implementó `check_version_status` con `force_online=True`, asegurando que `ucaba update --check` y `ucaba upgrade --check` verifiquen siempre en vivo contra GitHub Releases y reporten errores de conectividad claramente.
 - **División entera dentro de índices**: expresiones como `matriz[p // columnas][p % columnas] = valor` (o `v[n // 2]`) ya no se interpretaban como división entera sino como comentario, provocando un `ParseError`. El lexer ya no aplica la heurística de "declaración + comentario" dentro de corchetes o paréntesis sin cerrar. Se añade `test_division_entera_dentro_de_indices` a `tests/test_operators.py`.
 
 ### 🎨 Iconos y Empaquetado Oficial

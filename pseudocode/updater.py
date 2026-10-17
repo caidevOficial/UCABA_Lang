@@ -27,7 +27,7 @@ from typing import Optional, Tuple, Dict, Any
 
 GITHUB_REPO = "caidevOficial/UCABA_Lang"
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-CACHE_TTL_SECONDS = 6 * 3600  # 6 horas de caché
+CACHE_TTL_SECONDS = 3600  # 1 hora de caché para verificaciones en segundo plano
 
 _NEW_RELEASE_INFO: Optional[Dict[str, Any]] = None
 _CHECK_STARTED = False
@@ -80,7 +80,7 @@ def write_cached_version(data: Dict[str, Any]):
         pass
 
 
-def fetch_latest_release_online(timeout: float = 2.0) -> Optional[Dict[str, Any]]:
+def fetch_latest_release_online(timeout: float = 5.0) -> Optional[Dict[str, Any]]:
     """Consulta la API pública de GitHub para obtener la última versión lanzada."""
     try:
         req = urllib.request.Request(
@@ -125,21 +125,56 @@ def fetch_latest_release_online(timeout: float = 2.0) -> Optional[Dict[str, Any]
     return None
 
 
-def check_for_update(current_version: str, allow_network: bool = True) -> Optional[Dict[str, Any]]:
-    """Verifica si existe una versión más reciente que la actual."""
-    cached = read_cached_version()
-    if cached and "latest_version" in cached:
-        info = cached
-    elif allow_network:
-        info = fetch_latest_release_online(timeout=2.0)
+def check_version_status(
+    current_version: str,
+    force_online: bool = False,
+    timeout: float = 5.0
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """
+    Verifica el estado de versión contra GitHub Releases.
+    Retorna una tupla (estado, info):
+      - ("UPDATE_AVAILABLE", info): hay una versión superior disponible en GitHub.
+      - ("UP_TO_DATE", info): la versión actual coincide o supera la última versión publicada.
+      - ("NETWORK_ERROR", None): no se pudo conectar con GitHub ni obtener información válida.
+    """
+    info = None
+    if force_online:
+        info = fetch_latest_release_online(timeout=timeout)
     else:
-        info = None
+        cached = read_cached_version()
+        if cached and "latest_version" in cached:
+            # Si en caché ya hay una versión superior a la actual, usarla
+            if parse_version(cached["latest_version"]) > parse_version(current_version):
+                info = cached
+            else:
+                info = fetch_latest_release_online(timeout=timeout) or cached
+        else:
+            info = fetch_latest_release_online(timeout=timeout)
 
-    if info and "latest_version" in info:
-        curr_tuple = parse_version(current_version)
-        latest_tuple = parse_version(info["latest_version"])
-        if latest_tuple > curr_tuple:
-            return info
+    if not info or "latest_version" not in info:
+        return "NETWORK_ERROR", None
+
+    curr_tuple = parse_version(current_version)
+    latest_tuple = parse_version(info["latest_version"])
+
+    if latest_tuple > curr_tuple:
+        return "UPDATE_AVAILABLE", info
+    return "UP_TO_DATE", info
+
+
+def check_for_update(
+    current_version: str,
+    allow_network: bool = True,
+    force_online: bool = False
+) -> Optional[Dict[str, Any]]:
+    """Verifica si existe una versión más reciente que la actual."""
+    status, info = check_version_status(
+        current_version,
+        force_online=force_online,
+        timeout=5.0 if force_online else 2.0
+    )
+    if status == "UPDATE_AVAILABLE":
+        return info
     return None
 
 

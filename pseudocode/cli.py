@@ -160,15 +160,18 @@ def main(cli_args=None):
 
     try:
         if args.command in ("update", "upgrade"):
-            from pseudocode.updater import run_interactive_update, check_for_update
+            from pseudocode.updater import run_interactive_update, check_version_status
             if getattr(args, "check", False):
                 print(f"Comprobando versiones en GitHub ({__version__})...")
-                upd = check_for_update(__version__, allow_network=True)
-                if upd:
-                    print(f"\n[AVISO] Hay una nueva versión de UCABA disponible: {__version__} -> {upd['latest_version']}")
+                status, info = check_version_status(__version__, force_online=True, timeout=5.0)
+                if status == "UPDATE_AVAILABLE" and info:
+                    print(f"\n[AVISO] Hay una nueva versión de UCABA disponible: {__version__} -> {info['latest_version']}")
                     print(f"Para actualizar ejecuta: ucaba update")
+                elif status == "UP_TO_DATE":
+                    latest_v = info.get("latest_version", __version__) if info else __version__
+                    print(f"\n[OK] UCABA ya está en la versión más reciente (v{latest_v}).")
                 else:
-                    print(f"\n[OK] UCABA ya está en la versión más reciente (v{__version__}).")
+                    print(f"\n[ERROR] No se pudo comprobar las versiones en GitHub Releases. Verifica tu conexión a internet o intenta más tarde.")
                 sys.exit(0)
             ret_code = run_interactive_update(__version__, force=getattr(args, "force", False), silent=getattr(args, "silent", False))
             sys.exit(ret_code)
