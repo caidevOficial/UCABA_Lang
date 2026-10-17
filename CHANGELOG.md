@@ -23,11 +23,19 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - **Buffer Multilínea Inteligente:** Función `is_input_complete` con stack de bloques léxicos para admitir sentencias multilínea (`FUNCION`, `SI-SINO`, bucles) y prompt alternado (`ucaba> ` / `...    `).
 - **Metacomandos:** `:ayuda`, `:variables` (tabla ASCII estilizada con anchos dinámicos), `:limpiar`, `:cancel` y `:salir`.
 
-### 🧩 Extensión Oficial de Visual Studio Code (v2.0.0)
+### 🧩 Extensión Oficial de Visual Studio Code y Antigravity IDE (v2.0.0)
 - **Diagnósticos Sub-milisegundo:** Consumo directo del comando `ucaba lsp-check --json --stdin`, eliminando toda dependencia de Python para el linter en tiempo real.
 - **Comando REPL Integrado:** Nuevo comando `UCABA: Iniciar consola interactiva REPL` (`ucaba.startRepl`) accesible desde paleta de comandos y botones de navegación.
 - **Detección Automática de Binarios:** Detección de binarios en workspace local (`target/release/ucaba`), `%LOCALAPPDATA%` en Windows y `/usr/local/bin` en Linux/macOS.
-- **Nuevo Paquete VSIX:** Publicación de `ucaba-language-support-2.0.0.vsix` embebido directamente en el instalador oficial.
+- **Resaltado de Sintaxis Completo:** Gramática TextMate actualizada para reconocer tipos personalizados de `ESTRUCTURA` (`entity.name.type.struct.ucaba`), operadores `++` y `--`, palabras reservadas y literales.
+- **Inspección y Hover Sin Fallos:** Reparación del parser de contexto léxico en `isInCommentOrString` admitiendo comentarios estilo `#`, habilitando la inspección hover de variables y funciones en cualquier contexto de código.
+- **Tema de Iconos Integrado:** Nuevo tema de iconos oficial (`ucaba-icon-theme.json`) aportado vía `iconThemes` y activación por workspace (`workspaceContains:**/*.ucaba`), dotando a los módulos `.ucaba` de su icono magenta en el árbol de archivos.
+- **Nuevo Paquete VSIX y Despliegue Robusto:** Publicación de `ucaba-language-support-2.0.0.vsix` embebido en el instalador; actualización de `install_extension.py` para depurar `.obsolete` y registrar formalmente la extensión en `extensions.json` en VS Code, Cursor y Antigravity IDE.
+
+### 🎨 Iconos y Asociación de Archivos Multiplataforma
+- **Windows:** Registro dual de ProgIDs (`UCABAFile` y `UCABA.Program`) con clave `DefaultIcon`, sincronización con `OpenWithProgids` en el registro de Windows y emisión de `SHCNE_ASSOCCHANGED` para refresco instantáneo del explorador.
+- **Linux:** Adición de iconos MIME en `icons/hicolor/256x256/mimetypes/` (`application-x-ucaba.png` y `text-x-ucaba.png`) en paquetes `.deb` y script `install.sh`.
+- **Publicación Pre-release:** Automatización de GitHub Actions configurada expresamente para publicar la release `v2.0.0` como pre-release (`prerelease: true`).
 
 ### 🧪 Suite Exhaustiva de Paridad de Pruebas (69 Tests en Rust)
 - **100% de Paridad Certificada:** Porting y ampliación de todos los casos de prueba de Python a suites nativas en Rust (`test_engine.rs`, `test_operators.rs`, `test_estructuras.rs`, `test_interpreter.rs`, `test_cli.rs`).

@@ -1,0 +1,19 @@
+{
+  "$schema": "vscode://schemas/icon-theme",
+  "iconDefinitions": {
+    "_file": {
+      "iconPath": "./ucaba-file.png"
+    },
+    "_ucaba": {
+      "iconPath": "./ucaba-file.png"
+    }
+  },
+  "file": "_file",
+  "fileExtensions": {
+    "ucaba": "_ucaba"
+  },
+  "languageIds": {
+    "ucaba": "_ucaba"
+  },
+  "hidesExplorerArrows": false
+}

@@ -178,21 +178,29 @@ def refresh_shell_icons():
 
 
 def associate_file_extension(ucaba_exe: str, icon_path: str = None):
-    """Asocia la extensión .ucaba con ucaba.exe en el Registro de Windows del usuario."""
+    """Asocia la extensión .ucaba con ucaba.exe e icono oficial en el Registro de Windows del usuario."""
     try:
         base = winreg.HKEY_CURRENT_USER
         with winreg.CreateKey(base, r"Software\Classes\.ucaba") as key:
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "UCABA.Program")
-
-        with winreg.CreateKey(base, r"Software\Classes\UCABA.Program") as key:
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "Código Fuente UCABA")
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "UCABAFile")
+            winreg.SetValueEx(key, "Content Type", 0, winreg.REG_SZ, "text/x-ucaba")
+            winreg.SetValueEx(key, "PerceivedType", 0, winreg.REG_SZ, "text")
 
         icon_val = f'"{icon_path}",0' if icon_path and os.path.exists(icon_path) else f'"{ucaba_exe}",0'
-        with winreg.CreateKey(base, r"Software\Classes\UCABA.Program\DefaultIcon") as key:
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, icon_val)
+        for prog in ["UCABAFile", "UCABA.Program"]:
+            prog_path = rf"Software\Classes\{prog}"
+            with winreg.CreateKey(base, prog_path) as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "Código Fuente UCABA")
+            with winreg.CreateKey(base, rf"{prog_path}\DefaultIcon") as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, icon_val)
+            with winreg.CreateKey(base, rf"{prog_path}\shell\open\command") as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'cmd.exe /k ""{ucaba_exe}" run "%1""')
 
-        with winreg.CreateKey(base, r"Software\Classes\UCABA.Program\shell\open\command") as key:
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'cmd.exe /k ""{ucaba_exe}" run "%1""')
+        fe_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ucaba\OpenWithProgids"
+        with winreg.CreateKey(base, fe_path) as key:
+            winreg.SetValueEx(key, "UCABAFile", 0, winreg.REG_NONE, b"")
+            winreg.SetValueEx(key, "UCABA.Program", 0, winreg.REG_NONE, b"")
+
         refresh_shell_icons()
         return True
     except Exception as e:
@@ -655,37 +663,75 @@ class InstallerApp:
                     ext_src = get_resource_path(os.path.join("payload", "extension-vscode"))
 
                 user_home = os.path.expanduser("~")
-                # Limpiar versiones previas obsoletas para evitar conflictos en el editor
-                for old_dir in [
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
-                ]:
-                    if os.path.exists(old_dir):
-                        shutil.rmtree(old_dir, ignore_errors=True)
-
-                targets = [
-                    os.path.join(user_home, ".vscode", "extensions", f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"),
-                    os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
-                    os.path.join(user_home, ".antigravity-ide", "extensions", "ucaba-language-support")
+                current_ext_folder = f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"
+                ext_roots = [
+                    os.path.join(user_home, ".vscode", "extensions"),
+                    os.path.join(user_home, ".vscode-oss", "extensions"),
+                    os.path.join(user_home, ".cursor", "extensions"),
+                    os.path.join(user_home, ".antigravity-ide", "extensions"),
+                    os.path.join(user_home, ".antigravity", "extensions")
                 ]
-                cursor_ext = os.path.join(user_home, ".cursor", "extensions")
-                if os.path.exists(cursor_ext):
-                    targets.append(os.path.join(cursor_ext, f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"))
 
-                if os.path.exists(ext_src):
-                    for t in targets:
-                        parent = os.path.dirname(t)
-                        if not os.path.exists(parent):
-                            os.makedirs(parent, exist_ok=True)
-                        if os.path.exists(t):
-                            shutil.rmtree(t, ignore_errors=True)
-                        shutil.copytree(ext_src, t, dirs_exist_ok=True)
-                        self.log(f" - Extensión desplegada en: {t}")
-                else:
-                    self.log(" - Aviso: No se localizó la carpeta de la extensión para copia directa.")
+                for eroot in ext_roots:
+                    if os.path.exists(eroot) or os.path.exists(os.path.dirname(eroot)):
+                        os.makedirs(eroot, exist_ok=True)
+                        for item in os.listdir(eroot):
+                            if item.startswith("ucaba.ucaba-language-support-") and item != current_ext_folder:
+                                shutil.rmtree(os.path.join(eroot, item), ignore_errors=True)
+                            elif item == "ucaba-language-support":
+                                shutil.rmtree(os.path.join(eroot, item), ignore_errors=True)
+
+                        obs_file = os.path.join(eroot, ".obsolete")
+                        if os.path.exists(obs_file):
+                            try:
+                                with open(obs_file, "r", encoding="utf-8") as f:
+                                    obs_data = json.load(f)
+                                obs_cleaned = {k: v for k, v in obs_data.items() if "ucaba" not in k.lower()}
+                                with open(obs_file, "w", encoding="utf-8") as f:
+                                    json.dump(obs_cleaned, f, indent=2)
+                            except Exception:
+                                pass
+
+                        if os.path.exists(ext_src):
+                            t_dest = os.path.join(eroot, current_ext_folder)
+                            if os.path.exists(t_dest):
+                                shutil.rmtree(t_dest, ignore_errors=True)
+                            shutil.copytree(ext_src, t_dest, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.vsix"))
+                            self.log(f" - Extensión desplegada en: {t_dest}")
+
+                            # Actualizar extensions.json
+                            ext_json_path = os.path.join(eroot, "extensions.json")
+                            if os.path.exists(ext_json_path):
+                                try:
+                                    with open(ext_json_path, "r", encoding="utf-8") as f:
+                                        ext_list = json.load(f)
+                                    if isinstance(ext_list, list):
+                                        ext_list = [x for x in ext_list if not (isinstance(x, dict) and x.get("identifier", {}).get("id") == "ucaba.ucaba-language-support")]
+                                        posix_p = "/" + t_dest.replace("\\", "/").lstrip("/")
+                                        ext_list.append({
+                                            "identifier": {"id": "ucaba.ucaba-language-support"},
+                                            "version": APP_VERSION_FULL,
+                                            "location": {
+                                                "$mid": 1,
+                                                "fsPath": t_dest,
+                                                "_sep": 1,
+                                                "external": f"file://{posix_p}",
+                                                "path": posix_p,
+                                                "scheme": "file"
+                                            },
+                                            "relativeLocation": current_ext_folder,
+                                            "metadata": {
+                                                "isApplicationScoped": False,
+                                                "isMachineScoped": False,
+                                                "isBuiltin": False,
+                                                "pinned": True,
+                                                "source": "vsix"
+                                            }
+                                        })
+                                        with open(ext_json_path, "w", encoding="utf-8") as f:
+                                            json.dump(ext_list, f, indent=2)
+                                except Exception:
+                                    pass
 
             self.set_progress(100)
             self.set_status("¡Instalación completada exitosamente!", fg="#4ade80")

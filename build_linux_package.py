@@ -155,6 +155,13 @@ def generate_mime_xml() -> str:
         <generic-icon name="text-x-script"/>
         <glob pattern="*.ucaba"/>
     </mime-type>
+    <mime-type type="text/x-ucaba">
+        <comment>UCABA Pseudocode Source File</comment>
+        <comment xml:lang="es">Archivo fuente de Pseudocódigo UCABA</comment>
+        <icon name="text-x-ucaba"/>
+        <generic-icon name="text-x-script"/>
+        <glob pattern="*.ucaba"/>
+    </mime-type>
 </mime-info>
 """
 
@@ -189,6 +196,7 @@ if [ "$(id -u)" -eq 0 ]; then
     SHARE_DIR="$INSTALL_PREFIX/share/ucaba"
     APPS_DIR="/usr/share/applications"
     ICONS_DIR="/usr/share/icons/hicolor/256x256/apps"
+    MIME_ICONS_DIR="/usr/share/icons/hicolor/256x256/mimetypes"
     MIME_DIR="/usr/share/mime/packages"
     echo -e "${{CYAN}}[INFO] Modo del Sistema (instalación global)...${{NC}}"
 else
@@ -197,6 +205,7 @@ else
     SHARE_DIR="$INSTALL_PREFIX/share/ucaba"
     APPS_DIR="$INSTALL_PREFIX/share/applications"
     ICONS_DIR="$INSTALL_PREFIX/share/icons/hicolor/256x256/apps"
+    MIME_ICONS_DIR="$INSTALL_PREFIX/share/icons/hicolor/256x256/mimetypes"
     MIME_DIR="$INSTALL_PREFIX/share/mime/packages"
     echo -e "${{CYAN}}[INFO] Modo de Usuario ($INSTALL_PREFIX)...${{NC}}"
 fi
@@ -206,6 +215,7 @@ mkdir -p "$BIN_DIR"
 mkdir -p "$SHARE_DIR"
 mkdir -p "$APPS_DIR"
 mkdir -p "$ICONS_DIR"
+mkdir -p "$MIME_ICONS_DIR"
 mkdir -p "$MIME_DIR"
 
 # 2. Copiar binario ejecutable
@@ -222,7 +232,9 @@ fi
 if [ -f "$REPO_DIR/ucaba_icon.png" ]; then
     cp "$REPO_DIR/ucaba_icon.png" "$ICONS_DIR/ucaba.png"
     cp "$REPO_DIR/ucaba_icon.png" "$ICONS_DIR/application-x-ucaba.png"
-    echo -e "${{GREEN}}[OK] Icono oficial instalado en: $ICONS_DIR/ucaba.png${{NC}}"
+    cp "$REPO_DIR/ucaba_icon.png" "$MIME_ICONS_DIR/application-x-ucaba.png"
+    cp "$REPO_DIR/ucaba_icon.png" "$MIME_ICONS_DIR/text-x-ucaba.png"
+    echo -e "${{GREEN}}[OK] Iconos oficiales instalados en apps y mimetypes.${{NC}}"
     if which gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache -f -t "$(dirname "$(dirname "$ICONS_DIR")")" 2>/dev/null || true
     fi
@@ -396,11 +408,13 @@ if [ "$(id -u)" -eq 0 ]; then
     INSTALL_PREFIX="/usr/local"
     APPS_DIR="/usr/share/applications"
     ICONS_DIR="/usr/share/icons/hicolor/256x256/apps"
+    MIME_ICONS_DIR="/usr/share/icons/hicolor/256x256/mimetypes"
     MIME_DIR="/usr/share/mime/packages"
 else
     INSTALL_PREFIX="$HOME/.local"
     APPS_DIR="$INSTALL_PREFIX/share/applications"
     ICONS_DIR="$INSTALL_PREFIX/share/icons/hicolor/256x256/apps"
+    MIME_ICONS_DIR="$INSTALL_PREFIX/share/icons/hicolor/256x256/mimetypes"
     MIME_DIR="$INSTALL_PREFIX/share/mime/packages"
 fi
 
@@ -431,7 +445,8 @@ fi
 # Eliminar icono
 if [ -f "$ICONS_DIR/ucaba.png" ]; then
     rm -f "$ICONS_DIR/ucaba.png" "$ICONS_DIR/application-x-ucaba.png"
-    echo -e "${GREEN}[OK] Eliminado: $ICONS_DIR/ucaba.png${NC}"
+    rm -f "$MIME_ICONS_DIR/application-x-ucaba.png" "$MIME_ICONS_DIR/text-x-ucaba.png"
+    echo -e "${GREEN}[OK] Eliminados iconos oficiales de UCABA.${NC}"
     if which gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache -f -t "$(dirname "$(dirname "$ICONS_DIR")")" 2>/dev/null || true
     fi
@@ -893,6 +908,7 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
         os.makedirs(os.path.join(temp_deb_dir, "usr", "share", "ucaba"), exist_ok=True)
         os.makedirs(os.path.join(temp_deb_dir, "usr", "share", "applications"), exist_ok=True)
         os.makedirs(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "apps"), exist_ok=True)
+        os.makedirs(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "mimetypes"), exist_ok=True)
         os.makedirs(os.path.join(temp_deb_dir, "usr", "share", "mime", "packages"), exist_ok=True)
         os.makedirs(os.path.join(temp_deb_dir, "usr", "share", "doc", "ucaba"), exist_ok=True)
 
@@ -909,6 +925,10 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
             with open(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "apps", "ucaba.png"), "wb") as f:
                 f.write(icon_data)
             with open(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "apps", "application-x-ucaba.png"), "wb") as f:
+                f.write(icon_data)
+            with open(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "mimetypes", "application-x-ucaba.png"), "wb") as f:
+                f.write(icon_data)
+            with open(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "mimetypes", "text-x-ucaba.png"), "wb") as f:
                 f.write(icon_data)
 
         with open(os.path.join(temp_deb_dir, "usr", "share", "applications", "ucaba.desktop"), "wb") as f:
@@ -980,6 +1000,9 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
             ("./usr/share/icons/hicolor/256x256/apps", b"", 0o755, True),
             ("./usr/share/icons/hicolor/256x256/apps/ucaba.png", icon_data, 0o644, False) if icon_data else None,
             ("./usr/share/icons/hicolor/256x256/apps/application-x-ucaba.png", icon_data, 0o644, False) if icon_data else None,
+            ("./usr/share/icons/hicolor/256x256/mimetypes", b"", 0o755, True),
+            ("./usr/share/icons/hicolor/256x256/mimetypes/application-x-ucaba.png", icon_data, 0o644, False) if icon_data else None,
+            ("./usr/share/icons/hicolor/256x256/mimetypes/text-x-ucaba.png", icon_data, 0o644, False) if icon_data else None,
             ("./usr/share/mime", b"", 0o755, True),
             ("./usr/share/mime/packages", b"", 0o755, True),
             ("./usr/share/mime/packages/ucaba.xml", mime_data, 0o644, False),

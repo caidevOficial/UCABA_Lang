@@ -21,9 +21,17 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:ucaba"
+    "onLanguage:ucaba",
+    "workspaceContains:**/*.ucaba"
   ],
   "contributes": {
+    "iconThemes": [
+      {
+        "id": "ucaba-icons",
+        "label": "UCABA",
+        "path": "./icons/ucaba-icon-theme.json"
+      }
+    ],
     "languages": [
       {
         "id": "ucaba",

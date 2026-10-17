@@ -854,20 +854,32 @@ fn register_file_association(exe_path: &Path, icon_path: &Path) -> Result<(), St
     let ps_script = format!(
         r#"
         $extPath = "HKCU:\Software\Classes\.ucaba"
-        $progPath = "HKCU:\Software\Classes\UCABAFile"
         New-Item -Path $extPath -Force | Out-Null
         Set-ItemProperty -Path $extPath -Name "(Default)" -Value "UCABAFile"
-        New-Item -Path $progPath -Force | Out-Null
-        Set-ItemProperty -Path $progPath -Name "(Default)" -Value "Código Fuente UCABA"
+        Set-ItemProperty -Path $extPath -Name "Content Type" -Value "text/x-ucaba"
+        Set-ItemProperty -Path $extPath -Name "PerceivedType" -Value "text"
+
         $iconPath = "{}"
-        if (Test-Path $iconPath) {{
-            $iconReg = "$progPath\DefaultIcon"
-            New-Item -Path $iconReg -Force | Out-Null
-            Set-ItemProperty -Path $iconReg -Name "(Default)" -Value "$iconPath,0"
+        $exePath = "{}"
+
+        foreach ($prog in @("UCABAFile", "UCABA.Program")) {{
+            $progPath = "HKCU:\Software\Classes\$prog"
+            New-Item -Path $progPath -Force | Out-Null
+            Set-ItemProperty -Path $progPath -Name "(Default)" -Value "Código Fuente UCABA"
+            if (Test-Path $iconPath) {{
+                $iconReg = "$progPath\DefaultIcon"
+                New-Item -Path $iconReg -Force | Out-Null
+                Set-ItemProperty -Path $iconReg -Name "(Default)" -Value "$iconPath,0"
+            }}
+            $cmdReg = "$progPath\shell\open\command"
+            New-Item -Path $cmdReg -Force | Out-Null
+            Set-ItemProperty -Path $cmdReg -Name "(Default)" -Value "cmd.exe /k `"`"$exePath`" run `"`"%1`"`""
         }}
-        $cmdReg = "$progPath\shell\open\command"
-        New-Item -Path $cmdReg -Force | Out-Null
-        Set-ItemProperty -Path $cmdReg -Name "(Default)" -Value 'cmd.exe /k "\"{}\" run \"%1\""'
+
+        $feProgids = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ucaba\OpenWithProgids"
+        New-Item -Path $feProgids -Force | Out-Null
+        Set-ItemProperty -Path $feProgids -Name "UCABAFile" -Value ([byte[]]@()) -Type None
+        Set-ItemProperty -Path $feProgids -Name "UCABA.Program" -Value ([byte[]]@()) -Type None
         "#,
         icon_path.to_string_lossy(),
         exe_path.to_string_lossy()
@@ -899,35 +911,122 @@ fn remove_file_association() {
 }
 
 fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
-    let output = Command::new("code")
-        .arg("--install-extension")
-        .arg(vsix_path)
-        .arg("--force")
-        .output();
-
-    if let Ok(out) = output {
-        if out.status.success() {
-            return Ok(());
-        }
+    // 1. Intentar registrar vía CLIs de editores conocidos
+    let editors = ["code", "cursor", "codium", "antigravity"];
+    for editor in editors {
+        let _ = Command::new(editor)
+            .arg("--install-extension")
+            .arg(vsix_path)
+            .arg("--force")
+            .output();
     }
 
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         let code_cmd = PathBuf::from(local).join(r"Programs\Microsoft VS Code\bin\code.cmd");
         if code_cmd.exists() {
-            let res = Command::new(&code_cmd)
+            let _ = Command::new(&code_cmd)
                 .arg("--install-extension")
                 .arg(vsix_path)
                 .arg("--force")
                 .output();
-            if let Ok(out) = res {
-                if out.status.success() {
-                    return Ok(());
-                }
-            }
         }
     }
 
-    Err("No se detectó el comando 'code' de VS Code. Instala el .vsix manualmente si usas VS Code portable.".to_string())
+    // 2. Despliegue directo y registro en extensions.json / limpieza de .obsolete
+    let ps_deploy = format!(
+        r#"
+        $vsix = "{}"
+        $userHome = [Environment]::GetFolderPath('UserProfile')
+        $extRoots = @(
+            "$userHome\.vscode\extensions",
+            "$userHome\.vscode-oss\extensions",
+            "$userHome\.cursor\extensions",
+            "$userHome\.antigravity-ide\extensions",
+            "$userHome\.antigravity\extensions"
+        )
+        $currentFolder = "ucaba.ucaba-language-support-{}"
+        $tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) "ucaba_vsix_unpacked"
+        if (Test-Path $tempExtract) {{ Remove-Item -Path $tempExtract -Recurse -Force -ErrorAction SilentlyContinue }}
+        try {{
+            Expand-Archive -Path $vsix -DestinationPath $tempExtract -Force
+            $srcExt = Join-Path $tempExtract "extension"
+            if (Test-Path $srcExt) {{
+                foreach ($root in $extRoots) {{
+                    if ((Test-Path $root) -or (Test-Path (Split-Path $root -Parent))) {{
+                        New-Item -Path $root -ItemType Directory -Force | Out-Null
+                        Get-ChildItem -Path $root -Filter "ucaba.ucaba-language-support-*" -ErrorAction SilentlyContinue | Where-Object {{ $_.Name -ne $currentFolder }} | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                        Remove-Item -Path (Join-Path $root "ucaba-language-support") -Recurse -Force -ErrorAction SilentlyContinue
+                        $obs = Join-Path $root ".obsolete"
+                        if (Test-Path $obs) {{
+                            try {{
+                                $obsJson = Get-Content $obs -Raw | ConvertFrom-Json
+                                $newObs = @{{}}
+                                foreach ($prop in $obsJson.PSObject.Properties) {{
+                                    if ($prop.Name -notlike "*ucaba*") {{
+                                        $newObs[$prop.Name] = $prop.Value
+                                    }}
+                                }}
+                                $newObs | ConvertTo-Json | Set-Content $obs
+                            }} catch {{}}
+                        }}
+                        $dest = Join-Path $root $currentFolder
+                        if (Test-Path $dest) {{ Remove-Item -Path $dest -Recurse -Force -ErrorAction SilentlyContinue }}
+                        Copy-Item -Path $srcExt -Destination $dest -Recurse -Force
+                        $extJson = Join-Path $root "extensions.json"
+                        if (Test-Path $extJson) {{
+                            try {{
+                                $list = Get-Content $extJson -Raw | ConvertFrom-Json
+                                $filtered = @()
+                                foreach ($it in $list) {{
+                                    if ($it.identifier.id -ne "ucaba.ucaba-language-support") {{
+                                        $filtered += $it
+                                    }}
+                                }}
+                                $posixPath = "/" + ($dest.Replace("\", "/").TrimStart("/"))
+                                $newEntry = [PSCustomObject]@{{
+                                    identifier = [PSCustomObject]@{{ id = "ucaba.ucaba-language-support" }};
+                                    version = "{}";
+                                    location = [PSCustomObject]@{{
+                                        "`$mid" = 1;
+                                        fsPath = $dest;
+                                        _sep = 1;
+                                        external = "file://$posixPath";
+                                        path = $posixPath;
+                                        scheme = "file"
+                                    }};
+                                    relativeLocation = $currentFolder;
+                                    metadata = [PSCustomObject]@{{
+                                        isApplicationScoped = $false;
+                                        isMachineScoped = $false;
+                                        isBuiltin = $false;
+                                        pinned = $true;
+                                        source = "vsix"
+                                    }}
+                                }}
+                                $filtered += $newEntry
+                                $filtered | ConvertTo-Json -Depth 10 | Set-Content $extJson
+                            }} catch {{}}
+                        }}
+                    }}
+                }}
+            }}
+        }} catch {{}}
+        finally {{
+            if (Test-Path $tempExtract) {{ Remove-Item -Path $tempExtract -Recurse -Force -ErrorAction SilentlyContinue }}
+        }}
+        "#,
+        vsix_path.to_string_lossy(),
+        UCABA_VERSION,
+        UCABA_VERSION
+    );
+
+    let _ = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(ps_deploy)
+        .output();
+
+    Ok(())
 }
 
 fn register_uninstaller(target_dir: &Path, icon_path: &Path) {

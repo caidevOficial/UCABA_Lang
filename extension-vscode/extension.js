@@ -461,6 +461,11 @@ function activate(context) {
                 if (end === -1) end = text.length;
                 if (end > target) return true;
                 i = end;
+            } else if (text[i] === '#') {
+                let end = text.indexOf('\n', i);
+                if (end === -1) end = text.length;
+                if (end > target) return true;
+                i = end;
             } else if (text[i] === '"' || text[i] === "'") {
                 const quote = text[i];
                 let j = i + 1;
