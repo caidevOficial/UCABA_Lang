@@ -9,14 +9,18 @@ mod repl;
 #[derive(ClapParser)]
 #[command(
     name = "ucaba",
-    version = VERSION,
     author = "Facu Falcone <a.facundo.falcone@gmail.com>",
     about = "UCABA: Lenguaje de programación de pseudocódigo en español fuertemente tipado (v2.0 Native Rust Engine)",
-    long_about = None
+    long_about = None,
+    disable_version_flag = true
 )]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
+
+    /// Muestra la versión del lenguaje UCABA
+    #[arg(short = 'v', short_alias = 'V', long = "version")]
+    version: bool,
 
     /// Archivo .ucaba a ejecutar directamente por defecto
     file: Option<PathBuf>,
@@ -112,13 +116,19 @@ enum TimeMode {
     Completo,
 }
 
-fn print_welcome_banner() {
-    if std::env::var("UCABA_HIDE_BANNER").ok().as_deref() == Some("1") {
+fn print_welcome_banner(force: bool) {
+    if !force && std::env::var("UCABA_HIDE_BANNER").ok().as_deref() == Some("1") {
         return;
     }
-    // Color fucsia oficial UCABA #d946ef
-    println!("\x1b[95m\x1b[1;38;2;217;70;239mUCABA (v{})\x1b[0m", VERSION);
-    println!("\x1b[95m\x1b[1;38;2;217;70;239mHello from the UCABA community. [Dev: Facu Falcone] [Rust Engine]\x1b[0m");
+    let no_color = std::env::var("NO_COLOR").is_ok() || std::env::var("UCABA_NO_COLOR").is_ok();
+    if no_color {
+        println!("UCABA (v{})", VERSION);
+        println!("Hello from the UCABA community. [Dev: Facu Falcone]");
+    } else {
+        // Color fucsia oficial UCABA #d946ef
+        println!("\x1b[95m\x1b[1;38;2;217;70;239mUCABA (v{})\x1b[0m", VERSION);
+        println!("\x1b[95m\x1b[1;38;2;217;70;239mHello from the UCABA community. [Dev: Facu Falcone]\x1b[0m");
+    }
 }
 
 fn format_elapsed_time(elapsed_secs: f64, is_full: bool) -> String {
@@ -148,10 +158,19 @@ fn format_elapsed_time(elapsed_secs: f64, is_full: bool) -> String {
 }
 
 fn main() {
+    #[cfg(windows)]
+    let _ = colored::control::set_virtual_terminal(true);
+
     let cli = Cli::parse();
+
+    if cli.version {
+        print_welcome_banner(true);
+        return;
+    }
+
     let is_lsp = matches!(cli.command, Some(Commands::LspCheck { .. }));
     if !is_lsp {
-        print_welcome_banner();
+        print_welcome_banner(false);
     }
 
     match cli.command {

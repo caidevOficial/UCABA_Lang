@@ -11,6 +11,31 @@ use std::process::Command;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn silent_command<S: AsRef<std::ffi::OsStr>>(program: S) -> Command {
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
+fn run_powershell_script(script: &str) -> std::io::Result<std::process::Output> {
+    silent_command("powershell")
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-WindowStyle")
+        .arg("Hidden")
+        .arg("-Command")
+        .arg(script)
+        .output()
+}
+
+
 // Assets embebidos directamente en el binario del instalador
 const UCABA_EXE_BYTES: &[u8] = include_bytes!("../../../target/release/ucaba.exe");
 const UCABA_ICON_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.ico");
@@ -670,7 +695,7 @@ fn run_uninstallation_pipeline(tx: Sender<InstallMsg>, target_dir: String) {
 
     let _ = tx.send(InstallMsg::Progress(0.85, "Removiendo extensión de editores...".to_string()));
     let _ = tx.send(InstallMsg::Log("[4/4] Removiendo extensión de VS Code / Cursor / Antigravity...".to_string()));
-    let _ = Command::new("code")
+    let _ = silent_command("code")
         .arg("--uninstall-extension")
         .arg("ucaba.ucaba-language-support")
         .output();
@@ -885,11 +910,7 @@ fn register_file_association(exe_path: &Path, icon_path: &Path) -> Result<(), St
         exe_path.to_string_lossy()
     );
 
-    let _ = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(ps_script)
-        .output();
+    let _ = run_powershell_script(&ps_script);
 
     refresh_shell_icons();
     Ok(())
@@ -901,11 +922,7 @@ fn remove_file_association() {
         Remove-Item -Path "HKCU:\Software\Classes\UCABAFile" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "HKCU:\Software\Classes\UCABA.Program" -Recurse -Force -ErrorAction SilentlyContinue
     "#;
-    let _ = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(ps_script)
-        .output();
+    let _ = run_powershell_script(ps_script);
 
     refresh_shell_icons();
 }
@@ -914,7 +931,7 @@ fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
     // 1. Intentar registrar vía CLIs de editores conocidos
     let editors = ["code", "cursor", "codium", "antigravity"];
     for editor in editors {
-        let _ = Command::new(editor)
+        let _ = silent_command(editor)
             .arg("--install-extension")
             .arg(vsix_path)
             .arg("--force")
@@ -924,7 +941,7 @@ fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         let code_cmd = PathBuf::from(local).join(r"Programs\Microsoft VS Code\bin\code.cmd");
         if code_cmd.exists() {
-            let _ = Command::new(&code_cmd)
+            let _ = silent_command(&code_cmd)
                 .arg("--install-extension")
                 .arg(vsix_path)
                 .arg("--force")
@@ -1020,11 +1037,7 @@ fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
         UCABA_VERSION
     );
 
-    let _ = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(ps_deploy)
-        .output();
+    let _ = run_powershell_script(&ps_deploy);
 
     Ok(())
 }
@@ -1039,7 +1052,7 @@ fn register_uninstaller(target_dir: &Path, icon_path: &Path) {
         Set-ItemProperty -Path $unPath -Name "Publisher" -Value "Facu Falcone"
         Set-ItemProperty -Path $unPath -Name "DisplayIcon" -Value "{}"
         Set-ItemProperty -Path $unPath -Name "InstallLocation" -Value "{}"
-        Set-ItemProperty -Path $unPath -Name "UninstallString" -Value 'powershell -Command "Remove-Item -Recurse -Force \"{}\""'
+        Set-ItemProperty -Path $unPath -Name "UninstallString" -Value 'powershell -NoProfile -WindowStyle Hidden -Command "Remove-Item -Recurse -Force \"{}\""'
         "#,
         UCABA_VERSION,
         UCABA_VERSION,
@@ -1048,22 +1061,14 @@ fn register_uninstaller(target_dir: &Path, icon_path: &Path) {
         target_dir.to_string_lossy()
     );
 
-    let _ = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(ps_script)
-        .output();
+    let _ = run_powershell_script(&ps_script);
 }
 
 fn remove_uninstaller() {
     let ps_script = r#"
         Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\UCABA" -Recurse -Force -ErrorAction SilentlyContinue
     "#;
-    let _ = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(ps_script)
-        .output();
+    let _ = run_powershell_script(ps_script);
 }
 
 fn main() -> eframe::Result<()> {

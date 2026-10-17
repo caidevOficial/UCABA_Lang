@@ -2,14 +2,17 @@ use std::process::Command;
 
 #[test]
 fn test_cli_version() {
-    let output = Command::new(env!("CARGO_BIN_EXE_ucaba"))
-        .arg("--version")
-        .output()
-        .expect("Failed to execute ucaba --version");
+    for flag in ["--version", "-v", "-V"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_ucaba"))
+            .arg(flag)
+            .output()
+            .unwrap_or_else(|_| panic!("Failed to execute ucaba {}", flag));
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2.0.0"));
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("UCABA (v2.0.0)"), "Flag {} failed banner version check", flag);
+        assert!(stdout.contains("Hello from the UCABA community. [Dev: Facu Falcone]"), "Flag {} failed dev check", flag);
+    }
 }
 
 #[test]
