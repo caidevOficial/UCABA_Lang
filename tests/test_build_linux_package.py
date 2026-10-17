@@ -44,14 +44,15 @@ class TestBuildLinuxPackage(unittest.TestCase):
             self.assertTrue(header.startswith(b"#!/usr/bin/env python3\n"))
 
         # Probar ejecucion directa via Python (simulando kernel Linux)
-        res_ver = subprocess.run([sys.executable, target_bin, "--version"], capture_output=True, text=True)
-        self.assertEqual(res_ver.returncode, 0)
+        test_env = {**os.environ, "UCABA_NO_UPDATE_CHECK": "1"}
+        res_ver = subprocess.run([sys.executable, target_bin, "--version"], capture_output=True, text=True, env=test_env)
+        self.assertEqual(res_ver.returncode, 0, f"res_ver falló con código {res_ver.returncode}: {res_ver.stderr}")
         self.assertIn("UCABA (v", res_ver.stdout)
 
         ejemplo_path = os.path.join(REPO_ROOT, "ejemplo.ucaba")
         if os.path.exists(ejemplo_path):
-            res_run = subprocess.run([sys.executable, target_bin, "run", ejemplo_path], capture_output=True, text=True)
-            self.assertEqual(res_run.returncode, 0)
+            res_run = subprocess.run([sys.executable, target_bin, "run", ejemplo_path], capture_output=True, text=True, env=test_env)
+            self.assertEqual(res_run.returncode, 0, f"res_run falló con código {res_run.returncode}: stdout={res_run.stdout}, stderr={res_run.stderr}")
             self.assertIn("[RUN] Ejecutando archivo", res_run.stdout)
             self.assertNotIn("UCABA Stub Test Binary", res_run.stdout)
 

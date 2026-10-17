@@ -91,9 +91,6 @@ from pseudocode.updater import register_update_notice_on_exit
 # Ejecutar el saludo una única vez al cargar el paquete UCABA
 print_welcome_banner()
 
-# Iniciar comprobación en segundo plano y registrar aviso de versión al salir (estilo pip)
-register_update_notice_on_exit(__version__)
-
 
 def resolve_ucaba_path(filepath: str) -> str:
     """Valida y resuelve que el archivo de código fuente tenga la extensión obligatoria .ucaba."""

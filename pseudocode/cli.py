@@ -159,6 +159,13 @@ def main(cli_args=None):
         sys.exit(0)
 
     try:
+        if args.command in ("run", "check"):
+            try:
+                from pseudocode.updater import register_update_notice_on_exit
+                register_update_notice_on_exit(__version__)
+            except Exception:
+                pass
+
         if args.command in ("update", "upgrade"):
             from pseudocode.updater import run_interactive_update, check_version_status
             if getattr(args, "check", False):

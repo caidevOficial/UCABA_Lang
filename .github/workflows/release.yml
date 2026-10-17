@@ -38,6 +38,8 @@ jobs:
           pip install pyinstaller
 
       - name: Ejecutar Suite de Pruebas Unitarias
+        env:
+          UCABA_NO_UPDATE_CHECK: "1"
         run: |
           python -m unittest discover -s tests -p "test_*.py"
 
@@ -82,6 +84,8 @@ jobs:
           pip install pyinstaller
 
       - name: Ejecutar Suite de Pruebas Unitarias en Linux
+        env:
+          UCABA_NO_UPDATE_CHECK: "1"
         run: |
           python -m unittest discover -s tests -p "test_*.py"
 

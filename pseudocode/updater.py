@@ -19,6 +19,10 @@ import json
 import time
 import urllib.request
 import urllib.error
+import http.client
+import socket
+import ssl
+import email.message
 import threading
 import atexit
 import subprocess
@@ -31,6 +35,7 @@ CACHE_TTL_SECONDS = 3600  # 1 hora de caché para verificaciones en segundo plan
 
 _NEW_RELEASE_INFO: Optional[Dict[str, Any]] = None
 _CHECK_STARTED = False
+_BACKGROUND_THREAD: Optional[threading.Thread] = None
 
 
 def parse_version(v_str: str) -> Tuple[int, ...]:
@@ -201,34 +206,54 @@ def _background_check_worker(current_version: str):
 
 def start_background_check(current_version: str):
     """Inicia la comprobación de versión en un hilo en segundo plano no bloqueante."""
-    global _CHECK_STARTED
+    global _CHECK_STARTED, _BACKGROUND_THREAD
     if _CHECK_STARTED:
         return
 
-    # Silenciar en entornos automáticos, tests o LSP
-    if os.environ.get("UCABA_NO_UPDATE_CHECK") == "1" or os.environ.get("UCABA_HIDE_BANNER") == "1":
+    # Silenciar en entornos automáticos, tests, CI o LSP
+    if (
+        os.environ.get("UCABA_NO_UPDATE_CHECK") == "1"
+        or os.environ.get("UCABA_HIDE_BANNER") == "1"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_ACTIONS" in os.environ
+        or "unittest" in sys.modules
+        or "pytest" in sys.modules
+    ):
         return
-    all_args = list(sys.argv) + list(getattr(sys, "orig_argv", []))
-    if any("lsp-check" in str(arg).lower() or "lsp_check" in str(arg).lower() for arg in all_args):
+
+    all_args = [str(arg).lower() for arg in list(sys.argv) + list(getattr(sys, "orig_argv", []))]
+    fast_cmds = ("--version", "-v", "--help", "-h", "tokens", "lsp-check", "update", "upgrade")
+    if any(arg in fast_cmds for arg in all_args):
         return
 
     _CHECK_STARTED = True
 
-    # 1. Si ya tenemos en caché local que hay una versión nueva, guardarla inmediatamente
+    # 1. Si ya tenemos en caché local reciente (< 1 hora):
     cached = read_cached_version()
     if cached and "latest_version" in cached:
         if parse_version(cached["latest_version"]) > parse_version(current_version):
             global _NEW_RELEASE_INFO
             _NEW_RELEASE_INFO = cached
-            return
+        # Si la caché está fresca (haya actualización o ya estemos al día), no consultar en red
+        return
 
     # 2. De lo contrario, consultar en segundo plano sin ralentizar la ejecución del programa
     t = threading.Thread(target=_background_check_worker, args=(current_version,), daemon=True)
+    _BACKGROUND_THREAD = t
     t.start()
 
 
 def _atexit_notice_hook(current_version: str):
     """Muestra la notificación al finalizar la ejecución del programa si se detectó nueva versión."""
+    global _BACKGROUND_THREAD
+    # No mostrar aviso duplicado si el comando ejecutado fue update/upgrade
+    all_args = [str(arg).lower() for arg in list(sys.argv) + list(getattr(sys, "orig_argv", []))]
+    if any(arg in ("update", "upgrade") for arg in all_args):
+        return
+
+    if _BACKGROUND_THREAD and _BACKGROUND_THREAD.is_alive():
+        _BACKGROUND_THREAD.join(timeout=0.15)
+
     if _NEW_RELEASE_INFO:
         print_update_notice(_NEW_RELEASE_INFO, current_version)
 
