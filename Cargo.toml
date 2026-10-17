@@ -4,6 +4,10 @@ members = [
     "crates/ucaba_cli",
     "crates/ucaba_installer",
 ]
+default-members = [
+    "crates/ucaba_core",
+    "crates/ucaba_cli",
+]
 resolver = "2"
 
 [profile.release]

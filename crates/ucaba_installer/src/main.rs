@@ -17,7 +17,7 @@ const UCABA_ICON_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.ico");
 const UCABA_ICON_PNG_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.png");
 const UCABA_LOGO_BYTES: &[u8] = include_bytes!("../../../ucaba_logo_header.png");
 const VSCODE_VSIX_BYTES: &[u8] = include_bytes!("../../../extension-vscode/ucaba-language-support-2.0.0.vsix");
-const UCABA_VERSION: &str = "2.0.0-alpha.1";
+const UCABA_VERSION: &str = "2.0.0";
 
 fn current_time_str() -> String {
     let dur = std::time::SystemTime::now()
