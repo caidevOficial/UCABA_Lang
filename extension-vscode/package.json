@@ -2,11 +2,15 @@
   "name": "ucaba-language-support",
   "displayName": "UCABA",
   "description": "Soporte oficial para el lenguaje UCABA (.ucaba): coloreado de sintaxis, diagnósticos en tiempo real, autocompletado y ejecución.",
-  "version": "1.11.0",
+  "version": "1.11.6",
   "author": "Facu Falcone <a.facundo.falcone@gmail.com>",
   "license": "GPL-3.0-or-later",
   "icon": "icon.png",
   "publisher": "ucaba",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/caidevOficial/UCABA_Lang"
+  },
   "engines": {
     "vscode": "^1.70.0"
   },
@@ -30,7 +34,15 @@
         "extensions": [
           ".ucaba"
         ],
-        "configuration": "./language-configuration.json"
+        "mimetypes": [
+          "application/x-ucaba",
+          "text/x-ucaba"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/ucaba-file.png",
+          "dark": "./icons/ucaba-file.png"
+        }
       }
     ],
     "grammars": [

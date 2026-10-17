@@ -58,8 +58,9 @@ function getUcabaRunner() {
     }
 
     try {
-        const testRes = cp.spawnSync(process.platform === 'win32' ? 'ucaba.exe' : 'ucaba', ['--help'], { shell: true, timeout: 600 });
-        if (testRes.status === 0) {
+        const testRes = cp.spawnSync(process.platform === 'win32' ? 'ucaba.exe' : 'ucaba', ['--help'], { shell: true, timeout: 1000 });
+        const output = (testRes.stdout ? testRes.stdout.toString() : '') + (testRes.stderr ? testRes.stderr.toString() : '');
+        if (testRes.status === 0 && !output.includes('UCABA Stub Test Binary')) {
             return { isCli: true, executable: 'ucaba' };
         }
     } catch (e) {}

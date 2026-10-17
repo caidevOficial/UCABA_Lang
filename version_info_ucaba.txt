@@ -18,8 +18,8 @@
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 11, 0, 0),
-    prodvers=(1, 11, 0, 0),
+    filevers=(1, 11, 6, 0),
+    prodvers=(1, 11, 6, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -35,12 +35,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'UCABA - Facu Falcone'),
             StringStruct('FileDescription', 'UCABA - Compilador y Ejecutor'),
-            StringStruct('FileVersion', '1.11.0.0'),
+            StringStruct('FileVersion', '1.11.6.0'),
             StringStruct('InternalName', 'ucaba'),
             StringStruct('LegalCopyright', 'Copyright (C) 2026 Facu Falcone <a.facundo.falcone@gmail.com>. GNU GPLv3.'),
             StringStruct('OriginalFilename', 'ucaba.exe'),
             StringStruct('ProductName', 'UCABA'),
-            StringStruct('ProductVersion', '1.11.0.0')
+            StringStruct('ProductVersion', '1.11.6.0')
           ]
         )
       ]

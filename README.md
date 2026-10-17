@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.11.0-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-1.11.6-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-43%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-48%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -100,10 +100,10 @@ UCABA ofrece paquetes oficiales nativos y universales para entornos Linux:
 Recomendado para **Ubuntu, Debian, Linux Mint, Pop!_OS, Kali Linux** y derivados:
 ```bash
 # Instalación con apt (resuelve dependencias automáticamente)
-sudo apt install ./ucaba_1.11.0_amd64.deb
+sudo apt install ./ucaba_1.11.6_amd64.deb
 
 # O mediante dpkg:
-# sudo dpkg -i ucaba_1.11.0_amd64.deb
+# sudo dpkg -i ucaba_1.11.6_amd64.deb
 ```
 Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIME del archivo `.ucaba`, el icono del lenguaje y la entrada de escritorio para aplicaciones del sistema.
 
@@ -111,8 +111,8 @@ Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIM
 Compatible con cualquier distribución (Arch Linux, Fedora, openSUSE, Gentoo, Alpine, etc.):
 ```bash
 # Descomprimir el paquete
-tar -xzf ucaba-1.11.0-linux-x64.tar.gz
-cd ucaba-1.11.0-linux-x64
+tar -xzf ucaba-1.11.6-linux-x64.tar.gz
+cd ucaba-1.11.6-linux-x64
 
 # Instalación para el usuario actual (~/.local/bin):
 chmod +x install.sh
@@ -168,20 +168,27 @@ ucaba run mi_algoritmo.ucaba
 ```
 
 *Opciones de medición de tiempo de ejecución:*
-- `--time` o `--time ms`: Muestra el tiempo de análisis y ejecución en **milisegundos** (`ms`):
-  ```bash
-  ucaba run sort.ucaba --time
-  # O explícitamente:
-  ucaba run sort.ucaba --time ms
-  # Salida: [Tiempo total: 211.22 ms]
-  ```
-- `--time full`, `--time completo` o `--time-full`: Muestra el tiempo desglosado con precisión en **horas, minutos, segundos y milisegundos**:
-  ```bash
-  ucaba run sort.ucaba --time full
-  # O con el flag directo:
-  ucaba run sort.ucaba --time-full
-  # Salida: [Tiempo total: 0 Horas, 0 Minutos, 0 Segundos, 211 Milisegundos]
-  ```
+
+| Opción | Equivalentes | Salida |
+| :--- | :--- | :--- |
+| `--time` | `--time ms` | Tiempo de análisis y ejecución en **milisegundos**. |
+| `--time full` | `--time completo`, `--time-full` | Tiempo desglosado en **horas, minutos, segundos y milisegundos**. |
+
+```bash
+# Milisegundos (modo predeterminado de --time)
+ucaba run sort.ucaba --time
+ucaba run sort.ucaba --time ms
+# Salida: [Tiempo total: 211.22 ms]
+
+# Desglose completo
+ucaba run sort.ucaba --time full
+ucaba run sort.ucaba --time completo
+ucaba run sort.ucaba --time-full
+# Salida: [Tiempo total: 0 Horas, 0 Minutos, 0 Segundos, 211 Milisegundos]
+```
+
+> [!NOTE]
+> La opción `--time` puede ubicarse en cualquier posición de la línea de comandos. También funciona al invocar el archivo directamente: `ucaba sort.ucaba --time-full`. El desglose respeta singular/plural (`1 Hora`, `2 Horas`).
 
 *Otras opciones útiles:*
 - `--lenient` / `-l`: Modo permisivo para pseudocódigo informal.
@@ -454,9 +461,26 @@ Ultimo nodo (cola): Nodo 5
    ENTERO grupo_b[] = [3, 4]
    ENTERO grupo_total[] = grupo_a + grupo_b // [1, 2, 3, 4]
    ```
-3. **División Entera (`//`) y Módulo (`%`):**
-   - `//`: Operador de división entera entre operandos numéricos. Retorna siempre un resultado de tipo `ENTERO` (ej. `10 // 3` retorna `3`). Coexiste de manera armónica y contextual con comentarios de línea.
-   - `%`: Operador de módulo / resto de la división entera (ej. `10 % 3` retorna `1`). Equivalente como operador infijo a la función incorporada `MOD(a, b)`.
+3. **Operadores Aritméticos:**
+
+   | Operador | Operación | Tipo de resultado | Ejemplo |
+   | :---: | :--- | :--- | :--- |
+   | `+` `-` `*` | Suma, resta, multiplicación | `ENTERO` si ambos operandos son `ENTERO`; si no, el tipo numérico mayor | `7 * 2` → `14` |
+   | `/` | División real | `REAL` (`FLOTANTE` si interviene un `FLOTANTE`) | `10 / 4` → `2.5` |
+   | `//` | **División entera** (redondea hacia abajo, hacia −∞) | Siempre `ENTERO` | `10 // 3` → `3`, `-7 // 2` → `-4` |
+   | `%` | **Módulo** (resto de la división entera) | `ENTERO` | `10 % 3` → `1` |
+
+   - `//` y `%` exigen operandos numéricos; si algún operando es `FLOTANTE` o `REAL`, su parte decimal se descarta antes de operar (`7.5 // 2` → `3`).
+   - Ambos arrojan un error claro en tiempo de ejecución ante **división por cero** (`División por cero.` / `Módulo por cero.`).
+   - `%` es equivalente como operador infijo a la función incorporada `MOD(a, b)`.
+   - `//` convive con los comentarios de línea. El lexer lo interpreta como **comentario** cuando aparece al inicio de una línea, tras una palabra clave/declaración, o cuando lo que sigue es texto libre (`IMPRIMIR(10 // 3)  // esto es un comentario`), y como **división entera** cuando está entre dos operandos (`p // columnas`).
+   ```text
+   ENTERO filas = 3
+   ENTERO p = 7
+   IMPRIMIR(p // filas)   // 2  (fila)
+   IMPRIMIR(p % filas)    // 1  (columna)
+   IMPRIMIR(p / filas)    // 2.3333... (división real)
+   ```
 4. **Promoción Numérica:**
    `ENTERO` se promueve automáticamente a `REAL` o `FLOTANTE` en operaciones matemáticas mixtas.
 
@@ -648,14 +672,10 @@ FUNCION ordenar_matriz(matriz[][]: ENTERO): ENTERO[][]
     ENTERO columnas = matriz[0].largo
     ENTERO total = filas * columnas
 
-    // 1. Aplanar la matriz en un vector (recorrido por filas)
+    // 1. Aplanar la matriz en un vector (recorrido por filas) con // y %
     ENTERO elementos[total]
-    ENTERO posicion = 0
-    PARA (ENTERO f = 0; f < filas; f++)
-        PARA (ENTERO c = 0; c < columnas; c++)
-            elementos[posicion] = matriz[f][c]
-            posicion++
-        FIN PARA
+    PARA (ENTERO posicion = 0; posicion < total; posicion++)
+        elementos[posicion] = matriz[posicion // columnas][posicion % columnas]
     FIN PARA
 
     // 2. Selection Sort sobre el vector
@@ -676,12 +696,8 @@ FUNCION ordenar_matriz(matriz[][]: ENTERO): ENTERO[][]
 
     // 3. Reconstruir la matriz ordenada (la original no se modifica)
     ENTERO resultado[filas][columnas]
-    posicion = 0
-    PARA (ENTERO f = 0; f < filas; f++)
-        PARA (ENTERO c = 0; c < columnas; c++)
-            resultado[f][c] = elementos[posicion]
-            posicion++
-        FIN PARA
+    PARA (ENTERO posicion = 0; posicion < total; posicion++)
+        resultado[posicion // columnas][posicion % columnas] = elementos[posicion]
     FIN PARA
 
     RETORNAR resultado
@@ -712,7 +728,7 @@ FIN
 | **Complejidad** | `O(n²)` con `n = filas * columnas`. |
 
 > [!NOTE]
-> Como UCABA no tiene división entera (`/` siempre devuelve `REAL`), la matriz se aplana a un vector para poder ordenarla con índices enteros y luego se reconstruye. Para ordenar de mayor a menor, cambia la comparación a `elementos[j] > elementos[indice_minimo]`.
+> Gracias a la división entera (`//`) y al módulo (`%`), un índice lineal `p` se traduce a coordenadas de matriz con `matriz[p // columnas][p % columnas]`, por lo que no hace falta anidar bucles para aplanar y reconstruir. Para ordenar de mayor a menor, cambia la comparación a `elementos[j] > elementos[indice_minimo]`.
 
 ---
 

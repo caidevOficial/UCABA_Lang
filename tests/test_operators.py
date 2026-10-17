@@ -43,6 +43,23 @@ class TestOperators(unittest.TestCase):
         run_code(code, output_collector=out)
         self.assertEqual(out, ["A: 3", "B: 5", "C: 3", "D: 5"])
 
+    def test_division_entera_dentro_de_indices(self):
+        code = """
+        INICIO
+            ENTERO columnas = 2
+            ENTERO origen[2][2] = [[1, 2], [3, 4]]
+            ENTERO destino[2][2]
+            PARA (ENTERO p = 0; p < 4; p++)
+                destino[p // columnas][p % columnas] = origen[p // columnas][p % columnas] * 10
+            FIN PARA
+            IMPRIMIR(destino[0][0] + "," + destino[0][1] + "," + destino[1][0] + "," + destino[1][1])
+        FIN
+        """
+        out = []
+        run_code(code, output_collector=out)
+        self.assertEqual(out, ["10,20,30,40"])
+
+
     def test_division_entera_con_variables_y_precedencia(self):
         code = """
         INICIO

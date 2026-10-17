@@ -36,7 +36,7 @@ from tkinter.scrolledtext import ScrolledText
 
 # Versión oficial del instalador y del lenguaje UCABA
 APP_VERSION = "1.11"
-APP_VERSION_FULL = "1.11.0"
+APP_VERSION_FULL = "1.11.6"
 
 
 def setup_console():
@@ -167,6 +167,16 @@ def remove_from_user_path(directory: str) -> bool:
         return False
 
 
+def refresh_shell_icons():
+    """Notifica al Explorador de Windows que cambiaron las asociaciones (refresca iconos)."""
+    try:
+        SHCNE_ASSOCCHANGED = 0x08000000
+        SHCNF_IDLIST = 0x0000
+        ctypes.windll.shell32.SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None)
+    except Exception:
+        pass
+
+
 def associate_file_extension(ucaba_exe: str, icon_path: str = None):
     """Asocia la extensión .ucaba con ucaba.exe en el Registro de Windows del usuario."""
     try:
@@ -183,6 +193,7 @@ def associate_file_extension(ucaba_exe: str, icon_path: str = None):
 
         with winreg.CreateKey(base, r"Software\Classes\UCABA.Program\shell\open\command") as key:
             winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'cmd.exe /k ""{ucaba_exe}" run "%1""')
+        refresh_shell_icons()
         return True
     except Exception as e:
         print(f"Error asociando archivos: {e}")

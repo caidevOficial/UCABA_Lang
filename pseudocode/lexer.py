@@ -91,8 +91,15 @@ class Lexer:
         # (ej: 'Libro libro1 // Declarar' o 'ENTERO a // Comentario')
         if last_tok.type == TokenType.IDENTIFICADOR:
             line_tokens = [t for t in self.tokens if t.line == self.line]
+            # Dentro de un índice o paréntesis sin cerrar (ej: 'm[i // n]'), el identificador es un operando
+            open_brackets = sum(
+                1 if t.type in (TokenType.CORCHETE_IZQ, TokenType.PARENTESIS_IZQ)
+                else -1 if t.type in (TokenType.CORCHETE_DER, TokenType.PARENTESIS_DER)
+                else 0
+                for t in line_tokens
+            )
             has_assignment = any(t.type == TokenType.ASIGNAR for t in line_tokens)
-            if not has_assignment:
+            if not has_assignment and open_brackets <= 0:
                 type_keywords = {
                     TokenType.TIPO_ENTERO, TokenType.TIPO_FLOTANTE, TokenType.TIPO_REAL,
                     TokenType.TIPO_CADENA, TokenType.TIPO_CARACTER, TokenType.TIPO_BOOLEANO,

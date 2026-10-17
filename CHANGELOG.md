@@ -5,6 +5,36 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [1.11.6] - 2026-10-17
+
+> Esta versión es la primera publicada desde la `1.11.0` e **incluye también los cambios de la `1.11.5`** (iconos de archivos `.ucaba`, empaquetado Linux y pruebas de `build_linux_package.py`), detallados más abajo.
+
+### 📖 Documentación del Lenguaje
+- **Operadores aritméticos**: nueva tabla de operadores en el `README.md` (`+`, `-`, `*`, `/`, `//`, `%`) con tipo de retorno, ejemplos y la diferencia entre `/` (división real) y `//` (división entera, siempre `ENTERO`).
+- **División entera (`//`)**: se elimina la nota obsoleta que indicaba que UCABA no tenía división entera; el ejemplo de *Selection Sort* ahora usa `//` y `%` para recorrer la matriz sin aplanarla.
+- **Medición de tiempo (`--time`, `--time ms`, `--time full`, `--time completo`, `--time-full`)**: documentación unificada con tabla de modos, ejemplos y salidas esperadas en el `README.md` y en la especificación del lenguaje.
+- **Cobertura de pruebas**: el badge del `README.md` refleja los 48 tests unitarios actuales.
+- **Extensión VS Code**: el `README.md` de la extensión documenta el resaltado de `//`, `%` y `#` y el icono de archivos `.ucaba`.
+
+### 🐛 Correcciones del Lenguaje
+- **División entera dentro de índices**: expresiones como `matriz[p // columnas][p % columnas] = valor` (o `v[n // 2]`) ya no se interpretaban como división entera sino como comentario, provocando un `ParseError`. El lexer ya no aplica la heurística de "declaración + comentario" dentro de corchetes o paréntesis sin cerrar. Se añade `test_division_entera_dentro_de_indices` a `tests/test_operators.py`.
+
+### 🚀 Release y CI
+- **Notas de release (`generate_release_notes.py`)**: se elimina `shell=True` en las llamadas a `git`, que en Linux (runner `ubuntu-latest`) impedía obtener el registro de commits desde el último tag. Ahora cada release incluye las novedades de esta sección del CHANGELOG y la lista de commits reales.
+- **Versionado**: sincronización de la versión `1.11.6` en intérprete, instaladores, metadatos de Windows, paquetes Linux y extensión (`ucaba-language-support-1.11.6.vsix`).
+- **Corrección**: el CHANGELOG de la 1.11.5 contenía un carácter de control inválido en el nombre MIME `application-x-ucaba`.
+
+---
+
+## [1.11.5] - 2026-10-17
+
+### 🎨 Iconos de archivos .ucaba
+- **Extensión VS Code / Antigravity / Cursor**: se declara el icono de lenguaje (contributes.languages[].icon) con icons/ucaba-file.png, de modo que los archivos .ucaba muestran el logo de UCABA en el explorador y en las pestañas (igual que Python o Ruby).
+- **Windows**: el instalador notifica al Explorador (SHChangeNotify) tras registrar la asociación para refrescar el icono sin reiniciar.
+- **Linux**: el tipo MIME usa el nombre estándar `application-x-ucaba` y se instala el icono bajo ese nombre; se refresca la caché de iconos (gtk-update-icon-cache) en install.sh, uninstall.sh, postinst y postrm.
+
+---
+
 ## [1.11.0] - 2026-10-16
 
 ### ➗ Operadores Aritméticos y Gramática

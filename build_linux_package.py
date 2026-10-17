@@ -30,6 +30,8 @@ import tarfile
 import hashlib
 import argparse
 import subprocess
+import tempfile
+import zipapp
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -42,7 +44,7 @@ def get_version() -> str:
             for line in f:
                 if line.startswith("__version__"):
                     return line.split("=")[1].strip().strip('"').strip("'")
-    return "1.11.0"
+    return "1.11.6"
 
 
 def find_latest_vsix() -> str:
@@ -56,6 +58,23 @@ def find_latest_vsix() -> str:
     return sorted(vsix_files, key=os.path.getmtime, reverse=True)[0]
 
 
+def get_extension_files() -> list:
+    """Retorna la lista de archivos de la extensión VS Code: [(rel_path, bytes), ...]."""
+    ext_dir = os.path.join(REPO_ROOT, "extension-vscode")
+    entries = []
+    if not os.path.exists(ext_dir):
+        return entries
+    for root, dirs, files in os.walk(ext_dir):
+        for f in files:
+            if f.endswith(".vsix"):
+                continue
+            full_p = os.path.join(root, f)
+            rel_p = os.path.relpath(full_p, ext_dir).replace("\\", "/")
+            with open(full_p, "rb") as fp:
+                entries.append((rel_p, fp.read()))
+    return entries
+
+
 def get_sha256(filepath: str) -> str:
     """Calcula el hash SHA-256 de un archivo."""
     h = hashlib.sha256()
@@ -63,6 +82,45 @@ def get_sha256(filepath: str) -> str:
         while chunk := f.read(65536):
             h.update(chunk)
     return h.hexdigest()
+
+
+def build_standalone_executable(output_path: str) -> str:
+    """
+    Construye un ejecutable autónomo universal para GNU/Linux (ZipApp con shebang #!/usr/bin/env python3).
+    Este ejecutable incluye todo el runtime del lenguaje UCABA (pseudocode), soporta todas las banderas CLI
+    (run, check, --time, --version, --help, etc.) y se ejecuta de forma nativa e inmediata en cualquier
+    distribución Linux moderna (Pop!_OS, Ubuntu, Debian, Arch, Fedora) sin requerir PyInstaller.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_pkg = os.path.join(tmp_dir, "pseudocode")
+        src_pkg = os.path.join(REPO_ROOT, "pseudocode")
+        shutil.copytree(src_pkg, dest_pkg, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
+
+        main_py = os.path.join(tmp_dir, "__main__.py")
+        with open(main_py, "w", encoding="utf-8") as f:
+            f.write(
+                "#!/usr/bin/env python3\n"
+                "# Runner de inicio para ejecutable standalone de UCABA\n"
+                "import sys\n"
+                "from pseudocode.cli import main\n\n"
+                "if __name__ == '__main__':\n"
+                "    main()\n"
+            )
+
+        zipapp.create_archive(
+            tmp_dir,
+            target=output_path,
+            interpreter="/usr/bin/env python3"
+        )
+
+    try:
+        current_mode = os.stat(output_path).st_mode
+        os.chmod(output_path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    except OSError:
+        pass
+
+    return output_path
 
 
 def generate_desktop_entry() -> str:
@@ -86,7 +144,8 @@ def generate_mime_xml() -> str:
     <mime-type type="application/x-ucaba">
         <comment>UCABA Pseudocode Source File</comment>
         <comment xml:lang="es">Archivo fuente de Pseudocódigo UCABA</comment>
-        <icon name="ucaba"/>
+        <icon name="application-x-ucaba"/>
+        <generic-icon name="text-x-script"/>
         <glob pattern="*.ucaba"/>
     </mime-type>
 </mime-info>
@@ -155,7 +214,11 @@ fi
 # 3. Copiar icono
 if [ -f "$REPO_DIR/ucaba_icon.png" ]; then
     cp "$REPO_DIR/ucaba_icon.png" "$ICONS_DIR/ucaba.png"
+    cp "$REPO_DIR/ucaba_icon.png" "$ICONS_DIR/application-x-ucaba.png"
     echo -e "${{GREEN}}[OK] Icono oficial instalado en: $ICONS_DIR/ucaba.png${{NC}}"
+    if which gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -f -t "$(dirname "$(dirname "$ICONS_DIR")")" 2>/dev/null || true
+    fi
 fi
 
 # 4. Registrar tipo MIME (.ucaba)
@@ -176,23 +239,115 @@ if [ -f "$REPO_DIR/ucaba.desktop" ]; then
     echo -e "${{GREEN}}[OK] Acceso de escritorio instalado en: $APPS_DIR/ucaba.desktop${{NC}}"
 fi
 
-# 6. Registrar extensión VSIX en editores
+# 6. Registrar extensión en editores y perfiles de usuario
 VSIX_FILE="$REPO_DIR/{vsix_name}"
+EXT_DIR="$REPO_DIR/extension"
+EXT_NAME="ucaba.ucaba-language-support-{version}"
+
 if [ -f "$VSIX_FILE" ]; then
     cp "$VSIX_FILE" "$SHARE_DIR/"
     echo -e "${{GREEN}}[OK] Paquete VSIX guardado en: $SHARE_DIR/{vsix_name}${{NC}}"
+fi
 
-    if which code >/dev/null 2>&1; then
-        echo -e "${{CYAN}}[...] Instalando extensión oficial en Visual Studio Code...${{NC}}"
-        code --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 && echo -e "${{GREEN}}[OK] Extensión de VS Code registrada exitosamente.${{NC}}" || true
+if [ -d "$EXT_DIR" ]; then
+    mkdir -p "$SHARE_DIR/extension"
+    cp -r "$EXT_DIR"/* "$SHARE_DIR/extension/" 2>/dev/null || true
+    echo -e "${{GREEN}}[OK] Directorio de extensión instalado en: $SHARE_DIR/extension${{NC}}"
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    # Modo root: desplegar en extensiones globales de editores
+    SYS_EXT_DIRS=(
+        "/usr/share/code/resources/app/extensions"
+        "/usr/share/codium/resources/app/extensions"
+        "/usr/share/cursor/resources/app/extensions"
+        "/opt/visual-studio-code/resources/app/extensions"
+        "/opt/Cursor/resources/app/extensions"
+    )
+    for s_dir in "${{SYS_EXT_DIRS[@]}}"; do
+        if [ -d "$s_dir" ] && [ -d "$EXT_DIR" ]; then
+            dest="$s_dir/ucaba-language-support"
+            mkdir -p "$dest"
+            cp -r "$EXT_DIR"/* "$dest/" 2>/dev/null || true
+            chmod -R 755 "$dest" 2>/dev/null || true
+            echo -e "${{GREEN}}[OK] Extensión registrada globalmente en: $dest${{NC}}"
+        fi
+    done
+
+    # Instalar en carpetas de usuarios en /home
+    for h in /home/*; do
+        if [ -d "$h" ]; then
+            u_owner=$(stat -c '%u:%g' "$h" 2>/dev/null || true)
+            for troot in "$h/.vscode/extensions" "$h/.vscode-oss/extensions" "$h/.cursor/extensions" "$h/.var/app/com.visualstudio.code/data/vscode/extensions"; do
+                if [ -d "$troot" ] || [ -d "$(dirname "$troot")" ]; then
+                    mkdir -p "$troot"
+                    rm -rf "$troot/ucaba.ucaba-language-support-"* "$troot/ucaba-language-support" 2>/dev/null || true
+                    dest="$troot/$EXT_NAME"
+                    mkdir -p "$dest"
+                    if [ -d "$EXT_DIR" ]; then
+                        cp -r "$EXT_DIR"/* "$dest/" 2>/dev/null || true
+                    fi
+                    chown -R "$u_owner" "$dest" 2>/dev/null || true
+                fi
+            done
+        fi
+    done
+
+    if [ -n "$SUDO_USER" ] && [ -f "$VSIX_FILE" ]; then
+        if which code >/dev/null 2>&1; then
+            su - "$SUDO_USER" -c "code --install-extension \\"$VSIX_FILE\\" --force" >/dev/null 2>&1 || true
+        fi
+        if which cursor >/dev/null 2>&1; then
+            su - "$SUDO_USER" -c "cursor --install-extension \\"$VSIX_FILE\\" --force" >/dev/null 2>&1 || true
+        fi
+        if which codium >/dev/null 2>&1; then
+            su - "$SUDO_USER" -c "codium --install-extension \\"$VSIX_FILE\\" --force" >/dev/null 2>&1 || true
+        fi
+        if which flatpak >/dev/null 2>&1; then
+            su - "$SUDO_USER" -c "flatpak run com.visualstudio.code --install-extension \\"$VSIX_FILE\\" --force" >/dev/null 2>&1 || true
+        fi
     fi
-    if which cursor >/dev/null 2>&1; then
-        echo -e "${{CYAN}}[...] Instalando extensión oficial en Cursor...${{NC}}"
-        cursor --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 && echo -e "${{GREEN}}[OK] Extensión de Cursor registrada exitosamente.${{NC}}" || true
-    fi
-    if which codium >/dev/null 2>&1; then
-        echo -e "${{CYAN}}[...] Instalando extensión oficial en VSCodium...${{NC}}"
-        codium --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 && echo -e "${{GREEN}}[OK] Extensión de VSCodium registrada exitosamente.${{NC}}" || true
+else
+    # Modo usuario común (~/.local)
+    TARGET_ROOTS=(
+        "$HOME/.vscode/extensions"
+        "$HOME/.vscode-oss/extensions"
+        "$HOME/.cursor/extensions"
+        "$HOME/.antigravity-ide/extensions"
+        "$HOME/.antigravity/extensions"
+        "$HOME/.vscode-insiders/extensions"
+        "$HOME/.var/app/com.visualstudio.code/data/vscode/extensions"
+        "$HOME/.var/app/com.vscodium.codium/data/vscode/extensions"
+    )
+    for troot in "${{TARGET_ROOTS[@]}}"; do
+        if [ -d "$troot" ] || [ -d "$(dirname "$troot")" ]; then
+            mkdir -p "$troot"
+            rm -rf "$troot/ucaba.ucaba-language-support-"* "$troot/ucaba-language-support" 2>/dev/null || true
+            dest="$troot/$EXT_NAME"
+            mkdir -p "$dest"
+            if [ -d "$EXT_DIR" ]; then
+                cp -r "$EXT_DIR"/* "$dest/" 2>/dev/null || true
+            fi
+            echo -e "${{GREEN}}[OK] Extensión instalada en: $dest${{NC}}"
+        fi
+    done
+
+    if [ -f "$VSIX_FILE" ]; then
+        if which code >/dev/null 2>&1; then
+            code --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
+        fi
+        if which cursor >/dev/null 2>&1; then
+            cursor --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
+        fi
+        if which codium >/dev/null 2>&1; then
+            codium --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
+        fi
+        if which antigravity >/dev/null 2>&1; then
+            antigravity --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
+        fi
+        if which flatpak >/dev/null 2>&1; then
+            flatpak run com.visualstudio.code --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
+        fi
     fi
 fi
 
@@ -268,8 +423,11 @@ fi
 
 # Eliminar icono
 if [ -f "$ICONS_DIR/ucaba.png" ]; then
-    rm -f "$ICONS_DIR/ucaba.png"
+    rm -f "$ICONS_DIR/ucaba.png" "$ICONS_DIR/application-x-ucaba.png"
     echo -e "${GREEN}[OK] Eliminado: $ICONS_DIR/ucaba.png${NC}"
+    if which gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -f -t "$(dirname "$(dirname "$ICONS_DIR")")" 2>/dev/null || true
+    fi
 fi
 
 # Eliminar MIME
@@ -342,6 +500,7 @@ Version: {version}
 Section: devel
 Priority: optional
 Architecture: amd64
+Depends: python3 (>= 3.8)
 Installed-Size: {installed_size_kb}
 Maintainer: Facu Falcone <a.facundo.falcone@gmail.com>
 Homepage: https://github.com/caidevOficial/UCABA_Lang
@@ -354,28 +513,105 @@ Description: Intérprete y runtime de pseudocódigo en español fuertemente tipa
 
 
 def generate_postinst(version: str, vsix_name: str) -> str:
-    return f"""#!/bin/sh
+    return f"""#!/bin/bash
 set -e
 
-# Actualizar base de datos de tipos MIME
+VERSION="{version}"
+VSIX_NAME="{vsix_name}"
+VSIX_PATH="/usr/share/ucaba/$VSIX_NAME"
+EXT_SRC="/usr/share/ucaba/extension"
+EXT_NAME="ucaba.ucaba-language-support-$VERSION"
+
+# 1. Actualizar bases de datos de tipos MIME y escritorio
 if which update-mime-database >/dev/null 2>&1; then
-    update-mime-database /usr/share/mime || true
+    update-mime-database /usr/share/mime 2>/dev/null || true
 fi
 
-# Actualizar base de datos de entradas de escritorio
 if which update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database /usr/share/applications || true
+    update-desktop-database /usr/share/applications 2>/dev/null || true
 fi
 
-# Intentar instalar la extensión de VS Code si existe en el entorno
-VSIX_PATH="/usr/share/ucaba/{vsix_name}"
-if [ -f "$VSIX_PATH" ]; then
+if which gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+fi
+
+# 2. Despliegue global/system-wide en VS Code, VSCodium y Cursor
+SYS_EXT_DIRS=(
+    "/usr/share/code/resources/app/extensions"
+    "/usr/share/codium/resources/app/extensions"
+    "/usr/share/cursor/resources/app/extensions"
+    "/opt/visual-studio-code/resources/app/extensions"
+    "/opt/Cursor/resources/app/extensions"
+    "/usr/lib/code/resources/app/extensions"
+)
+
+if [ -d "$EXT_SRC" ]; then
+    for sys_dir in "${{SYS_EXT_DIRS[@]}}"; do
+        if [ -d "$sys_dir" ]; then
+            dest="$sys_dir/ucaba-language-support"
+            mkdir -p "$dest"
+            cp -r "$EXT_SRC"/* "$dest/" 2>/dev/null || true
+            chmod -R 755 "$dest" 2>/dev/null || true
+        fi
+    done
+fi
+
+# 3. Despliegue en perfiles de usuario (~/.vscode, Flatpak Pop!_OS, etc.)
+for h in /home/*; do
+    if [ -d "$h" ]; then
+        u_owner=$(stat -c '%u:%g' "$h" 2>/dev/null || echo "")
+        if [ -n "$u_owner" ]; then
+            TARGET_ROOTS=(
+                "$h/.vscode/extensions"
+                "$h/.vscode-oss/extensions"
+                "$h/.cursor/extensions"
+                "$h/.antigravity-ide/extensions"
+                "$h/.antigravity/extensions"
+                "$h/.var/app/com.visualstudio.code/data/vscode/extensions"
+                "$h/.var/app/com.vscodium.codium/data/vscode/extensions"
+            )
+            for troot in "${{TARGET_ROOTS[@]}}"; do
+                if [ -d "$troot" ] || [ -d "$(dirname "$troot")" ]; then
+                    mkdir -p "$troot"
+                    find "$troot" -maxdepth 1 -type d -name "ucaba.ucaba-language-support-*" ! -name "$EXT_NAME" -exec rm -rf {{}} + 2>/dev/null || true
+                    rm -rf "$troot/ucaba-language-support" 2>/dev/null || true
+
+                    dest="$troot/$EXT_NAME"
+                    mkdir -p "$dest"
+                    if [ -d "$EXT_SRC" ]; then
+                        cp -r "$EXT_SRC"/* "$dest/" 2>/dev/null || true
+                    fi
+                    chown -R "$u_owner" "$dest" 2>/dev/null || true
+                    chown "$u_owner" "$troot" 2>/dev/null || true
+                fi
+            done
+        fi
+    fi
+done
+
+# 4. Registrar formalmente vía CLI si hay un usuario invocador sudo
+if [ -n "$SUDO_USER" ] && [ -f "$VSIX_PATH" ]; then
     if which code >/dev/null 2>&1; then
-        code --install-extension "$VSIX_PATH" --force >/dev/null 2>&1 || true
+        su - "$SUDO_USER" -c "code --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
     fi
     if which cursor >/dev/null 2>&1; then
-        cursor --install-extension "$VSIX_PATH" --force >/dev/null 2>&1 || true
+        su - "$SUDO_USER" -c "cursor --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
     fi
+    if which codium >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "codium --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
+    fi
+    if which antigravity >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "antigravity --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
+    fi
+    if which flatpak >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "flatpak run com.visualstudio.code --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
+    fi
+fi
+
+# 5. Fallback si se ejecuta como root directo (sin sudo) y code existe
+if [ -z "$SUDO_USER" ] && which code >/dev/null 2>&1 && [ -f "$VSIX_PATH" ]; then
+    code --user-data-dir /tmp/ucaba-vscode-install --no-sandbox --install-extension "$VSIX_PATH" --force >/dev/null 2>&1 || true
+    rm -rf /tmp/ucaba-vscode-install 2>/dev/null || true
 fi
 
 exit 0
@@ -383,15 +619,58 @@ exit 0
 
 
 def generate_postrm() -> str:
-    return """#!/bin/sh
+    return """#!/bin/bash
 set -e
 
 if which update-mime-database >/dev/null 2>&1; then
-    update-mime-database /usr/share/mime || true
+    update-mime-database /usr/share/mime 2>/dev/null || true
 fi
 
 if which update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database /usr/share/applications || true
+    update-desktop-database /usr/share/applications 2>/dev/null || true
+fi
+
+if which gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+fi
+
+# Eliminar extensiones globales en resources/app/extensions
+SYS_EXT_DIRS=(
+    "/usr/share/code/resources/app/extensions/ucaba-language-support"
+    "/usr/share/codium/resources/app/extensions/ucaba-language-support"
+    "/usr/share/cursor/resources/app/extensions/ucaba-language-support"
+    "/opt/visual-studio-code/resources/app/extensions/ucaba-language-support"
+    "/opt/Cursor/resources/app/extensions/ucaba-language-support"
+    "/usr/lib/code/resources/app/extensions/ucaba-language-support"
+)
+
+for sys_dir in "${SYS_EXT_DIRS[@]}"; do
+    if [ -d "$sys_dir" ]; then
+        rm -rf "$sys_dir" 2>/dev/null || true
+    fi
+done
+
+# Desinstalar extensión de los perfiles de usuario
+for h in /home/*; do
+    if [ -d "$h" ]; then
+        rm -rf "$h/.vscode/extensions/ucaba.ucaba-language-support-"* 2>/dev/null || true
+        rm -rf "$h/.vscode-oss/extensions/ucaba.ucaba-language-support-"* 2>/dev/null || true
+        rm -rf "$h/.cursor/extensions/ucaba.ucaba-language-support-"* 2>/dev/null || true
+        rm -rf "$h/.var/app/com.visualstudio.code/data/vscode/extensions/ucaba.ucaba-language-support-"* 2>/dev/null || true
+        rm -rf "$h/.var/app/com.vscodium.codium/data/vscode/extensions/ucaba.ucaba-language-support-"* 2>/dev/null || true
+    fi
+done
+
+if [ -n "$SUDO_USER" ]; then
+    if which code >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "code --uninstall-extension ucaba.ucaba-language-support" >/dev/null 2>&1 || true
+    fi
+    if which cursor >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "cursor --uninstall-extension ucaba.ucaba-language-support" >/dev/null 2>&1 || true
+    fi
+    if which flatpak >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "flatpak run com.visualstudio.code --uninstall-extension ucaba.ucaba-language-support" >/dev/null 2>&1 || true
+    fi
 fi
 
 exit 0
@@ -456,6 +735,13 @@ def build_tarball(binary_path: str, vsix_path: str, icon_path: str, output_path:
         # 1. Binario ejecutable
         with open(binary_path, "rb") as f:
             bin_data = f.read()
+
+        if b"UCABA Stub Test Binary" in bin_data:
+            raise ValueError(
+                f"ERROR CRÍTICO: El binario en '{binary_path}' es un stub de pruebas no funcional ('UCABA Stub Test Binary'). "
+                "No se permite empaquetar stubs en releases de Linux."
+            )
+
         bin_ti = tarfile.TarInfo(name=f"{prefix}/ucaba")
         bin_ti.size = len(bin_data)
         bin_ti.mode = 0o755
@@ -511,7 +797,30 @@ def build_tarball(binary_path: str, vsix_path: str, icon_path: str, output_path:
             vsix_ti.mode = 0o644
             tar.addfile(vsix_ti, io.BytesIO(vsix_data))
 
-        # 6. LICENSE
+        # 6. Extensión desempaquetada
+        ext_entries = get_extension_files()
+        if ext_entries:
+            ext_dir_ti = tarfile.TarInfo(name=f"{prefix}/extension")
+            ext_dir_ti.type = tarfile.DIRTYPE
+            ext_dir_ti.mode = 0o755
+            tar.addfile(ext_dir_ti)
+            created_dirs = set()
+            for rel_p, data in ext_entries:
+                subparts = rel_p.split("/")
+                for i in range(1, len(subparts)):
+                    s_dir = f"{prefix}/extension/{'/'.join(subparts[:i])}"
+                    if s_dir not in created_dirs:
+                        created_dirs.add(s_dir)
+                        s_ti = tarfile.TarInfo(name=s_dir)
+                        s_ti.type = tarfile.DIRTYPE
+                        s_ti.mode = 0o755
+                        tar.addfile(s_ti)
+                f_ti = tarfile.TarInfo(name=f"{prefix}/extension/{rel_p}")
+                f_ti.size = len(data)
+                f_ti.mode = 0o644
+                tar.addfile(f_ti, io.BytesIO(data))
+
+        # 7. LICENSE
         lic_path = os.path.join(REPO_ROOT, "LICENSE")
         if os.path.exists(lic_path):
             with open(lic_path, "rb") as f:
@@ -537,6 +846,12 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
     # Preparar datos de archivos
     with open(binary_path, "rb") as f:
         bin_data = f.read()
+
+    if b"UCABA Stub Test Binary" in bin_data:
+        raise ValueError(
+            f"ERROR CRÍTICO: El binario en '{binary_path}' es un stub de pruebas no funcional ('UCABA Stub Test Binary'). "
+            "No se permite empaquetar stubs en releases de Linux."
+        )
 
     icon_data = b""
     if os.path.exists(icon_path):
@@ -586,6 +901,8 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
         if icon_data:
             with open(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "apps", "ucaba.png"), "wb") as f:
                 f.write(icon_data)
+            with open(os.path.join(temp_deb_dir, "usr", "share", "icons", "hicolor", "256x256", "apps", "application-x-ucaba.png"), "wb") as f:
+                f.write(icon_data)
 
         with open(os.path.join(temp_deb_dir, "usr", "share", "applications", "ucaba.desktop"), "wb") as f:
             f.write(desktop_data)
@@ -600,7 +917,18 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
             with open(os.path.join(temp_deb_dir, "usr", "share", "doc", "ucaba", "copyright"), "wb") as f:
                 f.write(lic_data)
 
-        installed_kb = max(1, len(bin_data) + len(vsix_data) + len(icon_data)) // 1024
+        # Copiar archivos de extensión desempaquetada
+        ext_entries = get_extension_files()
+        ext_target_dir = os.path.join(temp_deb_dir, "usr", "share", "ucaba", "extension")
+        os.makedirs(ext_target_dir, exist_ok=True)
+        for rel_p, data in ext_entries:
+            dest = os.path.join(ext_target_dir, rel_p)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as f:
+                f.write(data)
+
+        ext_total_size = sum(len(data) for _, data in ext_entries)
+        installed_kb = max(1, len(bin_data) + len(vsix_data) + len(icon_data) + ext_total_size) // 1024
 
         # Scripts de control
         with open(os.path.join(temp_deb_dir, "DEBIAN", "control"), "w", encoding="utf-8") as f:
@@ -625,6 +953,9 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
         # Ensamblador puro en Python del formato estándar Debian 'ar'
         print(" [INFO] Ensamblando formato estándar Debian 'ar' en modo multiplataforma puro...")
 
+        ext_entries = get_extension_files()
+        ext_total_size = sum(len(data) for _, data in ext_entries)
+
         # 1. Construir data.tar.gz
         data_entries = [
             ("./usr", b"", 0o755, True),
@@ -633,6 +964,7 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
             ("./usr/share", b"", 0o755, True),
             ("./usr/share/ucaba", b"", 0o755, True),
             (f"./usr/share/ucaba/{vsix_name}", vsix_data, 0o644, False) if vsix_data else None,
+            ("./usr/share/ucaba/extension", b"", 0o755, True),
             ("./usr/share/applications", b"", 0o755, True),
             ("./usr/share/applications/ucaba.desktop", desktop_data, 0o644, False),
             ("./usr/share/icons", b"", 0o755, True),
@@ -640,6 +972,7 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
             ("./usr/share/icons/hicolor/256x256", b"", 0o755, True),
             ("./usr/share/icons/hicolor/256x256/apps", b"", 0o755, True),
             ("./usr/share/icons/hicolor/256x256/apps/ucaba.png", icon_data, 0o644, False) if icon_data else None,
+            ("./usr/share/icons/hicolor/256x256/apps/application-x-ucaba.png", icon_data, 0o644, False) if icon_data else None,
             ("./usr/share/mime", b"", 0o755, True),
             ("./usr/share/mime/packages", b"", 0o755, True),
             ("./usr/share/mime/packages/ucaba.xml", mime_data, 0o644, False),
@@ -648,10 +981,20 @@ def build_deb(binary_path: str, vsix_path: str, icon_path: str, output_path: str
             ("./usr/share/doc/ucaba/README.md", readme_data, 0o644, False),
             ("./usr/share/doc/ucaba/copyright", lic_data, 0o644, False) if lic_data else None,
         ]
+
+        # Agregar estructura y archivos de la extensión desempaquetada
+        for rel_p, data in ext_entries:
+            subparts = rel_p.split("/")
+            for i in range(1, len(subparts)):
+                sub_dir = f"./usr/share/ucaba/extension/{'/'.join(subparts[:i])}"
+                if not any(e and e[0] == sub_dir for e in data_entries):
+                    data_entries.append((sub_dir, b"", 0o755, True))
+            data_entries.append((f"./usr/share/ucaba/extension/{rel_p}", data, 0o644, False))
+
         data_entries = [e for e in data_entries if e is not None]
         data_tar_gz = create_tar_gz_bytes(data_entries)
 
-        installed_kb = max(1, len(bin_data) + len(vsix_data) + len(icon_data)) // 1024
+        installed_kb = max(1, len(bin_data) + len(vsix_data) + len(icon_data) + ext_total_size) // 1024
 
         # 2. Construir control.tar.gz
         control_str = generate_control(version, installed_kb)
@@ -730,17 +1073,22 @@ def main():
     if not binary_path:
         default_candidate = os.path.join(REPO_ROOT, "dist", "ucaba")
         if os.path.exists(default_candidate):
-            binary_path = default_candidate
-        elif args.mock_binary:
-            binary_path = os.path.join(REPO_ROOT, "dist", "ucaba_stub")
-            with open(binary_path, "wb") as f:
-                f.write(b"#!/bin/sh\necho 'UCABA Stub Test Binary'\n")
-            print(f" [MOCK] Creado binario stub para pruebas: {binary_path}")
+            with open(default_candidate, "rb") as f:
+                header = f.read(256)
+            if b"UCABA Stub Test Binary" not in header:
+                binary_path = default_candidate
+            else:
+                print(f" [AVISO] Se detectó un binario stub obsoleto en {default_candidate}. Se regenerará como ejecutable autónomo universal.")
+
+    if not binary_path or args.mock_binary:
+        if args.mock_binary:
+            print(" [INFO] Bandera --mock-binary detectada: generando ejecutable autónomo universal 100% funcional.")
         else:
-            raise FileNotFoundError(
-                f"No se encontró el binario 'ucaba' para Linux en {default_candidate}.\n"
-                "Usa --compile si estás en Linux o especifica la ruta con --binary <ruta>."
-            )
+            print("\n--- Generando ejecutable autónomo universal de UCABA (ZipApp Linux) ---")
+        standalone_path = os.path.join(REPO_ROOT, "dist", "ucaba")
+        build_standalone_executable(standalone_path)
+        binary_path = standalone_path
+        print(f" [OK] Creado ejecutable autónomo funcional: {binary_path}")
 
     # 2. Localizar VSIX e icono
     vsix_path = args.vsix or find_latest_vsix()

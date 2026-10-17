@@ -115,8 +115,7 @@ def get_recent_commits(repo_root: str) -> str:
             ["git", "describe", "--tags", "--abbrev=0"],
             cwd=repo_root,
             capture_output=True,
-            text=True,
-            shell=True
+            text=True
         )
         if tag_res.returncode == 0 and tag_res.stdout.strip():
             prev_tag = tag_res.stdout.strip()
@@ -124,8 +123,7 @@ def get_recent_commits(repo_root: str) -> str:
                 ["git", "log", f"{prev_tag}..HEAD", "--pretty=format:* %s (`%h`)"],
                 cwd=repo_root,
                 capture_output=True,
-                text=True,
-                shell=True
+                text=True
             )
             if log_res.returncode == 0 and log_res.stdout.strip():
                 return log_res.stdout.strip()
@@ -137,8 +135,7 @@ def get_recent_commits(repo_root: str) -> str:
             ["git", "log", "-n", "8", "--pretty=format:* %s (`%h`)"],
             cwd=repo_root,
             capture_output=True,
-            text=True,
-            shell=True
+            text=True
         )
         if res.returncode == 0 and res.stdout.strip():
             return res.stdout.strip()
