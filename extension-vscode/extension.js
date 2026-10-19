@@ -1330,6 +1330,42 @@ function activate(context) {
             terminal.sendText(buildTerminalCommand(terminal, runner.executable, args));
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('ucaba.activateIcons', () => {
+            vscode.workspace.getConfiguration('workbench').update('iconTheme', 'ucaba-icons', vscode.ConfigurationTarget.Global).then(() => {
+                vscode.window.showInformationMessage('¡Tema de iconos oficial de UCABA activado exitosamente!');
+            }, (err) => {
+                vscode.window.showErrorMessage(`No se pudo activar el tema de iconos: ${err}`);
+            });
+        })
+    );
+
+    // Sugerencia para activar tema de iconos oficial si el usuario aún no lo tiene configurado
+    try {
+        const currentIconTheme = vscode.workspace.getConfiguration('workbench').get('iconTheme');
+        if (currentIconTheme !== 'ucaba-icons') {
+            const hasPrompted = context.globalState.get('ucabaIconPromptShown', false);
+            if (!hasPrompted) {
+                vscode.workspace.findFiles('**/*.ucaba', null, 1).then((files) => {
+                    if (files && files.length > 0) {
+                        context.globalState.update('ucabaIconPromptShown', true);
+                        vscode.window.showInformationMessage(
+                            'UCABA: ¿Deseas activar el tema de iconos oficial para distinguir tus módulos .ucaba?',
+                            'Activar Iconos',
+                            'No mostrar más'
+                        ).then((sel) => {
+                            if (sel === 'Activar Iconos') {
+                                vscode.commands.executeCommand('ucaba.activateIcons');
+                            }
+                        });
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('Error comprobando tema de iconos:', e);
+    }
 }
 
 function deactivate() {}

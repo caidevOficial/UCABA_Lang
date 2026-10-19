@@ -320,7 +320,31 @@ def run_interactive_update(current_version: str, force: bool = False, silent: bo
         cmd = [installer_path]
         if silent:
             cmd.append("--silent")
-        subprocess.Popen(cmd)
+
+        popen_kwargs = {
+            "cwd": tempfile.gettempdir(),
+            "close_fds": True,
+        }
+
+        # En Windows: independizar completamente el instalador para evitar herencia de handles
+        if sys.platform == "win32":
+            creation_flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            if hasattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB"):
+                creation_flags |= subprocess.CREATE_BREAKAWAY_FROM_JOB
+            popen_kwargs["creationflags"] = creation_flags
+
+            # Desconectar descriptores estándar para evitar heredar pipes
+            popen_kwargs["stdin"] = subprocess.DEVNULL
+            popen_kwargs["stdout"] = subprocess.DEVNULL
+            popen_kwargs["stderr"] = subprocess.DEVNULL
+
+        # Limpiar variables de entorno de PyInstaller para que el instalador no bloquee la carpeta _MEI...
+        clean_env = os.environ.copy()
+        clean_env.pop("_MEIPASS2", None)
+        clean_env.pop("_MEIPASS", None)
+        popen_kwargs["env"] = clean_env
+
+        subprocess.Popen(cmd, **popen_kwargs)
         print("[ÉXITO] El asistente de instalación se ha iniciado en su equipo.")
         print("Siga las instrucciones en pantalla para completar la actualización.")
     except Exception as e:

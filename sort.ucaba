@@ -85,7 +85,7 @@ FIN FUNCION
         FIN SI
     FIN FUNCION
 
-ENTERO size = 100000
+ENTERO size = 20000
 ENTERO vector[size]
 
 PARA(ENTERO i = size; i > 0; i--)

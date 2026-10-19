@@ -37,14 +37,15 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - **Linux:** Adición de iconos MIME en `icons/hicolor/256x256/mimetypes/` (`application-x-ucaba.png` y `text-x-ucaba.png`) en paquetes `.deb` y script `install.sh`.
 - **Publicación Pre-release:** Automatización de GitHub Actions configurada expresamente para publicar la release `v2.0.0` como pre-release (`prerelease: true`).
 
-### 🧪 Suite Exhaustiva de Paridad de Pruebas (69 Tests en Rust)
-- **100% de Paridad Certificada:** Porting y ampliación de todos los casos de prueba de Python a suites nativas en Rust (`test_engine.rs`, `test_operators.rs`, `test_estructuras.rs`, `test_interpreter.rs`, `test_cli.rs`).
+### 🧪 Suite Exhaustiva de Paridad de Pruebas (72 Tests en Rust)
+- **100% de Paridad Certificada:** Porting y ampliación de todos los casos de prueba de Python a suites nativas en Rust (`test_engine.rs`, `test_operators.rs`, `test_estructuras.rs`, `test_interpreter.rs`, `test_cli.rs`, `ucaba_installer::tests`).
 - **Verificación Estricta de Tipos:** Validación estática en tiempo de ejecución de asignaciones y retornos, precisión simple de 32 bits para `FLOTANTE` vs doble de 64 bits para `REAL`.
 - **Auditoría de Código:** `cargo clippy --workspace -- -D warnings` con **0 advertencias**.
 
 ### 🖼️ Asistente de Instalación Gráfico Nativo (`Instalador_UCABA.exe`)
 - **GUI Moderna y Autónoma en Rust:** Reemplazo completo de la interfaz basada en Tkinter/PyInstaller por una aplicación nativa escrita en Rust (`eframe`/`egui`).
-- **Reducción de Tamaño Masiva:** El ejecutable del instalador pasa de ~18 MB a **4.82 MB** (73% más liviano) incluyendo todos los recursos embebidos en el binario: `ucaba.exe` compilado, `ucaba_icon.ico` y la extensión `ucaba-language-support-2.0.0.vsix`.
+- **Reducción de Tamaño Masiva:** El ejecutable del instalador pasa de ~18 MB a **5.05 MB** (72% más liviano) incluyendo todos los recursos embebidos en el binario: `ucaba.exe` compilado, `ucaba_icon.ico` y la extensión `ucaba-language-support-2.0.0.vsix`.
+- **Migración Fluida y Resiliente desde Python/PyInstaller:** Ruptura de herencia de entorno y handles (`_MEIPASS2`) para evitar avisos de borrado de temporales, manejo resiliente contra bloqueos de archivos en Windows (`os error 32`) con reintentos y reemplazo atómico (*Move-then-Replace*), y purga automática de carpetas temporales residuales `_MEI*` en `%TEMP%`.
 - **Instalación Desatendida:** Soporte para flag `--silent` para automatización en entornos de laboratorio o CI/CD.
 - **Metadatos e Iconos Nativos Windows PE:** Integración con `winres`, incrustando el icono institucional y metadatos de versión en el recurso PE de Windows.
 

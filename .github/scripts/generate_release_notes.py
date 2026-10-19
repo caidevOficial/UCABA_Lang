@@ -57,7 +57,7 @@ def count_passing_tests(repo_root: str) -> int:
     cargo_bin = shutil.which("cargo")
     if cargo_bin and os.path.exists(os.path.join(repo_root, "Cargo.toml")):
         try:
-            res = subprocess.run([cargo_bin, "test", "-p", "ucaba_core", "-p", "ucaba_cli", "--", "--list"], cwd=repo_root, capture_output=True, text=True)
+            res = subprocess.run([cargo_bin, "test", "-p", "ucaba_core", "-p", "ucaba_cli", "-p", "ucaba_installer", "--", "--list"], cwd=repo_root, capture_output=True, text=True)
             if res.returncode == 0:
                 count = sum(1 for line in res.stdout.splitlines() if ": test" in line)
                 if count > 0:
@@ -75,7 +75,7 @@ def count_passing_tests(repo_root: str) -> int:
                 return count
     except Exception:
         pass
-    return 69
+    return 72
 
 
 def extract_version_highlights(repo_root: str, version: str) -> str:

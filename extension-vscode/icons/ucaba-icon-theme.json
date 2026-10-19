@@ -1,19 +1,61 @@
 {
   "$schema": "vscode://schemas/icon-theme",
+  "showLanguageModeIcons": true,
   "iconDefinitions": {
     "_file": {
-      "iconPath": "./ucaba-file.png"
+      "iconPath": "./file.svg"
+    },
+    "_folder": {
+      "iconPath": "./folder.svg"
+    },
+    "_folder_open": {
+      "iconPath": "./folder-open.svg"
+    },
+    "_folder_root": {
+      "iconPath": "./folder-root.svg"
+    },
+    "_folder_root_open": {
+      "iconPath": "./folder-root-open.svg"
     },
     "_ucaba": {
-      "iconPath": "./ucaba-file.png"
+      "iconPath": "./ucaba-file.svg"
+    },
+    "_text": {
+      "iconPath": "./text.svg"
+    },
+    "_python": {
+      "iconPath": "./python.svg"
+    },
+    "_rust": {
+      "iconPath": "./rust.svg"
+    },
+    "_json": {
+      "iconPath": "./json.svg"
+    },
+    "_markdown": {
+      "iconPath": "./markdown.svg"
     }
   },
   "file": "_file",
+  "folder": "_folder",
+  "folderExpanded": "_folder_open",
+  "rootFolder": "_folder_root",
+  "rootFolderExpanded": "_folder_root_open",
   "fileExtensions": {
-    "ucaba": "_ucaba"
+    "ucaba": "_ucaba",
+    "txt": "_text",
+    "py": "_python",
+    "rs": "_rust",
+    "json": "_json",
+    "md": "_markdown"
   },
   "languageIds": {
-    "ucaba": "_ucaba"
+    "ucaba": "_ucaba",
+    "plaintext": "_text",
+    "python": "_python",
+    "rust": "_rust",
+    "json": "_json",
+    "markdown": "_markdown"
   },
   "hidesExplorerArrows": false
 }

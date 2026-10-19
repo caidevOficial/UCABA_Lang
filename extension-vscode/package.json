@@ -48,8 +48,8 @@
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/ucaba-file.png",
-          "dark": "./icons/ucaba-file.png"
+          "light": "./icons/ucaba-file.svg",
+          "dark": "./icons/ucaba-file.svg"
         }
       }
     ],
@@ -80,6 +80,11 @@
       {
         "command": "ucaba.startRepl",
         "title": "UCABA: Iniciar consola interactiva REPL",
+        "category": "UCABA"
+      },
+      {
+        "command": "ucaba.activateIcons",
+        "title": "UCABA: Activar tema de iconos oficial de UCABA",
         "category": "UCABA"
       }
     ],

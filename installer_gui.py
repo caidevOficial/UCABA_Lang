@@ -119,6 +119,54 @@ def get_resource_path(relative_path: str) -> str:
     return os.path.join(base_dir, relative_path)
 
 
+def terminate_running_cli_processes():
+    """Termina cualquier proceso residual de ucaba.exe para liberar bloqueos en Windows."""
+    if sys.platform == "win32":
+        try:
+            subprocess.run(["taskkill", "/F", "/IM", "ucaba.exe", "/T"], capture_output=True)
+            time.sleep(0.2)
+        except Exception:
+            pass
+
+
+def safe_copy_executable(src: str, dst: str, log_fn=None):
+    """Copia el binario ucaba.exe protegiéndose contra bloqueos de procesos en ejecución (Error 32)."""
+    # 1. Intentar copia directa
+    try:
+        shutil.copy2(src, dst)
+        return
+    except PermissionError as e:
+        if log_fn:
+            log_fn(f" - [AVISO] ucaba.exe bloqueado ({e}). Liberando procesos...")
+
+    # 2. Cerrar procesos activos de ucaba.exe
+    terminate_running_cli_processes()
+
+    # 3. Reintentar copia
+    for attempt in range(1, 4):
+        try:
+            shutil.copy2(src, dst)
+            if log_fn:
+                log_fn(f" - ucaba.exe actualizado exitosamente (intento {attempt}).")
+            return
+        except PermissionError:
+            time.sleep(0.15 * attempt)
+
+    # 4. Reemplazo atómico en Windows (renombrar el binario en uso y escribir el nuevo)
+    if os.path.exists(dst):
+        old_dst = f"{dst}.old_{int(time.time())}.exe"
+        try:
+            os.replace(dst, old_dst)
+            shutil.copy2(src, dst)
+            try:
+                os.remove(old_dst)
+            except Exception:
+                pass
+            return
+        except Exception as e:
+            raise PermissionError(f"Error escribiendo ucaba.exe: {e}")
+
+
 def add_to_user_path(directory: str) -> bool:
     """Añade un directorio a la variable de entorno PATH del usuario en el Registro de Windows."""
     try:
@@ -186,7 +234,10 @@ def associate_file_extension(ucaba_exe: str, icon_path: str = None):
             winreg.SetValueEx(key, "Content Type", 0, winreg.REG_SZ, "text/x-ucaba")
             winreg.SetValueEx(key, "PerceivedType", 0, winreg.REG_SZ, "text")
 
-        icon_val = f'"{icon_path}",0' if icon_path and os.path.exists(icon_path) else f'"{ucaba_exe}",0'
+        icon_val = f'"{icon_path}"' if icon_path and os.path.exists(icon_path) else f'"{ucaba_exe}",0'
+        with winreg.CreateKey(base, r"Software\Classes\.ucaba\DefaultIcon") as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, icon_val)
+
         for prog in ["UCABAFile", "UCABA.Program"]:
             prog_path = rf"Software\Classes\{prog}"
             with winreg.CreateKey(base, prog_path) as key:
@@ -592,7 +643,7 @@ class InstallerApp:
                     raise FileNotFoundError(f"No se encontró el archivo 'ucaba.exe' en el paquete ({src_exe}).")
 
                 os.makedirs(install_dir, exist_ok=True)
-                shutil.copy2(src_exe, ucaba_target_exe)
+                safe_copy_executable(src_exe, ucaba_target_exe, log_fn=self.log)
                 self.log(" - ucaba.exe copiado exitosamente.")
             self.set_progress(35)
 
@@ -833,7 +884,7 @@ def run_cli_install():
         sys.exit(1)
 
     os.makedirs(install_dir, exist_ok=True)
-    shutil.copy2(src_exe, ucaba_target_exe)
+    safe_copy_executable(src_exe, ucaba_target_exe, log_fn=safe_print)
     safe_print(" [OK] ucaba.exe instalado con éxito.")
 
     # 2. Agregar a PATH

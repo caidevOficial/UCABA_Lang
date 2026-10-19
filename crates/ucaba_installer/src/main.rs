@@ -589,10 +589,184 @@ struct InstallConfig {
     associate_ext: bool,
 }
 
+#[cfg(windows)]
+fn ensure_clean_environment_and_break_away() {
+    // Si fuimos invocados desde una versión anterior en Python empaquetada con PyInstaller,
+    // heredamos variables (_MEIPASS2) y handles abiertos al directorio temporal _MEIxxxxxx
+    // y al propio ucaba.exe. Para liberar inmediatamente el proceso padre de Python y sus bloqueos,
+    // nos re-lanzamos de forma limpia con bInheritHandles = FALSE y salimos de inmediato.
+    if std::env::var("UCABA_RESPAWNED_CLEAN").is_err()
+        && (std::env::var("_MEIPASS2").is_ok() || std::env::var("_MEIPASS").is_ok())
+    {
+        if let Ok(current_exe) = std::env::current_exe() {
+            let mut cmd = Command::new(current_exe);
+            cmd.args(std::env::args().skip(1));
+            cmd.env_remove("_MEIPASS2");
+            cmd.env_remove("_MEIPASS");
+            cmd.env("UCABA_RESPAWNED_CLEAN", "1");
+
+            if cmd.spawn().is_ok() {
+                std::process::exit(0);
+            }
+        }
+    }
+}
+
+fn cleanup_pyinstaller_temp_dirs(tx: Option<&Sender<InstallMsg>>) {
+    let temp = std::env::temp_dir();
+    if let Ok(entries) = fs::read_dir(&temp) {
+        let mut cleaned_count = 0;
+        for entry in entries.flatten() {
+            if let Ok(ft) = entry.file_type() {
+                if ft.is_dir() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if name.starts_with("_MEI") {
+                        let path = entry.path();
+                        let is_pyinstaller_orphan = path.join("pseudocode").exists()
+                            || path.join("ucaba_icon.ico").exists()
+                            || path.join("ucaba.exe").exists()
+                            || path.join("base_library.zip").exists()
+                            || path.join("VCRUNTIME140.dll").exists()
+                            || path.join("python310.dll").exists()
+                            || path.join("python311.dll").exists()
+                            || path.join("python312.dll").exists()
+                            || path.join("python313.dll").exists();
+                        if is_pyinstaller_orphan {
+                            if fs::remove_dir_all(&path).is_ok() {
+                                cleaned_count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if cleaned_count > 0 {
+            if let Some(sender) = tx {
+                let _ = sender.send(InstallMsg::Log(format!(
+                    "[OK] Limpieza: eliminadas {} carpetas temporales residuales de PyInstaller (_MEI*) en %TEMP%",
+                    cleaned_count
+                )));
+            }
+        }
+    }
+}
+
+fn terminate_running_ucaba_processes() {
+    #[cfg(windows)]
+    {
+        let _ = silent_command("taskkill")
+            .arg("/F")
+            .arg("/IM")
+            .arg("ucaba.exe")
+            .arg("/T")
+            .output();
+    }
+}
+
+fn cleanup_old_executables(exe_path: &Path) {
+    if let Some(parent) = exe_path.parent() {
+        if let Ok(entries) = fs::read_dir(parent) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if (name.starts_with("ucaba.old_") || name.starts_with("ucaba_old_") || name.ends_with(".bak"))
+                    && name.ends_with(".exe")
+                {
+                    let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+}
+
+fn safe_write_executable(
+    exe_path: &Path,
+    bytes: &[u8],
+    tx: &Sender<InstallMsg>,
+) -> Result<(), String> {
+    cleanup_old_executables(exe_path);
+
+    // 1. Intento directo
+    match fs::write(exe_path, bytes) {
+        Ok(_) => return Ok(()),
+        Err(err) => {
+            let _ = tx.send(InstallMsg::Log(format!(
+                "[AVISO] Archivo ucaba.exe bloqueado ({}). Liberando procesos y reintentando...",
+                err
+            )));
+            terminate_running_ucaba_processes();
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+    }
+
+    // 2. Reintentos de escritura directa con backoff
+    for attempt in 1..=3 {
+        if fs::write(exe_path, bytes).is_ok() {
+            let _ = tx.send(InstallMsg::Log(format!(
+                "[OK] ucaba.exe liberado y actualizado correctamente (intento {})",
+                attempt
+            )));
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150 * attempt));
+    }
+
+    // 3. Reemplazo atómico (Atomic Rename)
+    // En Windows NTFS un archivo ejecutable en ejecución no permite GENERIC_WRITE,
+    // pero el sistema de archivos sí permite moverlo/renombrarlo en el mismo volumen.
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let old_backup = exe_path.with_file_name(format!("ucaba.old_{}.exe", timestamp));
+
+    let _ = tx.send(InstallMsg::Log(
+        "[INFO] Aplicando técnica de reemplazo atómico para ucaba.exe...".to_string(),
+    ));
+
+    if let Err(rename_err) = fs::rename(exe_path, &old_backup) {
+        // Segundo intento forzando cierre de procesos
+        terminate_running_ucaba_processes();
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        fs::rename(exe_path, &old_backup).map_err(|e| {
+            format!(
+                "Error escribiendo ucaba.exe: El archivo está bloqueado por otro proceso ({}) y no pudo renombrarse ({}). Cierre editores o terminales con UCABA e intente nuevamente.",
+                rename_err, e
+            )
+        })?;
+    }
+
+    // Al renombrarse el archivo anterior, la ruta original queda libre para escribir el nuevo binario
+    fs::write(exe_path, bytes).map_err(|e| {
+        let _ = fs::rename(&old_backup, exe_path);
+        format!("Error escribiendo ucaba.exe tras reemplazo atómico: {}", e)
+    })?;
+
+    // Intentar eliminar el archivo de respaldo si el proceso anterior ya cerró su handle
+    if let Err(_) = fs::remove_file(&old_backup) {
+        #[cfg(windows)]
+        unsafe {
+            use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_DELAY_UNTIL_REBOOT};
+            let wide_old: Vec<u16> = old_backup.to_string_lossy().encode_utf16().chain(std::iter::once(0)).collect();
+            MoveFileExW(wide_old.as_ptr(), std::ptr::null(), MOVEFILE_DELAY_UNTIL_REBOOT);
+        }
+    }
+
+    Ok(())
+}
+
 fn run_installation_pipeline(tx: Sender<InstallMsg>, cfg: InstallConfig) -> Result<(), String> {
     let target_path = PathBuf::from(&cfg.target_dir);
     let exe_path = target_path.join("ucaba.exe");
     let icon_path = target_path.join("ucaba_icon.ico");
+
+    // Limpieza de residuos y carpetas temporales de PyInstaller (_MEI*) de versiones anteriores de Python
+    cleanup_pyinstaller_temp_dirs(Some(&tx));
+    if let Ok(local_app) = std::env::var("LOCALAPPDATA") {
+        let cache_file = PathBuf::from(local_app).join("UCABA").join("version_cache.json");
+        if cache_file.exists() {
+            let _ = fs::remove_file(&cache_file);
+        }
+    }
 
     // 1. Crear directorio destino
     tx.send(InstallMsg::Progress(0.15, "Preparando directorio de instalación...".to_string())).map_err(|e| e.to_string())?;
@@ -603,8 +777,7 @@ fn run_installation_pipeline(tx: Sender<InstallMsg>, cfg: InstallConfig) -> Resu
     // 2. Extraer ucaba.exe
     if cfg.install_cli {
         tx.send(InstallMsg::Progress(0.35, "Extrayendo motor nativo ucaba.exe...".to_string())).map_err(|e| e.to_string())?;
-        fs::write(&exe_path, UCABA_EXE_BYTES)
-            .map_err(|e| format!("Error escribiendo ucaba.exe: {}", e))?;
+        safe_write_executable(&exe_path, UCABA_EXE_BYTES, &tx)?;
         tx.send(InstallMsg::Log(format!("[OK] ucaba.exe copiado exitosamente ({} bytes)", UCABA_EXE_BYTES.len()))).map_err(|e| e.to_string())?;
     }
 
@@ -668,6 +841,10 @@ fn run_installation_pipeline(tx: Sender<InstallMsg>, cfg: InstallConfig) -> Resu
 fn run_uninstallation_pipeline(tx: Sender<InstallMsg>, target_dir: String) {
     let _ = tx.send(InstallMsg::Progress(0.20, "Removiendo archivos del lenguaje...".to_string()));
     let _ = tx.send(InstallMsg::Log("[1/4] Removiendo archivos del lenguaje UCABA...".to_string()));
+
+    terminate_running_ucaba_processes();
+    std::thread::sleep(std::time::Duration::from_millis(150));
+
     let target_path = PathBuf::from(&target_dir);
     if target_path.exists() {
         let root_to_delete = if target_path.ends_with("bin") {
@@ -675,6 +852,7 @@ fn run_uninstallation_pipeline(tx: Sender<InstallMsg>, target_dir: String) {
         } else {
             &target_path
         };
+        cleanup_old_executables(&target_path.join("ucaba.exe"));
         if let Err(e) = fs::remove_dir_all(root_to_delete) {
             let _ = tx.send(InstallMsg::Log(format!("[AVISO] No se pudo borrar todo el directorio: {}", e)));
         } else {
@@ -887,6 +1065,12 @@ fn register_file_association(exe_path: &Path, icon_path: &Path) -> Result<(), St
         $iconPath = "{}"
         $exePath = "{}"
 
+        if (Test-Path $iconPath) {{
+            $extIconReg = "$extPath\DefaultIcon"
+            New-Item -Path $extIconReg -Force | Out-Null
+            Set-ItemProperty -Path $extIconReg -Name "(Default)" -Value "`"$iconPath`""
+        }}
+
         foreach ($prog in @("UCABAFile", "UCABA.Program")) {{
             $progPath = "HKCU:\Software\Classes\$prog"
             New-Item -Path $progPath -Force | Out-Null
@@ -894,7 +1078,11 @@ fn register_file_association(exe_path: &Path, icon_path: &Path) -> Result<(), St
             if (Test-Path $iconPath) {{
                 $iconReg = "$progPath\DefaultIcon"
                 New-Item -Path $iconReg -Force | Out-Null
-                Set-ItemProperty -Path $iconReg -Name "(Default)" -Value "$iconPath,0"
+                Set-ItemProperty -Path $iconReg -Name "(Default)" -Value "`"$iconPath`""
+            }} elseif (Test-Path $exePath) {{
+                $iconReg = "$progPath\DefaultIcon"
+                New-Item -Path $iconReg -Force | Out-Null
+                Set-ItemProperty -Path $iconReg -Name "(Default)" -Value "`"$exePath`",0"
             }}
             $cmdReg = "$progPath\shell\open\command"
             New-Item -Path $cmdReg -Force | Out-Null
@@ -929,7 +1117,7 @@ fn remove_file_association() {
 
 fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
     // 1. Intentar registrar vía CLIs de editores conocidos
-    let editors = ["code", "cursor", "codium", "antigravity"];
+    let editors = ["code", "cursor", "codium", "antigravity", "antigravity-ide"];
     for editor in editors {
         let _ = silent_command(editor)
             .arg("--install-extension")
@@ -939,13 +1127,21 @@ fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
     }
 
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
-        let code_cmd = PathBuf::from(local).join(r"Programs\Microsoft VS Code\bin\code.cmd");
-        if code_cmd.exists() {
-            let _ = silent_command(&code_cmd)
-                .arg("--install-extension")
-                .arg(vsix_path)
-                .arg("--force")
-                .output();
+        let local_path = PathBuf::from(&local);
+        let editor_cmds = [
+            local_path.join(r"Programs\Microsoft VS Code\bin\code.cmd"),
+            local_path.join(r"Programs\Antigravity IDE\bin\antigravity-ide.cmd"),
+            local_path.join(r"Programs\cursor\resources\app\bin\cursor.cmd"),
+            local_path.join(r"Programs\VSCodium\bin\codium.cmd"),
+        ];
+        for cmd in editor_cmds {
+            if cmd.exists() {
+                let _ = silent_command(&cmd)
+                    .arg("--install-extension")
+                    .arg(vsix_path)
+                    .arg("--force")
+                    .output();
+            }
         }
     }
 
@@ -1026,6 +1222,56 @@ fn install_vsix_extension(vsix_path: &Path) -> Result<(), String> {
                         }}
                     }}
                 }}
+
+                # Parchear temas de iconos instalados (Bearded Icons, Material, Seti)
+                $svgSrc = Join-Path $srcExt "icons\ucaba-file.svg"
+                if (Test-Path $svgSrc) {{
+                    foreach ($root in $extRoots) {{
+                        if (Test-Path $root) {{
+                            Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | ForEach-Object {{
+                                $f = $_.FullName
+                                if ($_.Name -like "*beardedicons*") {{
+                                    $tj = Join-Path $f "icons.json"
+                                    if (Test-Path $tj) {{
+                                        try {{
+                                            $dSvg = Join-Path $f "icons\ucaba-file.svg"
+                                            New-Item -Path (Split-Path $dSvg -Parent) -ItemType Directory -Force | Out-Null
+                                            Copy-Item -Path $svgSrc -Destination $dSvg -Force
+                                            $data = Get-Content $tj -Raw | ConvertFrom-Json
+                                            $data | Add-Member -MemberType NoteProperty -Name "showLanguageModeIcons" -Value $true -Force
+                                            if (-not $data.iconDefinitions._file_ucaba) {{
+                                                $data.iconDefinitions | Add-Member -MemberType NoteProperty -Name "_file_ucaba" -Value ([PSCustomObject]@{{ iconPath = "./icons/ucaba-file.svg" }}) -Force
+                                            }}
+                                            $data.fileExtensions | Add-Member -MemberType NoteProperty -Name "ucaba" -Value "_file_ucaba" -Force
+                                            $data.languageIds | Add-Member -MemberType NoteProperty -Name "ucaba" -Value "_file_ucaba" -Force
+                                            $data | ConvertTo-Json -Depth 10 | Set-Content $tj
+                                        }} catch {{}}
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                    $localApp = [Environment]::GetEnvironmentVariable("LOCALAPPDATA")
+                    if ($localApp) {{
+                        @("Microsoft VS Code", "Antigravity IDE") | ForEach-Object {{
+                            $setiTheme = Join-Path $localApp "Programs\$_\resources\app\extensions\theme-seti\icons\vs-seti-icon-theme.json"
+                            if (Test-Path $setiTheme) {{
+                                try {{
+                                    $destSetiSvg = Join-Path (Split-Path $setiTheme -Parent) "ucaba-file.svg"
+                                    Copy-Item -Path $svgSrc -Destination $destSetiSvg -Force
+                                    $sj = Get-Content $setiTheme -Raw | ConvertFrom-Json
+                                    $sj | Add-Member -MemberType NoteProperty -Name "showLanguageModeIcons" -Value $true -Force
+                                    if (-not $sj.iconDefinitions._ucaba) {{
+                                        $sj.iconDefinitions | Add-Member -MemberType NoteProperty -Name "_ucaba" -Value ([PSCustomObject]@{{ iconPath = "./ucaba-file.svg" }}) -Force
+                                    }}
+                                    $sj.fileExtensions | Add-Member -MemberType NoteProperty -Name "ucaba" -Value "_ucaba" -Force
+                                    $sj.languageIds | Add-Member -MemberType NoteProperty -Name "ucaba" -Value "_ucaba" -Force
+                                    $sj | ConvertTo-Json -Depth 10 | Set-Content $setiTheme
+                                }} catch {{}}
+                            }}
+                        }}
+                    }}
+                }}
             }}
         }} catch {{}}
         finally {{
@@ -1072,6 +1318,9 @@ fn remove_uninstaller() {
 }
 
 fn main() -> eframe::Result<()> {
+    #[cfg(windows)]
+    ensure_clean_environment_and_break_away();
+
     // Si se pasa flag silencioso
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--silent" || a == "-s") {
@@ -1141,3 +1390,59 @@ fn main() -> eframe::Result<()> {
         Box::new(|_cc| Ok(Box::new(InstallerApp::default()))),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc::channel;
+
+    #[test]
+    fn test_safe_write_executable_clean_write() {
+        let temp_dir = std::env::temp_dir().join(format!("ucaba_test_install_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let target = temp_dir.join("ucaba.exe");
+        let (tx, _rx) = channel();
+
+        let data = b"TEST_UCABA_BINARY_DATA";
+        assert!(safe_write_executable(&target, data, &tx).is_ok());
+        assert_eq!(fs::read(&target).unwrap(), data);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_safe_write_executable_overwrites_existing() {
+        let temp_dir = std::env::temp_dir().join(format!("ucaba_test_install_ow_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let target = temp_dir.join("ucaba.exe");
+        fs::write(&target, b"OLD_DATA").unwrap();
+        let (tx, _rx) = channel();
+
+        let new_data = b"NEW_DATA_V2";
+        assert!(safe_write_executable(&target, new_data, &tx).is_ok());
+        assert_eq!(fs::read(&target).unwrap(), new_data);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_cleanup_old_executables() {
+        let temp_dir = std::env::temp_dir().join(format!("ucaba_test_cleanup_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let old1 = temp_dir.join("ucaba.old_12345.exe");
+        let old2 = temp_dir.join("ucaba_old_67890.exe");
+        let keep = temp_dir.join("ucaba.exe");
+        fs::write(&old1, b"old").unwrap();
+        fs::write(&old2, b"old").unwrap();
+        fs::write(&keep, b"keep").unwrap();
+
+        cleanup_old_executables(&keep);
+
+        assert!(!old1.exists());
+        assert!(!old2.exists());
+        assert!(keep.exists());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+}
+

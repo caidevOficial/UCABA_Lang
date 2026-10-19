@@ -44,8 +44,8 @@ jobs:
         run: |
           python build_installer.py
 
-      - name: Ejecutar Suite de Tests en Rust (69 Tests)
-        run: cargo test -p ucaba_core -p ucaba_cli
+      - name: Ejecutar Suite de Tests en Rust (72 Tests)
+        run: cargo test -p ucaba_core -p ucaba_cli -p ucaba_installer
 
       - name: Ejecutar Tests de Python Históricos
         env:

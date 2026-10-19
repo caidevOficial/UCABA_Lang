@@ -234,7 +234,18 @@ if [ -f "$REPO_DIR/ucaba_icon.png" ]; then
     cp "$REPO_DIR/ucaba_icon.png" "$ICONS_DIR/application-x-ucaba.png"
     cp "$REPO_DIR/ucaba_icon.png" "$MIME_ICONS_DIR/application-x-ucaba.png"
     cp "$REPO_DIR/ucaba_icon.png" "$MIME_ICONS_DIR/text-x-ucaba.png"
-    echo -e "${{GREEN}}[OK] Iconos oficiales instalados en apps y mimetypes.${{NC}}"
+    if [ -f "$REPO_DIR/extension/icons/ucaba-file.svg" ]; then
+        SCALABLE_APPS="$(dirname "$ICONS_DIR")/scalable/apps"
+        SCALABLE_MIME="$(dirname "$MIME_ICONS_DIR")/scalable/mimetypes"
+        mkdir -p "$SCALABLE_APPS" "$SCALABLE_MIME"
+        cp "$REPO_DIR/extension/icons/ucaba-file.svg" "$SCALABLE_APPS/ucaba.svg"
+        cp "$REPO_DIR/extension/icons/ucaba-file.svg" "$SCALABLE_MIME/application-x-ucaba.svg"
+        cp "$REPO_DIR/extension/icons/ucaba-file.svg" "$SCALABLE_MIME/text-x-ucaba.svg"
+    fi
+    if [ -d "/usr/share/pixmaps" ] && [ "$(id -u)" -eq 0 ]; then
+        cp "$REPO_DIR/ucaba_icon.png" "/usr/share/pixmaps/ucaba.png" 2>/dev/null || true
+    fi
+    echo -e "${{GREEN}}[OK] Iconos oficiales instalados en apps y mimetypes (PNG y SVG scalable).${{NC}}"
     if which gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache -f -t "$(dirname "$(dirname "$ICONS_DIR")")" 2>/dev/null || true
     fi
@@ -361,7 +372,9 @@ else
         if which codium >/dev/null 2>&1; then
             codium --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
         fi
-        if which antigravity >/dev/null 2>&1; then
+        if which antigravity-ide >/dev/null 2>&1; then
+            antigravity-ide --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
+        elif which antigravity >/dev/null 2>&1; then
             antigravity --install-extension "$VSIX_FILE" --force >/dev/null 2>&1 || true
         fi
         if which flatpak >/dev/null 2>&1; then
@@ -622,7 +635,9 @@ if [ -n "$SUDO_USER" ] && [ -f "$VSIX_PATH" ]; then
     if which codium >/dev/null 2>&1; then
         su - "$SUDO_USER" -c "codium --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
     fi
-    if which antigravity >/dev/null 2>&1; then
+    if which antigravity-ide >/dev/null 2>&1; then
+        su - "$SUDO_USER" -c "antigravity-ide --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
+    elif which antigravity >/dev/null 2>&1; then
         su - "$SUDO_USER" -c "antigravity --install-extension \\"$VSIX_PATH\\" --force" >/dev/null 2>&1 || true
     fi
     if which flatpak >/dev/null 2>&1; then
