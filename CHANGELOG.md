@@ -24,6 +24,14 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - **Nuevo Paquete VSIX Oficial v2.0.1:**
   - Compilación y empaquetado de `ucaba-language-support-2.0.1.vsix` e incrustación en el instalador gráfico nativo de Windows.
 
+### 🔄 Verificación y Notificación Automática de Actualizaciones en CLI Nativo (Rust)
+- **Comprobación Real contra GitHub Releases (`updater.rs`):**
+  - Implementación en Rust de la consulta directa a la API de GitHub (`/repos/caidevOficial/UCABA_Lang/releases/latest`) para comparar versiones semánticas reales.
+  - Caché local de 1 hora en `%LOCALAPPDATA%\UCABA\version_cache.json` compatible con versiones históricas.
+  - Subcomando `ucaba update --check` funcional: detecta con precisión si hay una versión superior disponible en GitHub Releases.
+  - Comprobación en segundo plano no bloqueante al ejecutar archivos (`run`, `check`) y al iniciar la consola interactiva REPL, emitiendo avisos con estilo pip cuando hay actualizaciones.
+  - Subcomando `ucaba update` / `upgrade`: descarga y ejecución automática del asistente oficial de instalación (`Instalador_UCABA.exe`).
+
 ## [2.0.0] - 2026-10-17
 
 ### 🚀 Nuevo Motor Nativo en Rust (Workspace Cargo)

@@ -5,6 +5,7 @@ use std::time::Instant;
 use ucaba_core::{check_file, run_file, VERSION};
 
 mod repl;
+mod updater;
 
 #[derive(ClapParser)]
 #[command(
@@ -173,6 +174,29 @@ fn main() {
         print_welcome_banner(false);
     }
 
+    // Aviso de nueva versión en segundo plano (no aplica a update/upgrade ni LSP).
+    let skip_notice = is_lsp
+        || matches!(
+            cli.command,
+            Some(Commands::Update { .. }) | Some(Commands::Upgrade { .. })
+        );
+    let bg_check = if skip_notice {
+        None
+    } else {
+        Some(updater::BackgroundCheck::start(VERSION))
+    };
+    let is_repl = matches!(cli.command, Some(Commands::Repl))
+        || (cli.command.is_none() && cli.file.is_none());
+    let bg_check = if is_repl {
+        // En el REPL el aviso debe verse al iniciar, no al salir.
+        if let Some(b) = bg_check {
+            b.finish(std::time::Duration::from_millis(1500));
+        }
+        None
+    } else {
+        bg_check
+    };
+
     match cli.command {
         Some(Commands::Repl) => {
             repl::run_repl();
@@ -229,11 +253,13 @@ fn main() {
             println!("{}", report.to_json());
         }
         Some(Commands::Update { check }) | Some(Commands::Upgrade { check }) => {
-            if check {
-                println!("Comprobando versiones en GitHub ({VERSION})...");
-                println!("[OK] UCABA Rust Engine v{VERSION} está al día.");
+            let code = if check {
+                updater::run_check(VERSION)
             } else {
-                println!("UCABA Rust Engine v{VERSION} se compila de forma nativa e independiente.");
+                updater::run_update(VERSION)
+            };
+            if code != 0 {
+                exit(code);
             }
         }
         None => {
@@ -243,6 +269,10 @@ fn main() {
                 repl::run_repl();
             }
         }
+    }
+
+    if let Some(b) = bg_check {
+        b.finish(std::time::Duration::from_millis(500));
     }
 }
 
