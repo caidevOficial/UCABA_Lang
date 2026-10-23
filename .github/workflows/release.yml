@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Empaquetar Extensión de VS Code (VSIX v2.0.1)
+      - name: Empaquetar Extensión de VS Code (VSIX v2.0.2)
         working-directory: ./extension-vscode
         run: |
           npx -y @vscode/vsce package --no-git-tag-version
@@ -44,7 +44,9 @@ jobs:
         run: |
           python build_installer.py
 
-      - name: Ejecutar Suite de Tests en Rust (72 Tests)
+      - name: Ejecutar Suite de Tests en Rust
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo test -p ucaba_core -p ucaba_cli -p ucaba_installer
 
       - name: Ejecutar Tests de Python Históricos
@@ -86,6 +88,8 @@ jobs:
           sudo apt-get install -y dpkg binutils
 
       - name: Ejecutar Suite de Tests en Rust en Linux
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo test -p ucaba_core -p ucaba_cli
 
       - name: Ejecutar Tests de Python en Linux

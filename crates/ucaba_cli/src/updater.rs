@@ -106,14 +106,19 @@ fn write_cache(info: &ReleaseInfo) {
 
 pub fn fetch_latest_release(timeout: Duration) -> Option<ReleaseInfo> {
     let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
-    let body = ureq::get(&url)
+    let mut req = ureq::get(&url)
         .set("User-Agent", "UCABA-Lang-Updater")
         .set("Accept", "application/vnd.github.v3+json")
-        .timeout(timeout)
-        .call()
-        .ok()?
-        .into_string()
-        .ok()?;
+        .timeout(timeout);
+
+    if let Ok(token) = std::env::var("GITHUB_TOKEN").or_else(|_| std::env::var("GH_TOKEN")) {
+        let trimmed = token.trim();
+        if !trimmed.is_empty() {
+            req = req.set("Authorization", &format!("Bearer {}", trimmed));
+        }
+    }
+
+    let body = req.call().ok()?.into_string().ok()?;
     let payload: Value = serde_json::from_str(&body).ok()?;
     let tag = payload.get("tag_name")?.as_str()?;
     let installer_url = payload
