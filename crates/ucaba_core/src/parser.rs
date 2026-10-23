@@ -118,6 +118,19 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, UcabaError> {
+        let line = self.current().line;
+        let stmt = self.parse_statement_inner()?;
+        // Las definiciones se pre-registran en `Interpreter::run`, no se ejecutan: sin envolver.
+        if matches!(stmt, Statement::FunctionDef { .. } | Statement::StructDef { .. }) {
+            return Ok(stmt);
+        }
+        Ok(Statement::Located {
+            line,
+            stmt: Box::new(stmt),
+        })
+    }
+
+    fn parse_statement_inner(&mut self) -> Result<Statement, UcabaError> {
         // Palabras clave de control
         if self.match_token(&TokenType::KwSi) {
             return self.parse_if();

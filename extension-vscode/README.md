@@ -23,7 +23,12 @@ Extensión oficial para **Visual Studio Code** y **Antigravity IDE** que brinda 
 - 🔗 **Ir a Definición (Go to Definition - `Ctrl + Clic` / `F12`)**: Al presionar `Ctrl + Clic izquierdo` (o `F12`) sobre una función en cualquier parte del código, salta instantáneamente a su definición (`FUNCION` / `PROCEDIMIENTO`).
 - 🔎 **Buscar Referencias (`Shift + F12`)**: Encuentra todas las llamadas y usos de una función en el archivo.
 - 📑 **Vista de Esquema (Outline) y Breadcrumbs**: Muestra el mapa de funciones en el panel lateral Esquema y permite saltar con `Ctrl + Shift + O`.
-- ▶️ **Ejecución Directa**: Clic derecho en el editor -> "UCABA: Ejecutar archivo actual" o botón en la barra superior del editor.
+- 🐞 **Depurador Interactivo Nativo (DAP) con Breakpoints**:
+  - **Puntos de Interrupción (Breakpoints)**: Haz clic en el margen izquierdo del editor para fijar breakpoints en cualquier sentencia ejecutable.
+  - **Avance Paso a Paso**: Ejecución guiada con *Continuar* (`F5`), *Paso a Paso por Procedimientos / Step Over* (`F10`), *Paso a Paso por Instrucciones / Step Into* (`F11`) y *Paso a Paso para Salir / Step Out* (`Shift + F11`).
+  - **Panel de Variables y Pila de Llamadas**: Inspección en tiempo real de todas las variables locales del ámbito, arreglos, matrices y campos de estructuras de datos en el panel de depuración.
+  - **Evaluación en Consola y Hovers**: Evalúa expresiones (`x`, `p.campo`, `v[0]`) pasando el mouse por encima o en la consola de depuración.
+- ▶️ **Ejecución y Depuración Directa**: Botones dedicados en la barra superior del editor ("UCABA: Ejecutar archivo actual" y "UCABA: Depurar archivo actual") o desde el menú contextual.
 
 ## Requisitos
 

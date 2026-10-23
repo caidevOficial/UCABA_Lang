@@ -131,11 +131,45 @@ pub struct StructDefData {
     pub fields: Vec<(String, DataType)>,
 }
 
+/// Mensaje del error con el que el intérprete aborta cuando el depurador lo ordena.
+pub const DEBUG_ABORT_MESSAGE: &str = "Ejecución detenida por el depurador.";
+
+/// Decisión del depurador tras ser notificado de una sentencia.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DebugAction {
+    Continue,
+    Abort,
+}
+
+/// Hook invocado antes de ejecutar cada sentencia con línea conocida.
+/// La implementación puede bloquear el hilo (p. ej. esperando un comando del IDE).
+pub trait Debugger {
+    fn on_statement(&mut self, line: usize, interp: &Interpreter) -> DebugAction;
+}
+
+/// Marco de pila visible desde el depurador (el primero es el más interno).
+#[derive(Debug, Clone)]
+pub struct DebugFrame {
+    pub name: String,
+    pub line: usize,
+    pub variables: Vec<(String, DataType, Value)>,
+}
+
+struct CallFrame {
+    name: String,
+    call_line: usize,
+    scope_base: usize,
+}
+
 pub struct Interpreter {
     scopes: Vec<Scope>,
     functions: HashMap<String, FunctionData>,
     struct_defs: HashMap<String, StructDefData>,
     pub output: Vec<String>,
+    call_stack: Vec<CallFrame>,
+    current_line: usize,
+    debugger: Option<Box<dyn Debugger>>,
+    print_sink: Option<Box<dyn FnMut(&str)>>,
 }
 
 #[derive(Debug)]
@@ -151,7 +185,63 @@ impl Interpreter {
             functions: HashMap::new(),
             struct_defs: HashMap::new(),
             output: Vec::new(),
+            call_stack: Vec::new(),
+            current_line: 0,
+            debugger: None,
+            print_sink: None,
         }
+    }
+
+    /// Instala un depurador que se consulta antes de cada sentencia.
+    pub fn set_debugger(&mut self, debugger: Box<dyn Debugger>) {
+        self.debugger = Some(debugger);
+    }
+
+    /// Redirige IMPRIMIR a un destino propio (en vez de stdout), p. ej. eventos DAP.
+    pub fn set_print_sink(&mut self, sink: Box<dyn FnMut(&str)>) {
+        self.print_sink = Some(sink);
+    }
+
+    /// Profundidad actual de llamadas a funciones de usuario (0 = programa principal).
+    pub fn debug_depth(&self) -> usize {
+        self.call_stack.len()
+    }
+
+    /// Captura la pila de llamadas con las variables de cada marco (más interno primero).
+    pub fn debug_snapshot(&self) -> Vec<DebugFrame> {
+        let total = self.scopes.len();
+        let collect = |from: usize, to: usize| -> Vec<(String, DataType, Value)> {
+            let to = to.min(total);
+            let from = from.min(to);
+            let mut vars = Vec::new();
+            for scope in &self.scopes[from..to] {
+                let mut keys: Vec<&String> = scope.variables.keys().collect();
+                keys.sort();
+                for k in keys {
+                    let dt = scope.types.get(k).cloned().unwrap_or(DataType::Void);
+                    vars.push((k.clone(), dt, scope.variables[k].clone()));
+                }
+            }
+            vars
+        };
+        let n = self.call_stack.len();
+        let mut frames = Vec::with_capacity(n + 1);
+        for i in (0..=n).rev() {
+            let (name, from) = if i == 0 {
+                ("<principal>".to_string(), 0)
+            } else {
+                let f = &self.call_stack[i - 1];
+                (f.name.clone(), f.scope_base)
+            };
+            let to = if i == n { total } else { self.call_stack[i].scope_base };
+            let line = if i == n { self.current_line } else { self.call_stack[i].call_line };
+            frames.push(DebugFrame {
+                name,
+                line,
+                variables: collect(from, to),
+            });
+        }
+        frames
     }
 
     fn push_scope(&mut self) {
@@ -527,9 +617,28 @@ impl Interpreter {
                     .map(|arg| self.eval_expression(arg).map(|v| v.to_canonical_string()))
                     .collect();
                 let text = pieces?.join(" ");
-                println!("{}", text);
+                if let Some(sink) = self.print_sink.as_mut() {
+                    sink(&text);
+                } else {
+                    println!("{}", text);
+                }
                 self.output.push(text);
                 Ok(ControlFlow::None)
+            }
+            Statement::Located { line, stmt } => {
+                self.current_line = *line;
+                if let Some(mut dbg) = self.debugger.take() {
+                    let action = dbg.on_statement(*line, self);
+                    self.debugger = Some(dbg);
+                    if action == DebugAction::Abort {
+                        return Err(UcabaError::Runtime {
+                            message: DEBUG_ABORT_MESSAGE.to_string(),
+                            line: *line,
+                            column: 0,
+                        });
+                    }
+                }
+                self.execute_statement(stmt)
             }
             Statement::Expr(expr) => {
                 self.eval_expression(expr)?;
@@ -1109,6 +1218,11 @@ impl Interpreter {
                 }
 
                 // Crear un nuevo frame de ejecución aislado para la función
+                self.call_stack.push(CallFrame {
+                    name: name.clone(),
+                    call_line: self.current_line,
+                    scope_base: self.scopes.len(),
+                });
                 self.push_scope();
                 for (i, (p_name, p_type)) in func_data.params.iter().enumerate() {
                     self.declare_variable(p_name, p_type.clone(), evaluated_args[i].clone())?;
@@ -1123,6 +1237,9 @@ impl Interpreter {
                 }
 
                 self.pop_scope();
+                if let Some(f) = self.call_stack.pop() {
+                    self.current_line = f.call_line;
+                }
                 Ok(ret_val)
             }
         }
@@ -1324,7 +1441,11 @@ impl Interpreter {
 
         // Si es una única expresión evaluable (ej: `10 + 20` o `x`), retornar el valor
         if program.statements.len() == 1 {
-            if let Statement::Expr(expr) = &program.statements[0] {
+            let first = match &program.statements[0] {
+                Statement::Located { stmt, .. } => stmt.as_ref(),
+                other => other,
+            };
+            if let Statement::Expr(expr) = first {
                 let val = self.eval_expression(expr)?;
                 return Ok(Some(val));
             }
@@ -1353,6 +1474,8 @@ impl Interpreter {
         self.functions.clear();
         self.struct_defs.clear();
         self.output.clear();
+        self.call_stack.clear();
+        self.current_line = 0;
     }
 }
 

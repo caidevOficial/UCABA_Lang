@@ -7,7 +7,10 @@ pub mod token;
 pub mod value;
 
 pub use error::UcabaError;
-pub use eval::{check_type_compatibility, is_input_complete, Interpreter};
+pub use eval::{
+    check_type_compatibility, is_input_complete, DebugAction, DebugFrame, Debugger, Interpreter,
+    DEBUG_ABORT_MESSAGE,
+};
 pub use lexer::Lexer;
 pub use parser::Parser;
 pub use value::Value;

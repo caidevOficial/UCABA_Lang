@@ -4,6 +4,7 @@ use std::process::exit;
 use std::time::Instant;
 use ucaba_core::{check_file, run_file, VERSION};
 
+mod dap;
 mod repl;
 mod updater;
 
@@ -108,6 +109,9 @@ enum Commands {
         #[arg(long)]
         stdin: bool,
     },
+
+    /// Servidor de depuración DAP (breakpoints, paso a paso, variables) para VS Code
+    Dap,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -169,7 +173,8 @@ fn main() {
         return;
     }
 
-    let is_lsp = matches!(cli.command, Some(Commands::LspCheck { .. }));
+    // LSP y DAP usan stdout como canal de protocolo: no deben imprimir banner ni avisos.
+    let is_lsp = matches!(cli.command, Some(Commands::LspCheck { .. }) | Some(Commands::Dap));
     if !is_lsp {
         print_welcome_banner(false);
     }
@@ -198,6 +203,9 @@ fn main() {
     };
 
     match cli.command {
+        Some(Commands::Dap) => {
+            exit(dap::run_dap());
+        }
         Some(Commands::Repl) => {
             repl::run_repl();
         }

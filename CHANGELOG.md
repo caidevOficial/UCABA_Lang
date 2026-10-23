@@ -32,6 +32,21 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
   - Comprobación en segundo plano no bloqueante al ejecutar archivos (`run`, `check`) y al iniciar la consola interactiva REPL, emitiendo avisos con estilo pip cuando hay actualizaciones.
   - Subcomando `ucaba update` / `upgrade`: descarga y ejecución automática del asistente oficial de instalación (`Instalador_UCABA.exe`).
 
+### 🐞 Depurador Nativo Interactivo DAP (*Debug Adapter Protocol*)
+- **Soporte de Breakpoints en VS Code y Antigravity:**
+  - Registro de capacidades de depuración en `extension-vscode`: puntos de interrupción en margen izquierdo (`breakpoints`), configuración automática de lanzamiento (`initialConfigurations`) y comando directo `ucaba.debugFile`.
+  - Servidor de depuración nativo en Rust invocado con `ucaba dap`, comunicándose por `stdin`/`stdout` mediante el protocolo estándar DAP (*Debug Adapter Protocol*).
+- **Control de Ejecución Paso a Paso:**
+  - Soporte de acciones: *Continuar* (`continue`), *Paso por procedimientos* (`next` / step over), *Paso por instrucciones* (`stepIn`) y *Paso para salir* (`stepOut`), gestionando la profundidad de llamadas en funciones y procedimientos.
+  - Parada opcional en el inicio (`stopOnEntry`) y pausa interactiva (`pause`).
+- **Inspección de Pila de Llamadas y Variables:**
+  - Desglose jerárquico de ámbitos y marcos de ejecución (*Call Stack*).
+  - Inspección en vivo de variables locales, arreglos, matrices y campos de estructuras de datos personalizadas con protección contra ciclos y recursión infinita.
+  - Evaluación de expresiones en consola de depuración y hovers interactivos (`x`, `p.campo`, `v[0]`).
+- **Anotación de Líneas en AST (`Statement::Located`):**
+  - Envoltorio de sentencias con número de línea original preservado sin alterar el rendimiento ni la compatibilidad del intérprete central.
+  - Redirección transparente de `IMPRIMIR` mediante `print_sink` a eventos `output` de depuración sin contaminar el canal del protocolo.
+
 ## [2.0.0] - 2026-10-17
 
 ### 🚀 Nuevo Motor Nativo en Rust (Workspace Cargo)

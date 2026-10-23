@@ -23,7 +23,8 @@
   "activationEvents": [
     "onLanguage:ucaba",
     "workspaceContains:**/*.ucaba",
-    "onStartupFinished"
+    "onStartupFinished",
+    "onDebugResolve:ucaba"
   ],
   "contributes": {
     "iconThemes": [
@@ -71,6 +72,71 @@
         "path": "./snippets/snippets.json"
       }
     ],
+    "breakpoints": [
+      {
+        "language": "ucaba"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "ucaba",
+        "label": "UCABA",
+        "languages": [
+          "ucaba"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Ruta del archivo .ucaba a depurar.",
+                "default": "${file}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Detener en la primera sentencia ejecutable.",
+                "default": false
+              },
+              "lenient": {
+                "type": "boolean",
+                "description": "Modo permisivo para pseudocódigo informal.",
+                "default": false
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Directorio de trabajo (para rutas relativas de ARCHIVO).",
+                "default": "${workspaceFolder}"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "ucaba",
+            "request": "launch",
+            "name": "UCABA: Depurar archivo actual",
+            "program": "${file}",
+            "stopOnEntry": false
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "UCABA: Depurar archivo",
+            "description": "Configuración para depurar un archivo .ucaba",
+            "body": {
+              "type": "ucaba",
+              "request": "launch",
+              "name": "UCABA: Depurar archivo actual",
+              "program": "${file}",
+              "stopOnEntry": false
+            }
+          }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "ucaba.runFile",
@@ -81,6 +147,12 @@
         "command": "ucaba.checkFile",
         "title": "UCABA: Verificar sintaxis y tipos del archivo",
         "category": "UCABA"
+      },
+      {
+        "command": "ucaba.debugFile",
+        "title": "UCABA: Depurar archivo actual",
+        "category": "UCABA",
+        "icon": "$(debug-alt)"
       },
       {
         "command": "ucaba.startRepl",
@@ -101,9 +173,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "ucaba.startRepl",
+          "command": "ucaba.debugFile",
           "when": "resourceExtname == .ucaba",
           "group": "navigation@2"
+        },
+        {
+          "command": "ucaba.startRepl",
+          "when": "resourceExtname == .ucaba",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [

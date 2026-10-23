@@ -1609,6 +1609,84 @@ function activate(context) {
         })
     );
 
+    // -------------------------------------------------------------
+    // Depurador (DAP): breakpoints, paso a paso, pila y variables
+    // -------------------------------------------------------------
+    context.subscriptions.push(
+        vscode.debug.registerDebugConfigurationProvider('ucaba', {
+            async resolveDebugConfiguration(_folder, config) {
+                const editor = vscode.window.activeTextEditor;
+
+                // F5 sin launch.json: depurar el archivo .ucaba activo
+                if (!config.type && !config.request && !config.name) {
+                    if (!editor || !editor.document.fileName.endsWith('.ucaba')) {
+                        vscode.window.showErrorMessage('Abre un archivo .ucaba para depurarlo.');
+                        return undefined;
+                    }
+                    config.type = 'ucaba';
+                    config.name = 'UCABA: Depurar archivo actual';
+                    config.request = 'launch';
+                }
+
+                if (!config.program) {
+                    if (!editor || !editor.document.fileName.endsWith('.ucaba')) {
+                        vscode.window.showErrorMessage('Falta "program" en la configuración de depuración y no hay un .ucaba activo.');
+                        return undefined;
+                    }
+                    config.program = editor.document.fileName;
+                }
+
+                // Los breakpoints se mapean por número de línea: guardar para que coincida con el disco
+                if (editor && editor.document.isDirty && path.resolve(editor.document.fileName) === path.resolve(config.program)) {
+                    await editor.document.save();
+                }
+
+                if (config.stopOnEntry === undefined) {
+                    config.stopOnEntry = false;
+                }
+                if (!config.cwd) {
+                    config.cwd = getWorkingDirectory(editor ? editor.document : undefined);
+                }
+                return config;
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.debug.registerDebugAdapterDescriptorFactory('ucaba', {
+            createDebugAdapterDescriptor() {
+                const runner = getUcabaRunner();
+                if (!runner.isCli) {
+                    throw new Error('El depurador de UCABA requiere el CLI nativo (ucaba.exe). Instálalo o configura "ucaba.cliPath".');
+                }
+                // Las versiones anteriores del CLI no tienen el subcomando `dap`
+                const probe = cp.spawnSync(runner.executable, ['--help'], { timeout: 3000, shell: process.platform === 'win32' });
+                const helpText = (probe.stdout ? probe.stdout.toString() : '');
+                if (!/\bdap\b/.test(helpText)) {
+                    throw new Error('El ucaba instalado no incluye el depurador. Actualiza con: ucaba update');
+                }
+                return new vscode.DebugAdapterExecutable(runner.executable, ['dap']);
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('ucaba.debugFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.document.fileName.endsWith('.ucaba')) {
+                vscode.window.showErrorMessage('Abre un archivo .ucaba para depurarlo.');
+                return;
+            }
+            await vscode.debug.startDebugging(undefined, {
+                type: 'ucaba',
+                request: 'launch',
+                name: 'UCABA: Depurar archivo actual',
+                program: editor.document.fileName,
+                stopOnEntry: false
+            });
+        })
+    );
+
     // Sugerencia para activar tema de iconos oficial si el usuario aún no lo tiene configurado
     try {
         const currentIconTheme = vscode.workspace.getConfiguration('workbench').get('iconTheme');

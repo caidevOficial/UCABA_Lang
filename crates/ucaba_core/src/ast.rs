@@ -152,6 +152,12 @@ pub enum Statement {
         name: String,
         fields: Vec<(String, DataType)>,
     },
+    /// Envoltorio que asocia una sentencia con su línea de código fuente (1-based).
+    /// Lo usa el depurador (DAP) para breakpoints y avance paso a paso.
+    Located {
+        line: usize,
+        stmt: Box<Statement>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

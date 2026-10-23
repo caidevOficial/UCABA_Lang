@@ -319,7 +319,8 @@ El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` 
 - ⚡ **Diagnósticos Instantáneos (<1 ms):** Valida sintaxis y tipos estáticos directamente con el motor nativo de Rust (`ucaba lsp-check --json --stdin`), marcando errores con subrayado y en el panel de problemas al escribir.
 - 💻 **Consola Interactiva REPL Integrada:** Inicia la consola interactiva con un clic desde el botón en la barra de herramientas o mediante el comando `UCABA: Iniciar consola interactiva REPL`.
 - 🔗 **Navegación de Código:** Soporte completo de **Ir a Definición** (`Ctrl + Clic` / `F12`), **Buscar Referencias** (`Shift + F12`) y **Vista de Esquema** (*Outline* / Breadcrumbs).
-- ▶️ **Botón "Ejecutar UCABA":** Botón de reproducción integrado en la barra de herramientas del editor para ejecutar el archivo actual con un clic.
+- 🐞 **Depurador Interactivo Nativo DAP con Breakpoints:** Depura programas `.ucaba` en VS Code fijando puntos de interrupción con un clic en el margen, avance paso a paso (*Step Over*, *Step Into*, *Step Out*), inspección de variables locales, arreglos y estructuras, y evaluación de expresiones.
+- ▶️ **Ejecución y Depuración Directa:** Botones integrados en la barra de herramientas del editor para ejecutar o depurar el archivo actual con un clic.
 - ⚡ **Snippets Rápidos:** Escribe `func`, `proc`, `para`, `mientras`, `si` o `archivo` y presiona <kbd>Tab</kbd> para generar plantillas de código instantáneas.
 
 #### Instalación Manual de la Extensión:
