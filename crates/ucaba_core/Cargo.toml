@@ -1,6 +1,6 @@
 [package]
 name = "ucaba_core"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 authors = ["Facu Falcone <a.facundo.falcone@gmail.com>"]
 description = "Motor central del lenguaje de pseudocódigo en español UCABA en Rust"

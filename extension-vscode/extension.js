@@ -303,14 +303,32 @@ function activate(context) {
         })
     );
 
+    function ensureUcabaLanguage(doc) {
+        if (doc && doc.fileName && doc.fileName.endsWith('.ucaba') && doc.languageId !== 'ucaba') {
+            try {
+                vscode.languages.setTextDocumentLanguage(doc, 'ucaba').then(() => {}, () => {});
+            } catch (e) {}
+        }
+    }
+
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument((doc) => {
+            ensureUcabaLanguage(doc);
             updateDiagnostics(doc);
         })
     );
 
     context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (editor && editor.document) {
+                ensureUcabaLanguage(editor.document);
+            }
+        })
+    );
+
+    context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument((doc) => {
+            ensureUcabaLanguage(doc);
             updateDiagnostics(doc);
         })
     );
@@ -324,15 +342,24 @@ function activate(context) {
     // Revisar documentos visibles al iniciar
     vscode.window.visibleTextEditors.forEach((editor) => {
         if (editor && editor.document) {
+            ensureUcabaLanguage(editor.document);
             updateDiagnostics(editor.document);
         }
     });
+
+    const UCABA_SELECTOR = [
+        { language: 'ucaba' },
+        { pattern: '**/*.ucaba' },
+        { scheme: 'file', language: 'ucaba' },
+        { scheme: 'file', pattern: '**/*.ucaba' },
+        { scheme: 'untitled', language: 'ucaba' }
+    ];
 
     // -------------------------------------------------------------
     // Utilidades de Análisis de Símbolos, Estructuras y Alcance
     // -------------------------------------------------------------
     const TYPE_KEYWORDS = 'ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|NULO';
-    const FN_HEADER_RE = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?::\s*([A-Za-z]+(?:\s*\[\s*\])*))?/i;
+    const FN_HEADER_RE = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?::\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*\[\s*\])*))?/i;
     const FN_END_RE = /^\s*FIN\s+(?:FUNCION|PROCEDIMIENTO)\b/i;
     const STRUCT_HEADER_RE = /^\s*Estructura\s+([A-Za-z_][A-Za-z0-9_]*)\s*:?/i;
     const STRUCT_END_RE = /^\s*FIN\s*(?:_|\s+)?(?:ESTRUCTURA|STRUCT)\b/i;
@@ -503,6 +530,132 @@ function activate(context) {
         return null;
     }
 
+    /** Recolecta todas las funciones y procedimientos definidos en un documento. */
+    function getAllFunctionsInDocument(doc) {
+        const list = [];
+        if (!doc) return list;
+        for (let i = 0; i < doc.lineCount; i++) {
+            const lineText = doc.lineAt(i).text;
+            const m = lineText.match(FN_HEADER_RE);
+            if (m) {
+                list.push({
+                    doc,
+                    line: i,
+                    kind: m[1].toUpperCase(),
+                    name: m[2],
+                    params: m[3].trim(),
+                    returnType: (m[4] || '').replace(/\s+/g, ''),
+                    comment: getLeadingComment(doc, i)
+                });
+            }
+        }
+        return list;
+    }
+
+    /** Recolecta funciones y procedimientos tanto del documento actual como de los documentos abiertos en el workspace. */
+    function getAllWorkspaceFunctions(currentDoc) {
+        const fnMap = new Map();
+        if (vscode.workspace && vscode.workspace.textDocuments) {
+            for (const doc of vscode.workspace.textDocuments) {
+                if (doc !== currentDoc && (doc.languageId === 'ucaba' || (doc.fileName && doc.fileName.endsWith('.ucaba')))) {
+                    const fns = getAllFunctionsInDocument(doc);
+                    for (const fn of fns) {
+                        fnMap.set(fn.name.toLowerCase(), fn);
+                    }
+                }
+            }
+        }
+        if (currentDoc) {
+            const currentFns = getAllFunctionsInDocument(currentDoc);
+            for (const fn of currentFns) {
+                fnMap.set(fn.name.toLowerCase(), fn);
+            }
+        }
+        return Array.from(fnMap.values());
+    }
+
+    /** Recolecta variables y parámetros visibles en el ámbito actual hasta la línea especificada. */
+    function getVariablesInScope(doc, fromLine) {
+        const vars = new Map();
+        if (!doc) return [];
+
+        const structNames = [];
+        for (let k = 0; k < doc.lineCount; k++) {
+            const sm = doc.lineAt(k).text.match(STRUCT_HEADER_RE);
+            if (sm) structNames.push(escapeRegex(sm[1]));
+        }
+        const allTypes = structNames.length > 0 ? `${TYPE_KEYWORDS}|${structNames.join('|')}` : `${TYPE_KEYWORDS}|[A-Za-z_][A-Za-z0-9_]*`;
+
+        const varDeclRegex = new RegExp(`^\\s*(${allTypes})\\s+([A-Za-z_][A-Za-z0-9_]*((?:\\s*\\[[^\\]]*\\])*))\\s*(?:=.*)?$`, 'i');
+
+        let depth = 0;
+        const safeFrom = Math.min(Math.max(0, fromLine), Math.max(0, doc.lineCount - 1));
+        for (let i = safeFrom; i >= 0; i--) {
+            const text = doc.lineAt(i).text;
+            if (/^\s*\/\//.test(text)) continue;
+
+            if (i !== fromLine && FN_END_RE.test(text)) {
+                depth++;
+                continue;
+            }
+
+            const header = text.match(FN_HEADER_RE);
+            if (header) {
+                if (depth > 0) {
+                    depth--;
+                    continue;
+                }
+                const rawParams = header[3];
+                const pList = rawParams.split(',');
+                for (const p of pList) {
+                    const pTrim = p.trim();
+                    const m1 = pTrim.match(/^([A-Za-z_][A-Za-z0-9_]*)((?:\s*\[[^\\]]*\\])*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)$/);
+                    if (m1) {
+                        const pName = m1[1];
+                        const pDims = (m1[2].match(/\[/g) || []).length;
+                        const pType = m1[3] + '[]'.repeat(pDims);
+                        if (!vars.has(pName.toLowerCase())) {
+                            vars.set(pName.toLowerCase(), { kind: 'parámetro', name: pName, type: pType, line: i });
+                        }
+                    } else {
+                        const m2 = pTrim.match(/^([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)((?:\s*\[[^\\]]*\\])*)$/);
+                        if (m2) {
+                            const pType = m2[1];
+                            const pName = m2[2];
+                            const pDims = (m2[3].match(/\[/g) || []).length;
+                            if (!vars.has(pName.toLowerCase())) {
+                                vars.set(pName.toLowerCase(), { kind: 'parámetro', name: pName, type: pType + '[]'.repeat(pDims), line: i });
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if (depth > 0) continue;
+
+            const paraMatch = text.match(/PARA\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/i);
+            if (paraMatch) {
+                const vType = paraMatch[1];
+                const vName = paraMatch[2];
+                if (!vars.has(vName.toLowerCase())) {
+                    vars.set(vName.toLowerCase(), { kind: 'variable', name: vName, type: vType, line: i });
+                }
+            }
+
+            const vm = text.match(varDeclRegex);
+            if (vm) {
+                const vType = vm[1];
+                const vName = vm[2].replace(/\[[^\]]*\]/g, '').trim();
+                const vDims = (vm[2].match(/\[/g) || []).length;
+                if (!vars.has(vName.toLowerCase())) {
+                    vars.set(vName.toLowerCase(), { kind: 'variable', name: vName, type: vType + '[]'.repeat(vDims), line: i });
+                }
+            }
+        }
+        return Array.from(vars.values());
+    }
+
     /**
      * Busca la declaración de una variable o parámetro respetando el alcance:
      * hacia arriba desde la línea actual, saltando cuerpos de otras funciones.
@@ -626,11 +779,12 @@ function activate(context) {
     // -------------------------------------------------------------
     // Autocompletado Inteligente (CompletionItemProvider)
     // -------------------------------------------------------------
-    const completionProvider = vscode.languages.registerCompletionItemProvider('ucaba', {
+    const completionProvider = vscode.languages.registerCompletionItemProvider(UCABA_SELECTOR, {
         provideCompletionItems(document, position, token, context) {
-            if (isInCommentOrString(document, position)) {
-                return null;
-            }
+            try {
+                if (isInCommentOrString(document, position)) {
+                    return null;
+                }
 
             const linePrefix = document.lineAt(position).text.substr(0, position.character);
 
@@ -754,51 +908,46 @@ function activate(context) {
 
             const items = [];
 
-            // Tipos de datos
-            const tipos = [
-                { name: 'ENTERO', desc: 'Tipo numérico entero de 32 bits (-2^31 a 2^31-1)' },
-                { name: 'FLOTANTE', desc: 'Tipo de coma flotante de precisión simple IEEE-754 (32 bits)' },
-                { name: 'REAL', desc: 'Tipo de coma flotante de doble precisión IEEE-754 (64 bits)' },
-                { name: 'CADENA', desc: 'Cadena de caracteres alfanumérica' },
-                { name: 'CARACTER', desc: 'Un solo caracter alfanumérico' },
-                { name: 'BOOLEANO', desc: 'Valor lógico: VERDADERO o FALSO' },
-                { name: 'ARCHIVO', desc: 'Descriptor para manejo de archivos' },
-                { name: 'NULO', desc: 'Tipo y valor nulo o referencia vacía (equivalente a null o None)' }
-            ];
-
-            tipos.forEach(t => {
-                const item = new vscode.CompletionItem(t.name, vscode.CompletionItemKind.TypeParameter);
-                item.detail = 'Tipo de dato UCABA';
-                item.documentation = new vscode.MarkdownString(t.desc);
-                items.push(item);
+            // 1. Funciones y procedimientos definidos por el usuario (Prioridad máxima '0_')
+            const allFunctions = getAllWorkspaceFunctions(document);
+            allFunctions.forEach(fn => {
+                const fnItem = new vscode.CompletionItem(fn.name, fn.kind === 'PROCEDIMIENTO' ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function);
+                fnItem.insertText = fn.name;
+                fnItem.filterText = fn.name;
+                const retSuffix = fn.returnType ? `: ${fn.returnType}` : '';
+                fnItem.detail = `(${fn.params})${retSuffix}`;
+                let docMd = `\`\`\`ucaba\n${fn.kind} ${fn.name}(${fn.params})${retSuffix}\n\`\`\``;
+                docMd += `\n\n*${fn.kind === 'FUNCION' ? 'Función' : 'Procedimiento'}* definida en la línea ${fn.line + 1}`;
+                if (fn.doc && fn.doc !== document && fn.doc.fileName) {
+                    docMd += ` de \`${path.basename(fn.doc.fileName)}\``;
+                }
+                if (fn.comment) {
+                    docMd += `\n\n${fn.comment}`;
+                }
+                fnItem.documentation = new vscode.MarkdownString(docMd);
+                fnItem.sortText = '0_' + fn.name;
+                items.push(fnItem);
             });
 
-            // Estructuras definidas en el documento como tipos sugeridos
+            // 2. Variables y parámetros visibles en ámbito ('1_')
+            const inScopeVars = getVariablesInScope(document, position.line);
+            inScopeVars.forEach(v => {
+                const varItem = new vscode.CompletionItem(v.name, vscode.CompletionItemKind.Variable);
+                varItem.insertText = v.name;
+                varItem.filterText = v.name;
+                varItem.detail = `(${v.kind}) ${v.type} ${v.name}`;
+                varItem.documentation = new vscode.MarkdownString(`\`\`\`ucaba\n(${v.kind}) ${v.type} ${v.name}\n\`\`\`\n\nDeclarado en la línea ${v.line + 1}`);
+                varItem.sortText = '1_' + v.name;
+                items.push(varItem);
+            });
+
+            // 3. Estructuras definidas en el documento como tipos sugeridos ('2_')
             const docStructs = getAllStructs(document);
             docStructs.forEach(st => {
                 const item = new vscode.CompletionItem(st.name, vscode.CompletionItemKind.Struct);
                 item.detail = `Estructura personalizada '${st.name}'`;
                 item.documentation = new vscode.MarkdownString(`### Estructura \`${st.name}\`\n\n${st.fields.map(f => `- \`${f}\``).join('\n')}`);
-                items.push(item);
-            });
-
-            // Palabras clave
-            const keywords = [
-                'ALGORITMO', 'INICIO', 'FIN',
-                'ESTRUCTURA', 'FIN ESTRUCTURA',
-                'FUNCION', 'FIN FUNCION',
-                'PROCEDIMIENTO', 'FIN PROCEDIMIENTO',
-                'RETORNAR',
-                'SI', 'ENTONCES', 'SINO', 'SINO SI', 'FIN SI',
-                'MIENTRAS', 'FIN MIENTRAS',
-                'PARA', 'HASTA', 'PASO', 'HACER', 'FIN PARA',
-                'VERDADERO', 'FALSO',
-                'NULO', 'NULL', 'NONE',
-                'MOD', 'Y', 'O', 'NO'
-            ];
-
-            keywords.forEach(kw => {
-                const item = new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword);
+                item.sortText = '2_' + st.name;
                 items.push(item);
             });
 
@@ -807,9 +956,10 @@ function activate(context) {
             structSnippet.insertText = new vscode.SnippetString('ESTRUCTURA ${1:Nombre}:\n    ${2:CADENA campo1}\nFIN ESTRUCTURA');
             structSnippet.detail = 'Definición de Estructura';
             structSnippet.documentation = new vscode.MarkdownString('Define una estructura de datos personalizada con campos fuertemente tipados.');
+            structSnippet.sortText = '2_ESTRUCTURA_SNIPPET';
             items.push(structSnippet);
 
-            // Funciones incorporadas (Built-ins)
+            // 4. Funciones incorporadas (Built-ins, '3_')
             const builtins = [
                 {
                     name: 'MOSTRAR',
@@ -881,14 +1031,132 @@ function activate(context) {
                 item.insertText = new vscode.SnippetString(b.snippet);
                 item.detail = b.detail;
                 item.documentation = new vscode.MarkdownString(b.doc);
+                item.sortText = '3_' + b.name;
+                items.push(item);
+            });
+
+            // 5. Palabras clave ('4_')
+            const keywords = [
+                'ALGORITMO', 'INICIO', 'FIN',
+                'ESTRUCTURA', 'FIN ESTRUCTURA',
+                'FUNCION', 'FIN FUNCION',
+                'PROCEDIMIENTO', 'FIN PROCEDIMIENTO',
+                'RETORNAR',
+                'SI', 'ENTONCES', 'SINO', 'SINO SI', 'FIN SI',
+                'MIENTRAS', 'FIN MIENTRAS',
+                'PARA', 'HASTA', 'PASO', 'HACER', 'FIN PARA',
+                'VERDADERO', 'FALSO',
+                'NULO', 'NULL', 'NONE',
+                'MOD', 'Y', 'O', 'NO'
+            ];
+
+            keywords.forEach(kw => {
+                const item = new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword);
+                item.sortText = '4_' + kw;
+                items.push(item);
+            });
+
+            // 6. Tipos de datos ('5_')
+            const tipos = [
+                { name: 'ENTERO', desc: 'Tipo numérico entero de 32 bits (-2^31 a 2^31-1)' },
+                { name: 'FLOTANTE', desc: 'Tipo de coma flotante de precisión simple IEEE-754 (32 bits)' },
+                { name: 'REAL', desc: 'Tipo de coma flotante de doble precisión IEEE-754 (64 bits)' },
+                { name: 'CADENA', desc: 'Cadena de caracteres alfanumérica' },
+                { name: 'CARACTER', desc: 'Un solo caracter alfanumérico' },
+                { name: 'BOOLEANO', desc: 'Valor lógico: VERDADERO o FALSO' },
+                { name: 'ARCHIVO', desc: 'Descriptor para manejo de archivos' },
+                { name: 'NULO', desc: 'Tipo y valor nulo o referencia vacía (equivalente a null o None)' }
+            ];
+
+            tipos.forEach(t => {
+                const item = new vscode.CompletionItem(t.name, vscode.CompletionItemKind.TypeParameter);
+                item.detail = 'Tipo de dato UCABA';
+                item.documentation = new vscode.MarkdownString(t.desc);
+                item.sortText = '5_' + t.name;
                 items.push(item);
             });
 
             return items;
+            } catch (err) {
+                console.error('UCABA provideCompletionItems error:', err);
+                return null;
+            }
         }
     }, '.', ' ');
 
     context.subscriptions.push(completionProvider);
+
+    // -------------------------------------------------------------
+    // Ayuda de Parámetros y Firmas (SignatureHelpProvider)
+    // -------------------------------------------------------------
+    const signatureHelpProvider = vscode.languages.registerSignatureHelpProvider(UCABA_SELECTOR, {
+        provideSignatureHelp(document, position, token, context) {
+            if (isInCommentOrString(document, position)) return null;
+
+            const lineText = document.lineAt(position.line).text.substring(0, position.character);
+            let openParenIndex = -1;
+            let parenDepth = 0;
+            let paramIndex = 0;
+
+            for (let i = lineText.length - 1; i >= 0; i--) {
+                const ch = lineText[i];
+                if (ch === ')') {
+                    parenDepth++;
+                } else if (ch === '(') {
+                    if (parenDepth === 0) {
+                        openParenIndex = i;
+                        break;
+                    } else {
+                        parenDepth--;
+                    }
+                } else if (ch === ',' && parenDepth === 0) {
+                    paramIndex++;
+                }
+            }
+
+            if (openParenIndex === -1) return null;
+
+            const beforeParen = lineText.substring(0, openParenIndex).trim();
+            const fnMatch = beforeParen.match(/([A-Za-z_][A-Za-z0-9_]*)$/);
+            if (!fnMatch) return null;
+            const fnName = fnMatch[1];
+
+            // Buscar función de usuario
+            let fn = findFunctionInDocument(document, fnName);
+            if (!fn && vscode.workspace && vscode.workspace.textDocuments) {
+                for (const doc of vscode.workspace.textDocuments) {
+                    if (doc !== document && (doc.languageId === 'ucaba' || (doc.fileName && doc.fileName.endsWith('.ucaba')))) {
+                        fn = findFunctionInDocument(doc, fnName);
+                        if (fn) break;
+                    }
+                }
+            }
+
+            if (fn) {
+                const retSuffix = fn.returnType ? `: ${fn.returnType}` : '';
+                const sigLabel = `${fn.kind} ${fn.name}(${fn.params})${retSuffix}`;
+                const signatureInfo = new vscode.SignatureInformation(sigLabel, fn.comment || undefined);
+
+                if (fn.params && fn.params.trim().length > 0) {
+                    const paramsList = fn.params.split(',');
+                    signatureInfo.parameters = paramsList.map(p => new vscode.ParameterInformation(p.trim()));
+                } else {
+                    signatureInfo.parameters = [];
+                }
+
+                const sigHelp = new vscode.SignatureHelp();
+                sigHelp.signatures = [signatureInfo];
+                sigHelp.activeSignature = 0;
+                sigHelp.activeParameter = Math.min(paramIndex, Math.max(0, (signatureInfo.parameters.length || 1) - 1));
+
+                return sigHelp;
+            }
+
+            return null;
+        }
+    }, '(', ',');
+
+    context.subscriptions.push(signatureHelpProvider);
 
     // -------------------------------------------------------------
     // Información sobre el Cursor (HoverProvider)
@@ -945,7 +1213,7 @@ function activate(context) {
         return new vscode.Hover(md, range);
     }
 
-    const hoverProvider = vscode.languages.registerHoverProvider('ucaba', {
+    const hoverProvider = vscode.languages.registerHoverProvider(UCABA_SELECTOR, {
         async provideHover(document, position, token) {
             const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
             if (!wordRange) return null;
@@ -1058,7 +1326,7 @@ function activate(context) {
     // -------------------------------------------------------------
     // Navegación a Definición (DefinitionProvider: Ctrl + Clic / F12)
     // -------------------------------------------------------------
-    const definitionProvider = vscode.languages.registerDefinitionProvider('ucaba', {
+    const definitionProvider = vscode.languages.registerDefinitionProvider(UCABA_SELECTOR, {
         async provideDefinition(document, position, token) {
             const wordRange = document.getWordRangeAtPosition(position);
             if (!wordRange) return null;
@@ -1158,7 +1426,7 @@ function activate(context) {
     // -------------------------------------------------------------
     // Referencias / Usos (ReferenceProvider: Shift + F12)
     // -------------------------------------------------------------
-    const referenceProvider = vscode.languages.registerReferenceProvider('ucaba', {
+    const referenceProvider = vscode.languages.registerReferenceProvider(UCABA_SELECTOR, {
         provideReferences(document, position, refContext, token) {
             const wordRange = document.getWordRangeAtPosition(position);
             if (!wordRange) return null;
@@ -1191,7 +1459,7 @@ function activate(context) {
     // -------------------------------------------------------------
     // Vista de Estructura / Símbolos (DocumentSymbolProvider: Outline y Ctrl + Shift + O)
     // -------------------------------------------------------------
-    const symbolProvider = vscode.languages.registerDocumentSymbolProvider('ucaba', {
+    const symbolProvider = vscode.languages.registerDocumentSymbolProvider(UCABA_SELECTOR, {
         provideDocumentSymbols(document, token) {
             const symbols = [];
             const fnHeaderRegex = /^\s*(FUNCION|PROCEDIMIENTO)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\((.*?)\))?(?:\s*:\s*([A-Za-z0-9_\[\]]+))?/i;

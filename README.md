@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.0-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.1-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-69%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-72%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -107,10 +107,10 @@ UCABA ofrece paquetes oficiales nativos y universales para entornos Linux:
 Recomendado para **Ubuntu, Debian, Linux Mint, Pop!_OS, Kali Linux** y derivados:
 ```bash
 # Instalación con apt (resuelve dependencias automáticamente)
-sudo apt install ./ucaba_1.11.6_amd64.deb
+sudo apt install ./ucaba_2.0.1_amd64.deb
 
 # O mediante dpkg:
-# sudo dpkg -i ucaba_1.11.6_amd64.deb
+# sudo dpkg -i ucaba_2.0.1_amd64.deb
 ```
 Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIME del archivo `.ucaba`, el icono del lenguaje y la entrada de escritorio para aplicaciones del sistema.
 
@@ -118,8 +118,8 @@ Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIM
 Compatible con cualquier distribución (Arch Linux, Fedora, openSUSE, Gentoo, Alpine, etc.):
 ```bash
 # Descomprimir el paquete
-tar -xzf ucaba-1.11.6-linux-x64.tar.gz
-cd ucaba-1.11.6-linux-x64
+tar -xzf ucaba-2.0.1-linux-x64.tar.gz
+cd ucaba-2.0.1-linux-x64
 
 # Instalación para el usuario actual (~/.local/bin):
 chmod +x install.sh
@@ -212,7 +212,7 @@ ucaba
 
 *Ejemplo de sesión en el REPL:*
 ```text
-UCABA (v2.0.0-alpha.1)
+UCABA (v2.0.1)
 Consola Interactiva REPL. Escribe expresiones o código de pseudocódigo.
 Comandos especiales: :ayuda, :variables, :limpiar, :salir
 
@@ -302,18 +302,30 @@ ucaba tokens mi_algoritmo.ucaba
 
 ## 🎨 Extensión Oficial para Visual Studio Code
 
-El repositorio incluye la extensión oficial empaquetada en `extension-vscode/`:
+El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` (disponible como paquete `ucaba-language-support-2.0.1.vsix`):
 
 <p align="center">
   <img src="payload/ucaba_logo_header.png" width="64" alt="VS Code Extension" />
 </p>
 
 ### Funcionalidades:
-- 🌈 **Color de Sintaxis Avanzado:** Gramática TextMate completa para palabras clave, tipos de datos, cadenas, números y comentarios (`//`, `#` y `/* */`).
+- 🌈 **Color de Sintaxis TextMate Avanzado:** Gramática completa para palabras clave, tipos de datos primitivos, cadenas, números y comentarios (`//`, `#` y `/* */`).
+- 🏛️ **Coloreado de Estructuras Personalizadas (v2.0.1):** Resaltado distintivo (verde menta/turquesa) para tipos de estructuras en parámetros (`nodo: Pila`), valores de retorno (`(): NodoCliente`) y arreglos de estructuras (`Pila[]`, `NodoCliente[10]`).
+- 💡 **IntelliSense y Autocompletado Prioritario (v2.0.1):**
+  - **Funciones y Procedimientos**: Despliegue inmediato al tipear con firma de parámetros completa y tipos de retorno, priorizadas en el primer lugar de sugerencias (`sortText`).
+  - **Soporte Multi-Módulo**: Indexa funciones y procedimientos a través de todos los archivos `.ucaba` abiertos en el workspace.
+  - **Variables y Parámetros en Ámbito**: Sugerencias automáticas de variables locales, parámetros y contadores de bucle `PARA`.
+- 🔔 **Ayuda de Parámetros en Tiempo Real (`SignatureHelpProvider`):** Despliegue dinámico de la firma de funciones al escribir `(` o `,`, resaltando el parámetro actual en curso.
 - ⚡ **Diagnósticos Instantáneos (<1 ms):** Valida sintaxis y tipos estáticos directamente con el motor nativo de Rust (`ucaba lsp-check --json --stdin`), marcando errores con subrayado y en el panel de problemas al escribir.
 - 💻 **Consola Interactiva REPL Integrada:** Inicia la consola interactiva con un clic desde el botón en la barra de herramientas o mediante el comando `UCABA: Iniciar consola interactiva REPL`.
+- 🔗 **Navegación de Código:** Soporte completo de **Ir a Definición** (`Ctrl + Clic` / `F12`), **Buscar Referencias** (`Shift + F12`) y **Vista de Esquema** (*Outline* / Breadcrumbs).
 - ▶️ **Botón "Ejecutar UCABA":** Botón de reproducción integrado en la barra de herramientas del editor para ejecutar el archivo actual con un clic.
 - ⚡ **Snippets Rápidos:** Escribe `func`, `proc`, `para`, `mientras`, `si` o `archivo` y presiona <kbd>Tab</kbd> para generar plantillas de código instantáneas.
+
+#### Instalación Manual de la Extensión:
+```bash
+code --install-extension extension-vscode/ucaba-language-support-2.0.1.vsix --force
+```
 
 ---
 

@@ -6,12 +6,18 @@ Extensión oficial para **Visual Studio Code** y **Antigravity IDE** que brinda 
 
 - ⚡ **Diagnósticos Instantáneos (< 1 ms)**: Integración nativa con el motor v2.0 en Rust (`ucaba lsp-check --json --stdin`), detectando errores de sintaxis y tipos estáticos en tiempo real mientras escribes sin retardos.
 - 💻 **Consola Interactiva REPL Integrada**: Ejecuta `UCABA: Iniciar consola interactiva REPL` desde la paleta de comandos o desde el botón en la barra superior para probar expresiones, funciones y algoritmos al instante.
-- 🎨 **Coloreado de Sintaxis Completo**: Palabras clave (`INICIO`, `FIN`, `FUNCION`, `RETORNAR`, `SI`, `PARA`, `MIENTRAS`), tipos de datos (`ENTERO`, `FLOTANTE`, `REAL`, `CADENA`, etc.), operadores (incluida la división entera `//` y el módulo `%`) y comentarios (`//`, `#`, `/* */`).
-- 🖼️ **Icono de archivo `.ucaba`**: Los archivos del lenguaje muestran el logo de UCABA en el explorador y en las pestañas.
-- 💡 **Autocompletado Inteligente (IntelliSense)**:
-  - Tipos y palabras reservadas.
-  - Funciones incorporadas (`MOSTRAR`, `LEER`, `MOD`, `ESPAR`, `ESIMPAR`, `ABRIR_ARCHIVO`, etc.).
+- 🎨 **Coloreado de Sintaxis TextMate Completo**:
+  - Palabras clave (`INICIO`, `FIN`, `FUNCION`, `RETORNAR`, `SI`, `PARA`, `MIENTRAS`), tipos de datos primitivos (`ENTERO`, `FLOTANTE`, `REAL`, `CADENA`, etc.) y operadores (`//`, `%`).
+  - **Estructuras Personalizadas (v2.0.1)**: Resaltado específico (`entity.name.type.struct.ucaba`, color verde menta/turquesa) para tipos de estructuras en parámetros (`nodo_pila: Pila`), tipos de retorno (`(): NodoCliente`) y declaraciones de vectores (`Pila[]`, `NodoCliente[10]`).
+  - Comentarios en línea y multilínea (`//`, `#`, `/* */`).
+- 🖼️ **Icono de archivo `.ucaba`**: Los archivos del lenguaje muestran el logo institucional de UCABA en el explorador y en las pestañas.
+- 💡 **IntelliSense y Autocompletado Inteligente Prioritario (v2.0.1)**:
+  - **Funciones y Procedimientos de Usuario**: Muestra de inmediato en la lista de sugerencias las funciones del usuario con icono representativo, firma completa de parámetros y tipo de retorno (ej. `(cola: Cola, cantidad: ENTERO)`), con máxima prioridad (`sortText`) para aparecer al principio de la lista.
+  - **Recolección Multi-Módulo**: Indexación y autocompletado de funciones y procedimientos en todos los documentos `.ucaba` abiertos en el workspace.
+  - **Variables y Parámetros en Ámbito**: Sugerencias contextuales de variables locales, parámetros de funciones y variables de iteración `PARA`.
+  - **Funciones Integradas y Tipos**: Autocompletado de built-ins (`MOSTRAR`, `LEER`, `MOD`, `ESPAR`, `ESIMPAR`, `ABRIR_ARCHIVO`, etc.) y tipos primitivos.
   - Propiedad `.largo` para vectores, matrices y cadenas.
+- 🔔 **Ayuda de Parámetros en Tiempo Real (`SignatureHelpProvider`)**: Al escribir `(` o `,` tras una función o procedimiento, despliega la signatura completa resaltando en tiempo real el argumento actual que se está completando.
 - 📖 **Documentación al pasar el cursor (Hover)**: Explicación de tipos, rangos de bits, sintaxis y firmas de funciones integradas.
 - ⚡ **Snippets Integrados**: Plantillas rápidas para `algoritmo`, `funcion`, `si`, `sisino`, `para`, `mientras`, `vector`, `matriz`, `leer_archivo`.
 - 🔗 **Ir a Definición (Go to Definition - `Ctrl + Clic` / `F12`)**: Al presionar `Ctrl + Clic izquierdo` (o `F12`) sobre una función en cualquier parte del código, salta instantáneamente a su definición (`FUNCION` / `PROCEDIMIENTO`).
@@ -29,7 +35,7 @@ Extensión oficial para **Visual Studio Code** y **Antigravity IDE** que brinda 
 ### Opción 1: Automática desde la terminal (Recomendada)
 Ejecuta con el comando de VS Code:
 ```bash
-code --install-extension extension-vscode/ucaba-language-support-2.0.0.vsix --force
+code --install-extension extension-vscode/ucaba-language-support-2.0.1.vsix --force
 ```
 
 ### Opción 2: Gráfica desde la interfaz de VS Code
@@ -37,7 +43,7 @@ code --install-extension extension-vscode/ucaba-language-support-2.0.0.vsix --fo
 2. Ve al panel de **Extensiones** (`Ctrl + Shift + X`).
 3. Haz clic en el menú de los **tres puntos (`...`)** en la esquina superior derecha del panel de extensiones.
 4. Selecciona **"Instalar desde VSIX..."** (*Install from VSIX...*).
-5. Navega a `./extension-vscode/` y selecciona el archivo `ucaba-language-support-2.0.0.vsix`.
+5. Navega a `./extension-vscode/` y selecciona el archivo `ucaba-language-support-2.0.1.vsix`.
 6. En la paleta de comandos (`Ctrl + Shift + P`), escribe y selecciona **Developer: Reload Window** (o reinicia VS Code).
 
 ---

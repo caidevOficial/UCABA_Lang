@@ -5,6 +5,25 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [2.0.1] - 2026-10-23
+
+### 🧩 Extensión Oficial de Visual Studio Code y Antigravity IDE (v2.0.1)
+- **Autocompletado Inteligente de Funciones y Procedimientos (IntelliSense de Alta Prioridad):**
+  - Al comenzar a escribir el nombre de cualquier función o procedimiento (`FUNCION` o `PROCEDIMIENTO`), la extensión muestra inmediatamente el nombre completo de la función en la lista de sugerencias con icono de función/método, firma de parámetros y tipo de retorno (ej. `(cola: Cola, cantidad: ENTERO)`), idéntico al comportamiento de autocompletado de Python en VS Code.
+  - Ordenamiento prioritario (`sortText = '0_' + fn.name`) para garantizar que las funciones de usuario aparezcan en el primer lugar de sugerencias de autocompletado frente a snippets y palabras clave.
+  - Recolección multi-módulo: indexación y autocompletado de funciones y procedimientos tanto del archivo activo como de todos los documentos `.ucaba` abiertos en el workspace.
+- **Autocompletado de Variables y Parámetros en Ámbito:**
+  - Inclusión automática en IntelliSense de variables locales, parámetros de funciones y variables de iteración (`PARA`) declaradas en el ámbito actual (`sortText = '1_' + var.name`).
+- **Soporte de Ayuda de Parámetros en Tiempo Real (`SignatureHelpProvider`):**
+  - Registro de proveedor de ayuda de firma activado por los caracteres `(` y `,`. Al escribir argumentos de una función o procedimiento, se despliega dinámicamente la firma completa resaltando el parámetro actual.
+- **Robustecimiento del Analizador de Cabeceras de Función (`FN_HEADER_RE`):**
+  - Soporte completo para tipos de retorno de estructuras personalizadas y arreglos (`[A-Za-z_][A-Za-z0-9_]*(?:\s*\[\s*\])*`), permitiendo tipos alfanuméricos con guiones bajos y dimensiones como `NodoCliente` y `TIPO[]`.
+- **Coloreado de Sintaxis TextMate para Estructuras en Parámetros y Retornos:**
+  - Actualización de `ucaba.tmLanguage.json` para reconocer y resaltar con la clase de token de estructura (`entity.name.type.struct.ucaba`, color verde menta/turquesa) los tipos de dato estructura tanto en los parámetros de funciones y procedimientos (`nodo_pila: Pila`) como en los tipos de retorno (`instanciar_nodo_cliente(): NodoCliente`), preservando al mismo tiempo el coloreado azul distintivo de los tipos primitivos (`ENTERO`, `CADENA`, etc.).
+  - Soporte ampliado en declaraciones de variables con dimensiones de vectores/matrices de estructuras (`Pila[]`, `NodoCliente[10]`).
+- **Nuevo Paquete VSIX Oficial v2.0.1:**
+  - Compilación y empaquetado de `ucaba-language-support-2.0.1.vsix` e incrustación en el instalador gráfico nativo de Windows.
+
 ## [2.0.0] - 2026-10-17
 
 ### 🚀 Nuevo Motor Nativo en Rust (Workspace Cargo)

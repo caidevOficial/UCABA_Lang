@@ -220,7 +220,14 @@
     "custom_types": {
       "patterns": [
         {
-          "match": "\\b([A-Z][a-zA-Z0-9_]*)\\s+(?=[a-zA-Z_][a-zA-Z0-9_]*\\b)",
+          "match": "(:)\\s*(?!(?i:ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|VACIO|SIN_RETORNO|NULO|NULL|NONE|VERDADERO|FALSO|TRUE|FALSE)\\b)([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "punctuation.delimiter.ucaba" },
+            "2": { "name": "entity.name.type.struct.ucaba" }
+          }
+        },
+        {
+          "match": "(?!(?i:ENTERO|FLOTANTE|REAL|CADENA|CARACTER|BOOLEANO|ARCHIVO|VACIO|SIN_RETORNO|NULO|NULL|NONE|VERDADERO|FALSO|TRUE|FALSE|ALGORITMO|PROGRAMA|INICIO|ESTRUCTURA|FIN|RETORNAR|RETORNO|SI|ENTONCES|SINO|MIENTRAS|PARA|HASTA|PASO|HACER|Y|O|NO|MOD|ESPAR|ESIMPAR|FUNCION|PROCEDIMIENTO|MOSTRAR|LEER|IMPRIMIR)\\b)\\b([A-Z][a-zA-Z0-9_]*)(?=(?:\\s*\\[\\s*\\d*\\s*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*\\b)",
           "captures": {
             "1": { "name": "entity.name.type.struct.ucaba" }
           }

@@ -51,7 +51,7 @@ def get_version() -> str:
             for line in f:
                 if line.startswith("__version__"):
                     return line.split("=")[1].strip().strip('"').strip("'")
-    return "2.0.0"
+    return "2.0.1"
 
 
 def find_latest_vsix() -> str:
@@ -514,6 +514,12 @@ chmod +x uninstall.sh
 - Ejecutar un archivo:
   ```bash
   ucaba mi_algoritmo.ucaba
+  ```
+- Consola Interactiva REPL:
+  ```bash
+  ucaba repl
+  # O simplemente:
+  ucaba
   ```
 - Medir tiempo de ejecución:
   ```bash

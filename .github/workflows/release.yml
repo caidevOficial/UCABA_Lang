@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Empaquetar Extensión de VS Code (VSIX v2.0)
+      - name: Empaquetar Extensión de VS Code (VSIX v2.0.1)
         working-directory: ./extension-vscode
         run: |
           npx -y @vscode/vsce package --no-git-tag-version
@@ -173,7 +173,7 @@ jobs:
             dist/*.tar.gz
             extension-vscode/*.vsix
           draft: false
-          prerelease: true
-          make_latest: false
+          prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

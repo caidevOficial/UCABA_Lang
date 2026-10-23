@@ -1,0 +1,85 @@
+INICIO
+   ESTRUCTURA NodoCliente:
+        CADENA nombre
+        NodoCliente proximo_cliente
+    FIN ESTRUCTURA  
+
+    ESTRUCTURA Cola:
+        NodoCliente procesar_primero
+        NodoCliente procesar_ultimo
+    FIN ESTRUCTURA
+
+    // Instancia un cliente con valores por defecto NULO y lo retorna
+    FUNCION instanciar_nodo_cliente(): NodoCliente
+        NodoCliente cliente
+        cliente.nombre = NULO
+        cliente.proximo_cliente = NULO
+        RETORNAR cliente
+    FIN FUNCION
+
+    // Instancia una cola con valores por defecto NULO y lo retorna
+    FUNCION instanciar_cola(): Cola
+        Cola cola
+        cola.procesar_primero = NULO
+        cola.procesar_ultimo = NULO
+        RETORNAR cola
+    FIN FUNCION
+
+    // Agrega un elemento a la cola para procesarse al final
+    FUNCION agregar_elemento_cola(cola: Cola, nuevo_nodo: NodoCliente)
+        SI (cola.procesar_ultimo != NULO)
+            cola.procesar_ultimo.proximo_cliente = nuevo_nodo
+            cola.procesar_ultimo = nuevo_nodo
+        SINO
+            cola.procesar_ultimo = nuevo_nodo
+            cola.procesar_primero = nuevo_nodo
+        FIN SI
+    FIN FUNCION
+
+    // Saca el primer elemento agregado a la cola
+    FUNCION sacar_elemento_cola(cola: Cola): NodoCliente
+        NodoCliente nodo_retorno = instanciar_nodo_cliente()
+        SI(cola.procesar_primero == NULO)
+            RETORNAR NULO
+        FIN SI
+
+        nodo_retorno = cola.procesar_primero
+        cola.procesar_primero = cola.procesar_primero.proximo_cliente
+        nodo_retorno.proximo_cliente = NULO
+        
+        SI(cola.procesar_primero == NULO)
+            cola.procesar_ultimo = NULO
+        FIN SI
+        
+        RETORNAR nodo_retorno
+    FIN FUNCION
+
+    // Agrega una cantidad determinada de elementos a la cola
+    FUNCION agregar_elementos_cola(cola: Cola, cantidad: ENTERO)
+        PARA(ENTERO vuelta = 1; vuelta <= cantidad; vuelta++)
+            NodoCliente cliente = instanciar_nodo_cliente()
+            cliente.nombre = vuelta
+            IMPRIMIR("Agregado: " + cliente)
+            agregar_elemento_cola(cola, cliente)
+        FIN PARA
+    FIN FUNCION
+
+    // Muestra los datos de la cola
+    FUNCION mostrar_info_cola(cola: Cola)
+        IMPRIMIR("============= INFO COLA =============\n")
+        IMPRIMIR("Impresión de la cola: " + cola + '\n')
+        IMPRIMIR("Ultimo de la cola: " + cola.procesar_ultimo + '\n')
+        IMPRIMIR("Elemento eliminado: " + sacar_elemento_cola(cola) + '\n')
+        IMPRIMIR("Impresión de la cola sin el primer elemento: " + cola)
+        IMPRIMIR("Ultimo de la cola: " + cola.procesar_ultimo + '\n')
+        IMPRIMIR("============= FIN INFO COLA =============\n")
+    FIN FUNCION
+
+    // PRUEBAS DE EJECUCION
+
+    Cola cola_inicial = instanciar_cola()
+    ENTERO cantidad = 4
+    agregar_elementos_cola(cola_inicial, cantidad)
+    mostrar_info_cola(cola_inicial)
+
+FIN

@@ -166,10 +166,9 @@ def generate_notes(repo_root: str, output_path: str):
     tarball_name = f"ucaba-{version}-linux-x64.tar.gz"
     tarball_path = os.path.join(repo_root, "dist", tarball_name)
     if not os.path.exists(tarball_path):
-        # Buscar cualquier tarball de linux en dist/
         dist_dir = os.path.join(repo_root, "dist")
         if os.path.exists(dist_dir):
-            tb_candidates = [os.path.join(dist_dir, f) for f in os.listdir(dist_dir) if f.startswith("ucaba-") and f.endswith("-linux-x64.tar.gz")]
+            tb_candidates = [os.path.join(dist_dir, f) for f in os.listdir(dist_dir) if f.startswith(f"ucaba-{version}") and f.endswith("-linux-x64.tar.gz")]
             if tb_candidates:
                 tarball_path = tb_candidates[0]
                 tarball_name = os.path.basename(tarball_path)
@@ -179,7 +178,7 @@ def generate_notes(repo_root: str, output_path: str):
     if not os.path.exists(deb_path):
         dist_dir = os.path.join(repo_root, "dist")
         if os.path.exists(dist_dir):
-            deb_candidates = [os.path.join(dist_dir, f) for f in os.listdir(dist_dir) if f.endswith(".deb")]
+            deb_candidates = [os.path.join(dist_dir, f) for f in os.listdir(dist_dir) if f.startswith(f"ucaba_{version}") and f.endswith(".deb")]
             if deb_candidates:
                 deb_path = deb_candidates[0]
                 deb_name = os.path.basename(deb_path)

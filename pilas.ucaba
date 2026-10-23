@@ -1,0 +1,92 @@
+INICIO
+
+    ESTRUCTURA NodoCliente:
+        CADENA nombre
+        NodoCliente proximo_cliente
+        NodoCliente anterior_cliente
+    FIN ESTRUCTURA  
+
+    ESTRUCTURA Pila:
+        NodoCliente procesar_primero
+        NodoCliente procesar_ultimo
+    FIN ESTRUCTURA
+
+    // Instancia un cliente con valores por defecto NULO y lo retorna
+    FUNCION instanciar_nodo_cliente(): NodoCliente
+        NodoCliente cliente
+        cliente.nombre = NULO
+        cliente.proximo_cliente = NULO
+        cliente.anterior_cliente = NULO
+        RETORNAR cliente
+    FIN FUNCION
+
+    // Instancia una pila con valores por defecto NULO y lo retorna
+    FUNCION instanciar_pila(): Pila
+        Pila pila
+        pila.procesar_primero = NULO
+        pila.procesar_ultimo = NULO
+        RETORNAR pila
+    FIN FUNCION
+
+    // Agrega un elemento a la pila para procesarse primero
+    FUNCION agregar_elemento_pila(pila: Pila, nuevo_nodo: NodoCliente)
+        SI (pila.procesar_primero != NULO)
+            nuevo_nodo.proximo_cliente = pila.procesar_primero // El nuevo apunta al que era primero
+            pila.procesar_primero.anterior_cliente = nuevo_nodo // El que era primero apunta al nuevo
+            pila.procesar_primero = nuevo_nodo // El nuevo es el primero
+        SINO
+            pila.procesar_primero = nuevo_nodo
+            pila.procesar_ultimo = nuevo_nodo
+            pila.procesar_ultimo.anterior_cliente = NULO // El nuevo es el ultimo y no apunta a nadie
+            pila.procesar_primero.proximo_cliente = NULO // El nuevo es el primero y no apunta a nadie
+        FIN SI
+    FIN FUNCION
+
+    // Saca el ultimo elemento agregado a la pila
+    FUNCION sacar_elemento_pila(pila: Pila): NodoCliente
+        NodoCliente nodo_retorno = instanciar_nodo_cliente()
+        SI(pila.procesar_primero == NULO)
+            RETORNAR NULO
+        FIN SI
+
+        nodo_retorno = pila.procesar_primero
+        pila.procesar_primero = pila.procesar_primero.proximo_cliente
+        pila.procesar_primero.anterior_cliente = NULO // El nuevo es el primero y no apunta a nadie
+        nodo_retorno.proximo_cliente = NULO
+        
+        SI(pila.procesar_primero == NULO)
+            pila.procesar_ultimo = NULO // El nuevo es el ultimo y no apunta a nadie
+        FIN SI
+        
+        RETORNAR nodo_retorno
+    FIN FUNCION
+
+    // Agrega una cantidad determinada de elementos a la pila
+    FUNCION agregar_elementos_pila(pila: Pila, cantidad: ENTERO)
+        PARA(ENTERO vuelta = 1; vuelta <= cantidad; vuelta++)
+            NodoCliente cliente = instanciar_nodo_cliente()
+            cliente.nombre = vuelta
+            IMPRIMIR("Agregado: " + cliente)
+            agregar_elemento_pila(pila, cliente)
+        FIN PARA
+    FIN FUNCION
+
+    // Muestra los datos de la pila
+    FUNCION mostrar_info_pila(pila: Pila)
+        IMPRIMIR("============= INFO PILA =============\n")
+        IMPRIMIR("Impresión de la pila: " + pila + '\n')
+        IMPRIMIR("Ultimo de la pila: " + pila.procesar_ultimo + '\n')
+        IMPRIMIR("Elemento eliminado: " + sacar_elemento_pila(pila) + '\n')
+        IMPRIMIR("Impresión de la pila sin el primer elemento: " + pila)
+        IMPRIMIR("Ultimo de la pila sin el primer elemento: " + pila.procesar_ultimo + '\n')
+        IMPRIMIR("============= FIN INFO PILA =============\n")
+    FIN FUNCION
+
+    // PRUEBAS DE EJECUCION
+
+    Pila pila_inicial = instanciar_pila()
+    ENTERO cantidad = 4
+    agregar_elementos_pila(pila_inicial, cantidad)
+    mostrar_info_pila(pila_inicial)
+
+FIN
