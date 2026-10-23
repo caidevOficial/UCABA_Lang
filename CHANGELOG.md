@@ -5,6 +5,31 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [2.0.2] - 2026-10-23
+
+### 📚 Documentación Integral y Mejoras en Estructuras de Datos (`pilas.ucaba` y `colas.ucaba`)
+- **Documentación Paso a Paso de Algoritmos Clave:**
+  - Explicación exhaustiva, detallada y estructurada para cada paso de las operaciones de pilas y colas:
+    - `agregar_elemento_pila`: Algoritmo *push* sobre lista doblemente enlazada (LIFO), detallando enlace bidireccional y actualización de cima y base en tiempo constante $O(1)$.
+    - `sacar_elemento_pila`: Algoritmo *pop* con desconexión completa y aislamiento de punteros del nodo extraído.
+    - `agregar_elemento_cola`: Algoritmo *enqueue* sobre lista simplemente enlazada (FIFO), asegurando que el nuevo nodo sea terminal y actualizando extremos en $O(1)$.
+    - `sacar_elemento_cola`: Algoritmo *dequeue* con extracción del frente y sincronización de final.
+  - Documentación de cabecera en todas las funciones y estructuras secundarias: constructores (`instanciar_nodo_cliente`, `instanciar_pila`, `instanciar_cola`), utilitarios de inserción por lote (`agregar_elementos_pila`, `agregar_elementos_cola`) y rutinas de diagnóstico (`mostrar_info_pila`, `mostrar_info_cola`).
+- **Corrección de Caso Límite Crítico en `sacar_elemento_pila`:**
+  - Se corrigió el error en tiempo de ejecución al desapilar el último nodo restante: la asignación `pila.procesar_primero.anterior_cliente = NULO` se ejecutaba cuando `procesar_primero` ya era `NULO`. Ahora se valida condicionalmente `SI (pila.procesar_primero != NULO)` y se sincroniza adecuadamente `pila.procesar_ultimo = NULO`.
+- **Blindaje y Aislamiento de Memoria:**
+  - Validación defensiva de punteros contra referencias nulas (`nuevo_nodo == NULO`) en `agregar_elemento_pila` y `agregar_elemento_cola`.
+  - Eliminación de instanciaciones redundantes de nodos auxiliares antes de verificar si la estructura estaba vacía, optimizando el uso de memoria.
+
+### ⚙️ Motor Nativo Rust (`ucaba_core` / `crates/ucaba_core`)
+- **Corrección de Sintaxis de Retorno de Estructuras en Funciones (`parser.rs`):**
+  - Se corrigió la regla sintáctica en `parse_function` para reconocer identificadores de estructuras de usuario como tipos de retorno válidos (`FUNCION f(): MiEstructura`) en la misma línea aun cuando la siguiente línea comience con comentarios o bloques no declarativos (`SI`, `MIENTRAS`, etc.).
+  - Incorporación de test de regresión automatizado en `crates/ucaba_core/tests/test_estructuras.rs`.
+
+### 🧩 Extensión y Empaquetado Oficial (v2.0.2)
+- Compilación y actualización del paquete VSIX oficial: `extension-vscode/ucaba-language-support-2.0.2.vsix`.
+- Actualización de metadatos de versión en `crates/ucaba_core`, `crates/ucaba_cli`, `crates/ucaba_installer`, `extension-vscode/package.json` y scripts de empaquetado.
+
 ## [2.0.1] - 2026-10-23
 
 ### 🧩 Extensión Oficial de Visual Studio Code y Antigravity IDE (v2.0.1)

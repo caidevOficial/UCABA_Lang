@@ -1,6 +1,6 @@
 [package]
 name = "ucaba_installer"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 authors = ["Facu Falcone <a.facundo.falcone@gmail.com>"]
 description = "Instalador Gráfico Todo-en-Uno para UCABA en Rust"

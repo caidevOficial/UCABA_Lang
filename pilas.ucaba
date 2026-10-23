@@ -1,17 +1,50 @@
 INICIO
 
+    // =========================================================================
+    // MÓDULO: PILAS (Estructura de Datos LIFO: Last In, First Out)
+    // =========================================================================
+    // En una Pila, el último elemento en ingresar es el primero en ser procesado.
+    // Esta implementación utiliza una lista doblemente enlazada para mantener
+    // referencias tanto al siguiente nodo como al anterior, optimizando el acceso
+    // y manipulación en tiempo constante O(1) para el tope de la pila.
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // ESTRUCTURA: NodoCliente
+    // -------------------------------------------------------------------------
+    // Representa un nodo individual dentro de la lista doblemente enlazada de la pila.
+    // - nombre: Dato o identificador del cliente almacenado en el nodo.
+    // - proximo_cliente: Puntero hacia el nodo ubicado debajo en la pila (hacia la base).
+    // - anterior_cliente: Puntero hacia el nodo ubicado arriba en la pila (hacia la cima).
+    // -------------------------------------------------------------------------
     ESTRUCTURA NodoCliente:
         CADENA nombre
         NodoCliente proximo_cliente
         NodoCliente anterior_cliente
     FIN ESTRUCTURA  
 
+    // -------------------------------------------------------------------------
+    // ESTRUCTURA: Pila
+    // -------------------------------------------------------------------------
+    // Estructura contenedora que encapsula los extremos de la pila.
+    // - procesar_primero: Cima o tope de la pila (por donde se apila y desapila).
+    // - procesar_ultimo: Base de la pila (el elemento más antiguo insertado).
+    // -------------------------------------------------------------------------
     ESTRUCTURA Pila:
         NodoCliente procesar_primero
         NodoCliente procesar_ultimo
     FIN ESTRUCTURA
 
-    // Instancia un cliente con valores por defecto NULO y lo retorna
+    // =========================================================================
+    // FUNCIONES DE INSTANCIACIÓN / FACTORÍAS
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: instanciar_nodo_cliente
+    // FINALIDAD: Crea e inicializa un nuevo nodo cliente en memoria con todos
+    //            sus campos configurados por defecto en NULO.
+    // RETORNA: Una instancia limpia de NodoCliente.
+    // -------------------------------------------------------------------------
     FUNCION instanciar_nodo_cliente(): NodoCliente
         NodoCliente cliente
         cliente.nombre = NULO
@@ -20,7 +53,12 @@ INICIO
         RETORNAR cliente
     FIN FUNCION
 
-    // Instancia una pila con valores por defecto NULO y lo retorna
+    // -------------------------------------------------------------------------
+    // FUNCION: instanciar_pila
+    // FINALIDAD: Crea e inicializa una estructura Pila vacía, asegurando que
+    //            tanto el puntero a la cima como a la base apunten a NULO.
+    // RETORNA: Una instancia de Pila lista para operar.
+    // -------------------------------------------------------------------------
     FUNCION instanciar_pila(): Pila
         Pila pila
         pila.procesar_primero = NULO
@@ -28,40 +66,138 @@ INICIO
         RETORNAR pila
     FIN FUNCION
 
-    // Agrega un elemento a la pila para procesarse primero
+    // =========================================================================
+    // OPERACIÓN PRINCIPAL: APILAR (PUSH)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: agregar_elemento_pila
+    // FINALIDAD: Inserta un nuevo elemento en la cima (tope) de la pila (operación PUSH).
+    // PARÁMETROS:
+    //   - pila: La estructura Pila receptora donde se agregará el elemento.
+    //   - nuevo_nodo: El nodo NodoCliente a incorporar a la cima.
+    // COMPLEJIDAD TEMPORAL: O(1) tiempo constante.
+    //
+    // PASO A PASO DE LA OPERACIÓN:
+    // 1. Verificación de seguridad: Comprueba que el nuevo_nodo no sea NULO para
+    //    evitar corrupciones en los enlaces.
+    // 2. Caso Pila NO Vacía (pila.procesar_primero != NULO):
+    //    a. Conectar el nuevo nodo hacia abajo: nuevo_nodo.proximo_cliente apunta a
+    //       la cima actual (el que era el primero).
+    //    b. Asegurar el puntero superior: nuevo_nodo.anterior_cliente se fija en NULO
+    //       porque este nodo se convertirá en la nueva cima absoluta.
+    //    c. Conectar la antigua cima hacia arriba: la cima actual reconoce al nuevo
+    //       nodo asignando pila.procesar_primero.anterior_cliente = nuevo_nodo.
+    //    d. Actualizar la cima: el puntero pila.procesar_primero pasa a referenciar
+    //       al nuevo_nodo.
+    // 3. Caso Pila Vacía (pila.procesar_primero == NULO):
+    //    a. Inicializar los punteros del nuevo nodo en NULO (no tiene anterior ni próximo).
+    //    b. El nuevo nodo pasa a ser simultáneamente la cima (procesar_primero) y
+    //       la base (procesar_ultimo) de la pila.
+    // -------------------------------------------------------------------------
     FUNCION agregar_elemento_pila(pila: Pila, nuevo_nodo: NodoCliente)
+        // Paso 1: Validación defensiva contra referencias nulas
+        SI (nuevo_nodo == NULO)
+            RETORNAR
+        FIN SI
+
+        // Paso 2: Evaluación del estado de la pila
         SI (pila.procesar_primero != NULO)
-            nuevo_nodo.proximo_cliente = pila.procesar_primero // El nuevo apunta al que era primero
-            pila.procesar_primero.anterior_cliente = nuevo_nodo // El que era primero apunta al nuevo
-            pila.procesar_primero = nuevo_nodo // El nuevo es el primero
+            // Caso 2a: El nuevo elemento apunta como siguiente al que hasta ahora era la cima
+            nuevo_nodo.proximo_cliente = pila.procesar_primero
+            
+            // Caso 2b: Como es la nueva cima, no tiene ningún nodo previo a él
+            nuevo_nodo.anterior_cliente = NULO
+            
+            // Caso 2c: La antigua cima ahora apunta hacia atrás al nuevo nodo
+            pila.procesar_primero.anterior_cliente = nuevo_nodo
+            
+            // Caso 2d: La cima de la pila se actualiza al nuevo nodo incorporado
+            pila.procesar_primero = nuevo_nodo
         SINO
+            // Caso 3a: Al ser el único nodo en la pila, sus punteros se aíslan en NULO
+            nuevo_nodo.proximo_cliente = NULO
+            nuevo_nodo.anterior_cliente = NULO
+            
+            // Caso 3b: El nuevo nodo pasa a ser tanto el tope como la base de la pila
             pila.procesar_primero = nuevo_nodo
             pila.procesar_ultimo = nuevo_nodo
-            pila.procesar_ultimo.anterior_cliente = NULO // El nuevo es el ultimo y no apunta a nadie
-            pila.procesar_primero.proximo_cliente = NULO // El nuevo es el primero y no apunta a nadie
         FIN SI
     FIN FUNCION
 
-    // Saca el ultimo elemento agregado a la pila
+    // =========================================================================
+    // OPERACIÓN PRINCIPAL: DESAPILAR (POP)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: sacar_elemento_pila
+    // FINALIDAD: Extrae y retorna el elemento ubicado en la cima de la pila (operación POP).
+    // PARÁMETROS:
+    //   - pila: La estructura Pila desde donde se extraerá el elemento.
+    // RETORNA:
+    //   - NodoCliente extraído si la pila contenía elementos.
+    //   - NULO si la pila se encontraba vacía.
+    // COMPLEJIDAD TEMPORAL: O(1) tiempo constante.
+    //
+    // PASO A PASO DE LA OPERACIÓN (CON CORRECCIÓN DE CASOS LÍMITE):
+    // 1. Verificación de vaciado: Si pila.procesar_primero == NULO, la pila está
+    //    vacía, por lo que retorna NULO inmediatamente sin asignaciones innecesarias.
+    // 2. Captura del elemento en cima: Se guarda la referencia de pila.procesar_primero
+    //    en la variable nodo_retorno.
+    // 3. Desplazamiento de la cima: Se avanza pila.procesar_primero hacia el siguiente
+    //    nodo hacia abajo (pila.procesar_primero = pila.procesar_primero.proximo_cliente).
+    // 4. Actualización de enlaces del nuevo tope o vaciado total:
+    //    - Si la pila todavía contiene elementos (pila.procesar_primero != NULO):
+    //      se desenlaza su puntero anterior fijando pila.procesar_primero.anterior_cliente = NULO.
+    //    - Si la pila quedó vacía tras la extracción (pila.procesar_primero == NULO):
+    //      se actualiza pila.procesar_ultimo = NULO. Esto previene un intento de acceso
+    //      indebido a campos sobre referencias nulas cuando quedaba solo 1 elemento.
+    // 5. Aislamiento del nodo extraído: Se limpian los punteros proximo_cliente y
+    //    anterior_cliente del nodo_retorno poniéndolos en NULO para desacoplarlo
+    //    por completo de la estructura de la pila.
+    // 6. Retorno: Se entrega el nodo extraído al llamador.
+    // -------------------------------------------------------------------------
     FUNCION sacar_elemento_pila(pila: Pila): NodoCliente
-        NodoCliente nodo_retorno = instanciar_nodo_cliente()
-        SI(pila.procesar_primero == NULO)
+        // Paso 1: Si la pila no contiene elementos, retornamos NULO directamente
+        SI (pila.procesar_primero == NULO)
             RETORNAR NULO
         FIN SI
 
-        nodo_retorno = pila.procesar_primero
+        // Paso 2: Guardamos la referencia de la cima actual que vamos a retirar
+        NodoCliente nodo_retorno = pila.procesar_primero
+
+        // Paso 3: Avanzamos la cima de la pila al siguiente elemento hacia abajo
         pila.procesar_primero = pila.procesar_primero.proximo_cliente
-        pila.procesar_primero.anterior_cliente = NULO // El nuevo es el primero y no apunta a nadie
-        nodo_retorno.proximo_cliente = NULO
-        
-        SI(pila.procesar_primero == NULO)
-            pila.procesar_ultimo = NULO // El nuevo es el ultimo y no apunta a nadie
+
+        // Paso 4: Validamos si aún quedan elementos restantes en la pila
+        SI (pila.procesar_primero != NULO)
+            // Si quedan elementos, la nueva cima no tiene ningún nodo sobre ella
+            pila.procesar_primero.anterior_cliente = NULO
+        SINO
+            // Si era el último elemento, la pila quedó vacía: la base también debe ser NULO
+            pila.procesar_ultimo = NULO
         FIN SI
+
+        // Paso 5: Desconectamos por completo el nodo extraído de la estructura interna
+        nodo_retorno.proximo_cliente = NULO
+        nodo_retorno.anterior_cliente = NULO
         
+        // Paso 6: Retornamos el nodo que fue extraído exitosamente de la cima
         RETORNAR nodo_retorno
     FIN FUNCION
 
-    // Agrega una cantidad determinada de elementos a la pila
+    // =========================================================================
+    // FUNCIONES UTILITARIAS Y DE DEMOSTRACIÓN
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: agregar_elementos_pila
+    // FINALIDAD: Carga masiva y secuencial de clientes en la pila con fines
+    //            de prueba o inicialización de lote.
+    // PARÁMETROS:
+    //   - pila: La estructura Pila a la que se agregarán los elementos.
+    //   - cantidad: Cantidad total de nodos secuenciales a instanciar y apilar.
+    // -------------------------------------------------------------------------
     FUNCION agregar_elementos_pila(pila: Pila, cantidad: ENTERO)
         PARA(ENTERO vuelta = 1; vuelta <= cantidad; vuelta++)
             NodoCliente cliente = instanciar_nodo_cliente()
@@ -71,7 +207,14 @@ INICIO
         FIN PARA
     FIN FUNCION
 
-    // Muestra los datos de la pila
+    // -------------------------------------------------------------------------
+    // FUNCION: mostrar_info_pila
+    // FINALIDAD: Imprime en consola un reporte de diagnóstico sobre el estado
+    //            actual de la pila, desapila un elemento para demostrar el
+    //            comportamiento LIFO y muestra el estado resultante.
+    // PARÁMETROS:
+    //   - pila: La estructura Pila a diagnosticar.
+    // -------------------------------------------------------------------------
     FUNCION mostrar_info_pila(pila: Pila)
         IMPRIMIR("============= INFO PILA =============\n")
         IMPRIMIR("Impresión de la pila: " + pila + '\n')
@@ -82,8 +225,11 @@ INICIO
         IMPRIMIR("============= FIN INFO PILA =============\n")
     FIN FUNCION
 
-    // PRUEBAS DE EJECUCION
-
+    // =========================================================================
+    // BLOQUE DE PRUEBAS DE EJECUCIÓN
+    // =========================================================================
+    // Instanciamos una pila de prueba, insertamos 4 elementos y verificamos
+    // la secuencia LIFO (el último agregado '4' es el primero extraído).
     Pila pila_inicial = instanciar_pila()
     ENTERO cantidad = 4
     agregar_elementos_pila(pila_inicial, cantidad)

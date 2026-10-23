@@ -541,10 +541,14 @@ impl Parser {
         let mut return_type = DataType::Void;
         if self.match_token(&TokenType::DosPuntos) {
             let colon_line = self.previous().line;
-            if self.is_type_start() && self.current().line == colon_line {
+            if self.current().line == colon_line
+                && (self.is_type_start() || matches!(self.current().token_type, TokenType::Identificador(_)))
+            {
                 return_type = self.parse_type()?;
             }
-        } else if self.is_type_start() && self.current().line == close_paren_line {
+        } else if self.current().line == close_paren_line
+            && (self.is_type_start() || matches!(self.current().token_type, TokenType::Identificador(_)))
+        {
             return_type = self.parse_type()?;
         }
 

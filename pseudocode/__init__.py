@@ -19,7 +19,7 @@
 Paquete oficial del Lenguaje de Programación UCABA.
 """
 
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 __author__ = "Facu Falcone <a.facundo.falcone@gmail.com>"
 
 import sys

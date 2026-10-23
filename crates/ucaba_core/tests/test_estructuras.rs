@@ -485,3 +485,30 @@ fn test_estructura_persona_atributos() {
     let out = run_code(code, false).unwrap();
     assert!(out.iter().any(|s| s.contains("PERSONA: Pepe 25")));
 }
+
+#[test]
+fn test_estructura_retorno_con_comentarios_o_sentencia_no_decl() {
+    let code = r#"
+    ESTRUCTURA Nodo:
+        ENTERO valor
+    FIN ESTRUCTURA
+
+    FUNCION crear_nodo(v: ENTERO): Nodo
+        // Comentario intermedio
+        SI (v < 0)
+            RETORNAR NULO
+        FIN SI
+        Nodo n
+        n.valor = v
+        RETORNAR n
+    FIN FUNCION
+
+    INICIO
+        Nodo item = crear_nodo(42)
+        IMPRIMIR("VALOR: " + item.valor)
+    FIN
+    "#;
+
+    let out = run_code(code, false).unwrap();
+    assert!(out.iter().any(|s| s.contains("VALOR: 42")));
+}

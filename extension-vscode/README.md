@@ -40,7 +40,7 @@ Extensión oficial para **Visual Studio Code** y **Antigravity IDE** que brinda 
 ### Opción 1: Automática desde la terminal (Recomendada)
 Ejecuta con el comando de VS Code:
 ```bash
-code --install-extension extension-vscode/ucaba-language-support-2.0.1.vsix --force
+code --install-extension extension-vscode/ucaba-language-support-2.0.2.vsix --force
 ```
 
 ### Opción 2: Gráfica desde la interfaz de VS Code
@@ -48,7 +48,7 @@ code --install-extension extension-vscode/ucaba-language-support-2.0.1.vsix --fo
 2. Ve al panel de **Extensiones** (`Ctrl + Shift + X`).
 3. Haz clic en el menú de los **tres puntos (`...`)** en la esquina superior derecha del panel de extensiones.
 4. Selecciona **"Instalar desde VSIX..."** (*Install from VSIX...*).
-5. Navega a `./extension-vscode/` y selecciona el archivo `ucaba-language-support-2.0.1.vsix`.
+5. Navega a `./extension-vscode/` y selecciona el archivo `ucaba-language-support-2.0.2.vsix`.
 6. En la paleta de comandos (`Ctrl + Shift + P`), escribe y selecciona **Developer: Reload Window** (o reinicia VS Code).
 
 ---

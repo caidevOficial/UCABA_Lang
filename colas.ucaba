@@ -1,15 +1,48 @@
 INICIO
-   ESTRUCTURA NodoCliente:
+
+    // =========================================================================
+    // MÓDULO: COLAS (Estructura de Datos FIFO: First In, First Out)
+    // =========================================================================
+    // En una Cola, el primer elemento en ingresar es el primero en ser atendido o procesado.
+    // Esta implementación utiliza una lista simplemente enlazada con dos punteros:
+    // uno al frente (frente / procesar_primero) y otro al final (final / procesar_ultimo),
+    // lo que permite encolar y desencolar en tiempo constante O(1).
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // ESTRUCTURA: NodoCliente
+    // -------------------------------------------------------------------------
+    // Representa un nodo individual dentro de la lista enlazada de la cola.
+    // - nombre: Dato o identificador del cliente en la cola.
+    // - proximo_cliente: Puntero hacia el siguiente cliente en la fila (hacia el final).
+    // -------------------------------------------------------------------------
+    ESTRUCTURA NodoCliente:
         CADENA nombre
         NodoCliente proximo_cliente
     FIN ESTRUCTURA  
 
+    // -------------------------------------------------------------------------
+    // ESTRUCTURA: Cola
+    // -------------------------------------------------------------------------
+    // Estructura contenedora que administra los extremos de la cola.
+    // - procesar_primero: Frente de la cola (nodo más antiguo, el próximo a ser atendido).
+    // - procesar_ultimo: Final de la cola (nodo más reciente, el último que llegó).
+    // -------------------------------------------------------------------------
     ESTRUCTURA Cola:
         NodoCliente procesar_primero
         NodoCliente procesar_ultimo
     FIN ESTRUCTURA
 
-    // Instancia un cliente con valores por defecto NULO y lo retorna
+    // =========================================================================
+    // FUNCIONES DE INSTANCIACIÓN / FACTORÍAS
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: instanciar_nodo_cliente
+    // FINALIDAD: Crea e inicializa un nuevo nodo cliente en memoria con sus
+    //            campos configurados por defecto en NULO.
+    // RETORNA: Una instancia limpia de NodoCliente.
+    // -------------------------------------------------------------------------
     FUNCION instanciar_nodo_cliente(): NodoCliente
         NodoCliente cliente
         cliente.nombre = NULO
@@ -17,7 +50,12 @@ INICIO
         RETORNAR cliente
     FIN FUNCION
 
-    // Instancia una cola con valores por defecto NULO y lo retorna
+    // -------------------------------------------------------------------------
+    // FUNCION: instanciar_cola
+    // FINALIDAD: Crea e inicializa una estructura Cola vacía, asegurando que
+    //            tanto el frente como el final apunten a NULO.
+    // RETORNA: Una instancia de Cola lista para operar.
+    // -------------------------------------------------------------------------
     FUNCION instanciar_cola(): Cola
         Cola cola
         cola.procesar_primero = NULO
@@ -25,36 +63,120 @@ INICIO
         RETORNAR cola
     FIN FUNCION
 
-    // Agrega un elemento a la cola para procesarse al final
+    // =========================================================================
+    // OPERACIÓN PRINCIPAL: ENCOLAR (ENQUEUE)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: agregar_elemento_cola
+    // FINALIDAD: Inserta un nuevo elemento al final de la cola (operación ENQUEUE).
+    // PARÁMETROS:
+    //   - cola: La estructura Cola receptora donde se añadirá el nuevo cliente.
+    //   - nuevo_nodo: El nodo NodoCliente que se incorpora al final de la fila.
+    // COMPLEJIDAD TEMPORAL: O(1) tiempo constante.
+    //
+    // PASO A PASO DE LA OPERACIÓN:
+    // 1. Verificación de seguridad: Comprueba que el nuevo_nodo no sea NULO
+    //    para evitar corrupciones en los punteros de la estructura.
+    // 2. Aislamiento del puntero siguiente: Se asegura que nuevo_nodo.proximo_cliente
+    //    sea NULO, ya que al ser el último de la fila no debe apuntar a nadie.
+    // 3. Caso Cola NO Vacía (cola.procesar_ultimo != NULO):
+    //    a. El cliente que actualmente está al final enlaza su puntero proximo_cliente
+    //       hacia el nuevo nodo: cola.procesar_ultimo.proximo_cliente = nuevo_nodo.
+    //    b. El puntero procesar_ultimo de la cola se actualiza para apuntar al
+    //       nuevo nodo: cola.procesar_ultimo = nuevo_nodo.
+    // 4. Caso Cola Vacía (cola.procesar_ultimo == NULO):
+    //    a. Al no existir elementos previos, el nuevo nodo se convierte en el
+    //       frente y a la vez en el final de la cola:
+    //       cola.procesar_primero = nuevo_nodo y cola.procesar_ultimo = nuevo_nodo.
+    // -------------------------------------------------------------------------
     FUNCION agregar_elemento_cola(cola: Cola, nuevo_nodo: NodoCliente)
+        // Paso 1: Validación defensiva contra referencias nulas
+        SI (nuevo_nodo == NULO)
+            RETORNAR
+        FIN SI
+
+        // Paso 2: Asegurar que el nuevo nodo sea terminal (no apunte a nada posterior)
+        nuevo_nodo.proximo_cliente = NULO
+
+        // Paso 3: Evaluar si la cola ya posee elementos o está vacía
         SI (cola.procesar_ultimo != NULO)
+            // Caso 3a: El nodo que estaba al final ahora apunta al nuevo nodo como su próximo
             cola.procesar_ultimo.proximo_cliente = nuevo_nodo
+            
+            // Caso 3b: Se actualiza el final de la cola para que sea el nuevo nodo
             cola.procesar_ultimo = nuevo_nodo
         SINO
-            cola.procesar_ultimo = nuevo_nodo
+            // Caso 4: Al ser el primer elemento en ingresar, es a la vez el frente y el final
             cola.procesar_primero = nuevo_nodo
+            cola.procesar_ultimo = nuevo_nodo
         FIN SI
     FIN FUNCION
 
-    // Saca el primer elemento agregado a la cola
+    // =========================================================================
+    // OPERACIÓN PRINCIPAL: DESENCOLAR (DEQUEUE)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: sacar_elemento_cola
+    // FINALIDAD: Extrae y retorna el elemento ubicado al frente de la cola (operación DEQUEUE).
+    // PARÁMETROS:
+    //   - cola: La estructura Cola desde donde se extraerá el cliente a atender.
+    // RETORNA:
+    //   - NodoCliente extraído si la cola contenía elementos.
+    //   - NULO si la cola se encontraba vacía.
+    // COMPLEJIDAD TEMPORAL: O(1) tiempo constante.
+    //
+    // PASO A PASO DE LA OPERACIÓN:
+    // 1. Verificación de vaciado: Si cola.procesar_primero == NULO, la cola está
+    //    vacía; se retorna NULO inmediatamente evitando asignaciones innecesarias en memoria.
+    // 2. Captura del frente: Se toma la referencia del primer elemento a atender
+    //    (NodoCliente nodo_retorno = cola.procesar_primero).
+    // 3. Desplazamiento del frente: Se avanza el puntero del frente al siguiente cliente
+    //    en la fila (cola.procesar_primero = cola.procesar_primero.proximo_cliente).
+    // 4. Aislamiento del nodo extraído: Se desconecta nodo_retorno.proximo_cliente = NULO
+    //    para desacoplarlo de los nodos restantes en la cola.
+    // 5. Verificación de vaciado total: Si el frente se convirtió en NULO (es decir,
+    //    se extrajo el único elemento que quedaba), se sincroniza el final estableciendo
+    //    cola.procesar_ultimo = NULO.
+    // 6. Retorno: Se entrega el nodo extraído al llamador.
+    // -------------------------------------------------------------------------
     FUNCION sacar_elemento_cola(cola: Cola): NodoCliente
-        NodoCliente nodo_retorno = instanciar_nodo_cliente()
-        SI(cola.procesar_primero == NULO)
+        // Paso 1: Si la cola está vacía, no hay elementos para procesar
+        SI (cola.procesar_primero == NULO)
             RETORNAR NULO
         FIN SI
 
-        nodo_retorno = cola.procesar_primero
+        // Paso 2: Guardamos la referencia del nodo del frente que será atendido
+        NodoCliente nodo_retorno = cola.procesar_primero
+
+        // Paso 3: El frente avanza al siguiente cliente en espera
         cola.procesar_primero = cola.procesar_primero.proximo_cliente
+
+        // Paso 4: Desconectamos el nodo extraído de la cola para devolverlo aislado
         nodo_retorno.proximo_cliente = NULO
         
-        SI(cola.procesar_primero == NULO)
+        // Paso 5: Si la cola quedó vacía, actualizamos también el puntero del final a NULO
+        SI (cola.procesar_primero == NULO)
             cola.procesar_ultimo = NULO
         FIN SI
         
+        // Paso 6: Retornamos el nodo atendido
         RETORNAR nodo_retorno
     FIN FUNCION
 
-    // Agrega una cantidad determinada de elementos a la cola
+    // =========================================================================
+    // FUNCIONES UTILITARIAS Y DE DEMOSTRACIÓN
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // FUNCION: agregar_elementos_cola
+    // FINALIDAD: Carga masiva y secuencial de clientes en la cola con fines
+    //            de prueba o inicialización de lote.
+    // PARÁMETROS:
+    //   - cola: La estructura Cola a la que se agregarán los elementos.
+    //   - cantidad: Cantidad total de clientes secuenciales a instanciar y encolar.
+    // -------------------------------------------------------------------------
     FUNCION agregar_elementos_cola(cola: Cola, cantidad: ENTERO)
         PARA(ENTERO vuelta = 1; vuelta <= cantidad; vuelta++)
             NodoCliente cliente = instanciar_nodo_cliente()
@@ -64,7 +186,14 @@ INICIO
         FIN PARA
     FIN FUNCION
 
-    // Muestra los datos de la cola
+    // -------------------------------------------------------------------------
+    // FUNCION: mostrar_info_cola
+    // FINALIDAD: Imprime en consola un reporte de diagnóstico sobre el estado
+    //            actual de la cola, desencola el primer elemento para demostrar el
+    //            comportamiento FIFO y muestra el estado resultante.
+    // PARÁMETROS:
+    //   - cola: La estructura Cola a diagnosticar.
+    // -------------------------------------------------------------------------
     FUNCION mostrar_info_cola(cola: Cola)
         IMPRIMIR("============= INFO COLA =============\n")
         IMPRIMIR("Impresión de la cola: " + cola + '\n')
@@ -75,8 +204,11 @@ INICIO
         IMPRIMIR("============= FIN INFO COLA =============\n")
     FIN FUNCION
 
-    // PRUEBAS DE EJECUCION
-
+    // =========================================================================
+    // BLOQUE DE PRUEBAS DE EJECUCIÓN
+    // =========================================================================
+    // Instanciamos una cola de prueba, insertamos 4 elementos y verificamos
+    // la secuencia FIFO (el primer agregado '1' es el primero extraído).
     Cola cola_inicial = instanciar_cola()
     ENTERO cantidad = 4
     agregar_elementos_cola(cola_inicial, cantidad)
