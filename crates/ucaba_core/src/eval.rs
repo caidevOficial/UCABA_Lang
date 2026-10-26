@@ -158,6 +158,7 @@ pub struct DebugFrame {
 struct CallFrame {
     name: String,
     call_line: usize,
+    call_column: usize,
     scope_base: usize,
 }
 
@@ -168,6 +169,7 @@ pub struct Interpreter {
     pub output: Vec<String>,
     call_stack: Vec<CallFrame>,
     current_line: usize,
+    current_column: usize,
     debugger: Option<Box<dyn Debugger>>,
     print_sink: Option<Box<dyn FnMut(&str)>>,
 }
@@ -187,8 +189,40 @@ impl Interpreter {
             output: Vec::new(),
             call_stack: Vec::new(),
             current_line: 0,
+            current_column: 0,
             debugger: None,
             print_sink: None,
+        }
+    }
+
+    /// Retorna la línea actual de ejecución (1-based, 0 si no ha iniciado).
+    pub fn current_line(&self) -> usize {
+        self.current_line
+    }
+
+    /// Retorna la columna actual de ejecución (1-based, 0 si no ha iniciado).
+    pub fn current_column(&self) -> usize {
+        self.current_column
+    }
+
+    /// Asigna la línea y columna actual si el error devuelto no tiene ubicación asignada (line == 0).
+    pub fn with_current_location(&self, err: UcabaError) -> UcabaError {
+        match err {
+            UcabaError::Runtime { message, line, column } if line == 0 => UcabaError::Runtime {
+                message,
+                line: self.current_line,
+                column: if column == 0 { self.current_column } else { column },
+            },
+            other => other,
+        }
+    }
+
+    /// Construye un UcabaError::Runtime asociado a la línea y columna actuales del intérprete.
+    pub fn runtime_error(&self, message: impl Into<String>) -> UcabaError {
+        UcabaError::Runtime {
+            message: message.into(),
+            line: self.current_line,
+            column: self.current_column,
         }
     }
 
@@ -255,11 +289,19 @@ impl Interpreter {
     }
 
     fn set_variable(&mut self, name: &str, mut val: Value) -> Result<(), UcabaError> {
+        let cur_line = self.current_line;
+        let cur_col = self.current_column;
         // Buscar de adentro hacia afuera si ya existe
         for scope in self.scopes.iter_mut().rev() {
             if scope.variables.contains_key(name) {
                 if let Some(expected_type) = scope.types.get(name) {
-                    check_type_compatibility(expected_type, &mut val)?;
+                    check_type_compatibility(expected_type, &mut val)
+                        .map_err(|e| match e {
+                            UcabaError::Runtime { message, line, column: _ } if line == 0 => {
+                                UcabaError::Runtime { message, line: cur_line, column: cur_col }
+                            }
+                            other => other,
+                        })?;
                 }
                 scope.variables.insert(name.to_string(), val);
                 return Ok(());
@@ -271,7 +313,8 @@ impl Interpreter {
     }
 
     fn declare_variable(&mut self, name: &str, data_type: DataType, mut val: Value) -> Result<(), UcabaError> {
-        check_type_compatibility(&data_type, &mut val)?;
+        check_type_compatibility(&data_type, &mut val)
+            .map_err(|e| self.with_current_location(e))?;
         let scope = self.scopes.last_mut().unwrap();
         scope.variables.insert(name.to_string(), val);
         scope.types.insert(name.to_string(), data_type);
@@ -291,16 +334,19 @@ impl Interpreter {
     where
         F: FnOnce(&mut Value) -> Result<(), UcabaError>,
     {
+        let cur_line = self.current_line;
+        let cur_col = self.current_column;
         for scope in self.scopes.iter_mut().rev() {
             if let Some(val) = scope.variables.get_mut(name) {
-                return f(val);
+                return f(val).map_err(|e| match e {
+                    UcabaError::Runtime { message, line, column: _ } if line == 0 => {
+                        UcabaError::Runtime { message, line: cur_line, column: cur_col }
+                    }
+                    other => other,
+                });
             }
         }
-        Err(UcabaError::Runtime {
-            message: format!("Variable no definida: '{}'", name),
-            line: 0,
-            column: 0,
-        })
+        Err(self.runtime_error(format!("Variable no definida: '{}'", name)))
     }
 
     fn find_archivo_in_expr(
@@ -398,7 +444,7 @@ impl Interpreter {
 
         // 2. Ejecutar sentencias secuencialmente
         for stmt in &program.statements {
-            if let ControlFlow::Return(_) = self.execute_statement(stmt)? {
+            if let ControlFlow::Return(_) = self.execute_statement(stmt).map_err(|e| self.with_current_location(e))? {
                 break;
             }
         }
@@ -425,11 +471,7 @@ impl Interpreter {
                             Value::Real(r) => r.max(0.0) as usize,
                             Value::Flotante(f) => f.max(0.0) as usize,
                             _ => {
-                                return Err(UcabaError::Runtime {
-                                    message: "El tamaño debe ser un número entero".to_string(),
-                                    line: 0,
-                                    column: 0,
-                                });
+                                return Err(self.runtime_error("El tamaño debe ser un número entero"));
                             }
                         };
                         sizes.push(s);
@@ -625,8 +667,9 @@ impl Interpreter {
                 self.output.push(text);
                 Ok(ControlFlow::None)
             }
-            Statement::Located { line, stmt } => {
+            Statement::Located { line, column, stmt } => {
                 self.current_line = *line;
+                self.current_column = *column;
                 if let Some(mut dbg) = self.debugger.take() {
                     let action = dbg.on_statement(*line, self);
                     self.debugger = Some(dbg);
@@ -634,11 +677,12 @@ impl Interpreter {
                         return Err(UcabaError::Runtime {
                             message: DEBUG_ABORT_MESSAGE.to_string(),
                             line: *line,
-                            column: 0,
+                            column: *column,
                         });
                     }
                 }
                 self.execute_statement(stmt)
+                    .map_err(|e| self.with_current_location(e))
             }
             Statement::Expr(expr) => {
                 self.eval_expression(expr)?;
@@ -664,11 +708,7 @@ impl Interpreter {
                     Value::Real(r) => r as usize,
                     Value::Flotante(f) => f as usize,
                     _ => {
-                        return Err(UcabaError::Runtime {
-                            message: "El índice de acceso debe ser un número entero".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("El índice de acceso debe ser un número entero"));
                     }
                 };
 
@@ -715,11 +755,7 @@ impl Interpreter {
                             Value::Real(r) => r as usize,
                             Value::Flotante(f) => f as usize,
                             _ => {
-                                return Err(UcabaError::Runtime {
-                                    message: "El índice de fila debe ser un número entero".to_string(),
-                                    line: 0,
-                                    column: 0,
-                                });
+                                return Err(self.runtime_error("El índice de fila debe ser un número entero"));
                             }
                         };
 
@@ -774,11 +810,7 @@ impl Interpreter {
                     }
                 }
 
-                Err(UcabaError::Runtime {
-                    message: "Asignación compleja por índice aún no soportada".to_string(),
-                    line: 0,
-                    column: 0,
-                })
+                Err(self.runtime_error("Asignación compleja por índice aún no soportada"))
             }
             Expression::MemberAccess { target, member } => {
                 let container = self.eval_expression(target)?;
@@ -807,33 +839,17 @@ impl Interpreter {
                                     break;
                                 }
                             }
-                            Err(UcabaError::Runtime {
-                                message: format!(
-                                    "La estructura '{}' no tiene el campo '{}'{}",
-                                    s_name, member, suggestion
-                                ),
-                                line: 0,
-                                column: 0,
-                            })
+                            Err(self.runtime_error(format!(
+                                "La estructura '{}' no tiene el campo '{}'{}",
+                                s_name, member, suggestion
+                            )))
                         }
                     }
-                    Value::Nulo => Err(UcabaError::Runtime {
-                        message: format!("Intento de asignar el campo '{}' en una referencia nula (NULO)", member),
-                        line: 0,
-                        column: 0,
-                    }),
-                    _ => Err(UcabaError::Runtime {
-                        message: format!("No se puede asignar el miembro '{}' sobre un tipo no estructura", member),
-                        line: 0,
-                        column: 0,
-                    }),
+                    Value::Nulo => Err(self.runtime_error(format!("Intento de asignar el campo '{}' en una referencia nula (NULO)", member))),
+                    _ => Err(self.runtime_error(format!("No se puede asignar el miembro '{}' sobre un tipo no estructura", member))),
                 }
             }
-            _ => Err(UcabaError::Runtime {
-                message: "Destino de asignación no válido".to_string(),
-                line: 0,
-                column: 0,
-            }),
+            _ => Err(self.runtime_error("Destino de asignación no válido")),
         }
     }
 
@@ -856,11 +872,7 @@ impl Interpreter {
                 if let Some(val) = self.get_variable(name) {
                     Ok(val)
                 } else {
-                    Err(UcabaError::Runtime {
-                        message: format!("Variable no definida: '{}'", name),
-                        line: 0,
-                        column: 0,
-                    })
+                    Err(self.runtime_error(format!("Variable no definida: '{}'", name)))
                 }
             }
             Expression::Binary { left, op, right } => {
@@ -876,21 +888,13 @@ impl Interpreter {
                         Value::Entero(n) => Ok(Value::Entero(-n)),
                         Value::Real(r) => Ok(Value::Real(-r)),
                         Value::Flotante(f) => Ok(Value::Flotante(-f)),
-                        _ => Err(UcabaError::Runtime {
-                            message: "Operador unario '-' no aplicable a tipo no numérico".to_string(),
-                            line: 0,
-                            column: 0,
-                        }),
+                        _ => Err(self.runtime_error("Operador unario '-' no aplicable a tipo no numérico")),
                     },
                     UnaryOp::Positivo => match val {
                         Value::Entero(n) => Ok(Value::Entero(n)),
                         Value::Real(r) => Ok(Value::Real(r)),
                         Value::Flotante(f) => Ok(Value::Flotante(f)),
-                        _ => Err(UcabaError::Runtime {
-                            message: "Operador unario '+' no aplicable a tipo no numérico".to_string(),
-                            line: 0,
-                            column: 0,
-                        }),
+                        _ => Err(self.runtime_error("Operador unario '+' no aplicable a tipo no numérico")),
                     },
                 }
             }
@@ -901,11 +905,7 @@ impl Interpreter {
                     Value::Real(r) => r as usize,
                     Value::Flotante(f) => f as usize,
                     _ => {
-                        return Err(UcabaError::Runtime {
-                            message: "El índice de vector debe ser un número entero".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("El índice de vector debe ser un número entero"));
                     }
                 };
 
@@ -916,15 +916,11 @@ impl Interpreter {
                             match val {
                                 Value::Vector(vec) => {
                                     if idx >= vec.len() {
-                                        return Err(UcabaError::Runtime {
-                                            message: format!(
-                                                "Índice fuera de límites: {} (tamaño: {})",
-                                                idx,
-                                                vec.len()
-                                            ),
-                                            line: 0,
-                                            column: 0,
-                                        });
+                                        return Err(self.runtime_error(format!(
+                                            "Índice fuera de límites: {} (tamaño: {})",
+                                            idx,
+                                            vec.len()
+                                        )));
                                     }
                                     return Ok(vec[idx].clone());
                                 }
@@ -932,15 +928,11 @@ impl Interpreter {
                                     if let Some(ch) = s.chars().nth(idx) {
                                         return Ok(Value::Caracter(ch));
                                     } else {
-                                        return Err(UcabaError::Runtime {
-                                            message: format!(
-                                                "Índice fuera de límites: {} (longitud: {})",
-                                                idx,
-                                                s.chars().count()
-                                            ),
-                                            line: 0,
-                                            column: 0,
-                                        });
+                                        return Err(self.runtime_error(format!(
+                                            "Índice fuera de límites: {} (longitud: {})",
+                                            idx,
+                                            s.chars().count()
+                                        )));
                                     }
                                 }
                                 _ => {}
@@ -953,23 +945,15 @@ impl Interpreter {
                 match target_val {
                     Value::Vector(vec) => {
                         if idx >= vec.len() {
-                            return Err(UcabaError::Runtime {
-                                message: format!(
-                                    "Índice fuera de límites: {} (tamaño: {})",
-                                    idx,
-                                    vec.len()
-                                ),
-                                line: 0,
-                                column: 0,
-                            });
+                            return Err(self.runtime_error(format!(
+                                "Índice fuera de límites: {} (tamaño: {})",
+                                idx,
+                                vec.len()
+                            )));
                         }
                         Ok(vec[idx].clone())
                     }
-                    _ => Err(UcabaError::Runtime {
-                        message: "Acceso por índice sobre un elemento no indexable".to_string(),
-                        line: 0,
-                        column: 0,
-                    }),
+                    _ => Err(self.runtime_error("Acceso por índice sobre un elemento no indexable")),
                 }
             }
             Expression::MemberAccess { target, member } => {
@@ -991,21 +975,13 @@ impl Interpreter {
                     match target_val {
                         Value::Vector(v) => Ok(Value::Entero(v.len() as i64)),
                         Value::Cadena(s) => Ok(Value::Entero(s.chars().count() as i64)),
-                        _ => Err(UcabaError::Runtime {
-                            message: "Propiedad '.largo' solo disponible en vectores o cadenas".to_string(),
-                            line: 0,
-                            column: 0,
-                        }),
+                        _ => Err(self.runtime_error("Propiedad '.largo' solo disponible en vectores o cadenas")),
                     }
                 } else if member == "findearchivo" {
                     if let Value::Archivo(file) = target_val {
                         Ok(Value::Booleano(file.borrow().is_eof()))
                     } else {
-                        Err(UcabaError::Runtime {
-                            message: "Propiedad '.findearchivo' solo disponible en tipo ARCHIVO".to_string(),
-                            line: 0,
-                            column: 0,
-                        })
+                        Err(self.runtime_error("Propiedad '.findearchivo' solo disponible en tipo ARCHIVO"))
                     }
                 } else {
                     match target_val {
@@ -1030,26 +1006,14 @@ impl Interpreter {
                                         break;
                                     }
                                 }
-                                Err(UcabaError::Runtime {
-                                    message: format!(
-                                        "La estructura '{}' no tiene el campo '{}'{}",
-                                        borrowed.struct_name, member, suggestion
-                                    ),
-                                    line: 0,
-                                    column: 0,
-                                })
+                                Err(self.runtime_error(format!(
+                                    "La estructura '{}' no tiene el campo '{}'{}",
+                                    borrowed.struct_name, member, suggestion
+                                )))
                             }
                         }
-                        Value::Nulo => Err(UcabaError::Runtime {
-                            message: format!("Intento de acceder al campo '{}' en una referencia nula (NULO)", member),
-                            line: 0,
-                            column: 0,
-                        }),
-                        _ => Err(UcabaError::Runtime {
-                            message: format!("Acceso a miembro '.{}' sobre tipo no estructura", member),
-                            line: 0,
-                            column: 0,
-                        }),
+                        Value::Nulo => Err(self.runtime_error(format!("Intento de acceder al campo '{}' en una referencia nula (NULO)", member))),
+                        _ => Err(self.runtime_error(format!("Acceso a miembro '.{}' sobre tipo no estructura", member))),
                     }
                 }
             }
@@ -1073,18 +1037,10 @@ impl Interpreter {
                             file.borrow_mut().close();
                             Ok(Value::Nulo)
                         } else {
-                            Err(UcabaError::Runtime {
-                                message: format!("Método '{}' no existe en tipo ARCHIVO", method),
-                                line: 0,
-                                column: 0,
-                            })
+                            Err(self.runtime_error(format!("Método '{}' no existe en tipo ARCHIVO", method)))
                         }
                     }
-                    _ => Err(UcabaError::Runtime {
-                        message: format!("Llamada a método '{}' sobre tipo no compatible", method),
-                        line: 0,
-                        column: 0,
-                    }),
+                    _ => Err(self.runtime_error(format!("Llamada a método '{}' sobre tipo no compatible", method))),
                 }
             }
             Expression::Call { name, args } => {
@@ -1093,11 +1049,7 @@ impl Interpreter {
                 // Built-in ABRIR_ARCHIVO
                 if upper == "ABRIR_ARCHIVO" {
                     if args.len() != 2 {
-                        return Err(UcabaError::Runtime {
-                            message: "ABRIR_ARCHIVO requiere exactamente 2 argumentos (ruta, modo)".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("ABRIR_ARCHIVO requiere exactamente 2 argumentos (ruta, modo)"));
                     }
                     let path_val = self.eval_expression(&args[0])?;
                     let mode_val = self.eval_expression(&args[1])?;
@@ -1109,28 +1061,21 @@ impl Interpreter {
                         Value::Cadena(s) => s,
                         _ => mode_val.to_canonical_string(),
                     };
-                    let handle = crate::value::ArchivoHandle::new(&path, &mode)?;
+                    let handle = crate::value::ArchivoHandle::new(&path, &mode)
+                        .map_err(|e| self.with_current_location(e))?;
                     return Ok(Value::Archivo(std::rc::Rc::new(std::cell::RefCell::new(handle))));
                 }
 
                 // Built-in ESPAR / ESIMPAR
                 if upper == "ESPAR" {
                     if args.len() != 1 {
-                        return Err(UcabaError::Runtime {
-                            message: "ESPAR requiere exactamente 1 argumento".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("ESPAR requiere exactamente 1 argumento"));
                     }
                     let val = self.eval_expression(&args[0])?;
                     let n = match val {
                         Value::Entero(n) => n,
                         _ => {
-                            return Err(UcabaError::Runtime {
-                                message: "ESPAR requiere un número entero".to_string(),
-                                line: 0,
-                                column: 0,
-                            });
+                            return Err(self.runtime_error("ESPAR requiere un número entero"));
                         }
                     };
                     return Ok(Value::Booleano(n % 2 == 0));
@@ -1138,21 +1083,13 @@ impl Interpreter {
 
                 if upper == "ESIMPAR" {
                     if args.len() != 1 {
-                        return Err(UcabaError::Runtime {
-                            message: "ESIMPAR requiere exactamente 1 argumento".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("ESIMPAR requiere exactamente 1 argumento"));
                     }
                     let val = self.eval_expression(&args[0])?;
                     let n = match val {
                         Value::Entero(n) => n,
                         _ => {
-                            return Err(UcabaError::Runtime {
-                                message: "ESIMPAR requiere un número entero".to_string(),
-                                line: 0,
-                                column: 0,
-                            });
+                            return Err(self.runtime_error("ESIMPAR requiere un número entero"));
                         }
                     };
                     return Ok(Value::Booleano(n % 2 != 0));
@@ -1160,30 +1097,18 @@ impl Interpreter {
 
                 if upper == "MOD" {
                     if args.len() != 2 {
-                        return Err(UcabaError::Runtime {
-                            message: "MOD requiere exactamente 2 argumentos".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("MOD requiere exactamente 2 argumentos"));
                     }
                     let a_val = self.eval_expression(&args[0])?;
                     let b_val = self.eval_expression(&args[1])?;
                     let (a, b) = match (a_val, b_val) {
                         (Value::Entero(a), Value::Entero(b)) => (a, b),
                         _ => {
-                            return Err(UcabaError::Runtime {
-                                message: "MOD requiere argumentos enteros".to_string(),
-                                line: 0,
-                                column: 0,
-                            });
+                            return Err(self.runtime_error("MOD requiere argumentos enteros"));
                         }
                     };
                     if b == 0 {
-                        return Err(UcabaError::Runtime {
-                            message: "Módulo por cero.".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("Módulo por cero."));
                     }
                     return Ok(Value::Entero(a.rem_euclid(b)));
                 }
@@ -1192,24 +1117,16 @@ impl Interpreter {
                 let func_data = if let Some(fd) = self.functions.get(&upper) {
                     fd.clone()
                 } else {
-                    return Err(UcabaError::Runtime {
-                        message: format!("Función no definida: '{}'", name),
-                        line: 0,
-                        column: 0,
-                    });
+                    return Err(self.runtime_error(format!("Función no definida: '{}'", name)));
                 };
 
                 if args.len() != func_data.params.len() {
-                    return Err(UcabaError::Runtime {
-                        message: format!(
-                            "La función '{}' esperaba {} argumentos pero recibió {}",
-                            name,
-                            func_data.params.len(),
-                            args.len()
-                        ),
-                        line: 0,
-                        column: 0,
-                    });
+                    return Err(self.runtime_error(format!(
+                        "La función '{}' esperaba {} argumentos pero recibió {}",
+                        name,
+                        func_data.params.len(),
+                        args.len()
+                    )));
                 }
 
                 let mut evaluated_args = Vec::new();
@@ -1221,6 +1138,7 @@ impl Interpreter {
                 self.call_stack.push(CallFrame {
                     name: name.clone(),
                     call_line: self.current_line,
+                    call_column: self.current_column,
                     scope_base: self.scopes.len(),
                 });
                 self.push_scope();
@@ -1230,7 +1148,7 @@ impl Interpreter {
 
                 let mut ret_val = Value::Nulo;
                 for stmt in &func_data.body {
-                    if let ControlFlow::Return(v) = self.execute_statement(stmt)? {
+                    if let ControlFlow::Return(v) = self.execute_statement(stmt).map_err(|e| self.with_current_location(e))? {
                         ret_val = v;
                         break;
                     }
@@ -1239,6 +1157,7 @@ impl Interpreter {
                 self.pop_scope();
                 if let Some(f) = self.call_stack.pop() {
                     self.current_line = f.call_line;
+                    self.current_column = f.call_column;
                 }
                 Ok(ret_val)
             }
@@ -1271,11 +1190,7 @@ impl Interpreter {
                     (Value::Entero(a), Value::Real(b)) => Ok(Value::Real(*a as f64 + b)),
                     (Value::Real(a), Value::Entero(b)) => Ok(Value::Real(a + *b as f64)),
                     (Value::Flotante(a), Value::Flotante(b)) => Ok(Value::Flotante(a + b)),
-                    _ => Err(UcabaError::Runtime {
-                        message: format!("Operador '+' no compatible con tipos '{:?}' y '{:?}'", left, right),
-                        line: 0,
-                        column: 0,
-                    }),
+                    _ => Err(self.runtime_error(format!("Operador '+' no compatible con tipos '{:?}' y '{:?}'", left, right))),
                 }
             }
             BinaryOp::Resta => match (left, right) {
@@ -1284,11 +1199,7 @@ impl Interpreter {
                 (Value::Entero(a), Value::Real(b)) => Ok(Value::Real(*a as f64 - b)),
                 (Value::Real(a), Value::Entero(b)) => Ok(Value::Real(a - *b as f64)),
                 (Value::Flotante(a), Value::Flotante(b)) => Ok(Value::Flotante(a - b)),
-                _ => Err(UcabaError::Runtime {
-                    message: "Operador '-' solo compatible con números".to_string(),
-                    line: 0,
-                    column: 0,
-                }),
+                _ => Err(self.runtime_error("Operador '-' solo compatible con números")),
             },
             BinaryOp::Mult => match (left, right) {
                 (Value::Entero(a), Value::Entero(b)) => Ok(Value::Entero(a * b)),
@@ -1296,11 +1207,7 @@ impl Interpreter {
                 (Value::Entero(a), Value::Real(b)) => Ok(Value::Real(*a as f64 * b)),
                 (Value::Real(a), Value::Entero(b)) => Ok(Value::Real(a * *b as f64)),
                 (Value::Flotante(a), Value::Flotante(b)) => Ok(Value::Flotante(a * b)),
-                _ => Err(UcabaError::Runtime {
-                    message: "Operador '*' solo compatible con números".to_string(),
-                    line: 0,
-                    column: 0,
-                }),
+                _ => Err(self.runtime_error("Operador '*' solo compatible con números")),
             },
             BinaryOp::Div => {
                 // División real '/': siempre retorna REAL
@@ -1310,19 +1217,11 @@ impl Interpreter {
                     (Value::Entero(a), Value::Real(b)) => (*a as f64, *b),
                     (Value::Real(a), Value::Entero(b)) => (*a, *b as f64),
                     _ => {
-                        return Err(UcabaError::Runtime {
-                            message: "Operador '/' solo compatible con números".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("Operador '/' solo compatible con números"));
                     }
                 };
                 if b == 0.0 {
-                    return Err(UcabaError::Runtime {
-                        message: "División por cero.".to_string(),
-                        line: 0,
-                        column: 0,
-                    });
+                    return Err(self.runtime_error("División por cero."));
                 }
                 Ok(Value::Real(a / b))
             }
@@ -1334,19 +1233,11 @@ impl Interpreter {
                     (Value::Entero(a), Value::Real(b)) => (*a, b.floor() as i64),
                     (Value::Real(a), Value::Entero(b)) => (a.floor() as i64, *b),
                     _ => {
-                        return Err(UcabaError::Runtime {
-                            message: "Operador '//' requiere operandos numéricos".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("Operador '//' requiere operandos numéricos"));
                     }
                 };
                 if b == 0 {
-                    return Err(UcabaError::Runtime {
-                        message: "División por cero.".to_string(),
-                        line: 0,
-                        column: 0,
-                    });
+                    return Err(self.runtime_error("División por cero."));
                 }
                 Ok(Value::Entero(a.div_euclid(b)))
             }
@@ -1355,19 +1246,11 @@ impl Interpreter {
                 let (a, b) = match (left, right) {
                     (Value::Entero(a), Value::Entero(b)) => (*a, *b),
                     _ => {
-                        return Err(UcabaError::Runtime {
-                            message: "Operador '%' requiere operandos enteros".to_string(),
-                            line: 0,
-                            column: 0,
-                        });
+                        return Err(self.runtime_error("Operador '%' requiere operandos enteros"));
                     }
                 };
                 if b == 0 {
-                    return Err(UcabaError::Runtime {
-                        message: "Módulo por cero.".to_string(),
-                        line: 0,
-                        column: 0,
-                    });
+                    return Err(self.runtime_error("Módulo por cero."));
                 }
                 Ok(Value::Entero(a.rem_euclid(b)))
             }
@@ -1378,44 +1261,28 @@ impl Interpreter {
                 (Value::Real(a), Value::Real(b)) => Ok(Value::Booleano(a < b)),
                 (Value::Entero(a), Value::Real(b)) => Ok(Value::Booleano((*a as f64) < *b)),
                 (Value::Real(a), Value::Entero(b)) => Ok(Value::Booleano(*a < (*b as f64))),
-                _ => Err(UcabaError::Runtime {
-                    message: "Operador '<' requiere números".to_string(),
-                    line: 0,
-                    column: 0,
-                }),
+                _ => Err(self.runtime_error("Operador '<' requiere números")),
             },
             BinaryOp::Mayor => match (left, right) {
                 (Value::Entero(a), Value::Entero(b)) => Ok(Value::Booleano(a > b)),
                 (Value::Real(a), Value::Real(b)) => Ok(Value::Booleano(a > b)),
                 (Value::Entero(a), Value::Real(b)) => Ok(Value::Booleano((*a as f64) > *b)),
                 (Value::Real(a), Value::Entero(b)) => Ok(Value::Booleano(*a > (*b as f64))),
-                _ => Err(UcabaError::Runtime {
-                    message: "Operador '>' requiere números".to_string(),
-                    line: 0,
-                    column: 0,
-                }),
+                _ => Err(self.runtime_error("Operador '>' requiere números")),
             },
             BinaryOp::MenorIgual => match (left, right) {
                 (Value::Entero(a), Value::Entero(b)) => Ok(Value::Booleano(a <= b)),
                 (Value::Real(a), Value::Real(b)) => Ok(Value::Booleano(a <= b)),
                 (Value::Entero(a), Value::Real(b)) => Ok(Value::Booleano((*a as f64) <= *b)),
                 (Value::Real(a), Value::Entero(b)) => Ok(Value::Booleano(*a <= (*b as f64))),
-                _ => Err(UcabaError::Runtime {
-                    message: "Operador '<=' requiere números".to_string(),
-                    line: 0,
-                    column: 0,
-                }),
+                _ => Err(self.runtime_error("Operador '<=' requiere números")),
             },
             BinaryOp::MayorIgual => match (left, right) {
                 (Value::Entero(a), Value::Entero(b)) => Ok(Value::Booleano(a >= b)),
                 (Value::Real(a), Value::Real(b)) => Ok(Value::Booleano(a >= b)),
                 (Value::Entero(a), Value::Real(b)) => Ok(Value::Booleano((*a as f64) >= *b)),
                 (Value::Real(a), Value::Entero(b)) => Ok(Value::Booleano(*a >= (*b as f64))),
-                _ => Err(UcabaError::Runtime {
-                    message: "Operador '>=' requiere números".to_string(),
-                    line: 0,
-                    column: 0,
-                }),
+                _ => Err(self.runtime_error("Operador '>=' requiere números")),
             },
             BinaryOp::Y => Ok(Value::Booleano(left.is_truthy() && right.is_truthy())),
             BinaryOp::O => Ok(Value::Booleano(left.is_truthy() || right.is_truthy())),
@@ -1476,6 +1343,7 @@ impl Interpreter {
         self.output.clear();
         self.call_stack.clear();
         self.current_line = 0;
+        self.current_column = 0;
     }
 }
 

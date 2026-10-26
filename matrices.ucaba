@@ -1,0 +1,57 @@
+INICIO
+
+    // FINALIDAD: Crea una matriz con las dimensiones especificadas
+    // RETORNA: Una matriz con las dimensiones especificadas
+    FUNCION crear_matriz_dimensionada(filas: ENTERO, columnas: ENTERO): FLOTANTE[][] 
+        FLOTANTE matriz[filas][columnas]
+        RETORNAR matriz
+    FIN FUNCION
+
+    // FINALIDAD: Multiplica dos matrices
+    // RETORNA: Una matriz con el resultado de la multiplicacion
+    FUNCION multiplicar_matrices(matriz_1: ENTERO[][], matriz_2: ENTERO[][]): FLOTANTE[][] 
+        // Dimensiones
+        dim_1_filas = matriz_1.largo
+        dim_1_columnas = matriz_1[0].largo
+        dim_2_filas = matriz_2.largo
+        dim_2_columnas = matriz_2[0].largo
+        
+        // Verificar si se pueden multiplicar (columnas de A == filas de B)
+        SI (dim_1_columnas != dim_2_filas)
+            IMPRIMIR("No es posible multiplicar las matrices")
+        SINO
+            // Matriz resultado de dimension (dim_1_filas x dim_2_columnas)
+            FLOTANTE resultado[][] = crear_matriz_dimensionada(dim_1_filas, dim_2_columnas)
+
+            PARA(ENTERO f1 = 0; f1 < dim_1_filas; f1++)
+                PARA(ENTERO c2 = 0; c2 < dim_2_columnas; c2++)
+                    ENTERO suma = 0
+                    PARA(ENTERO c1 = 0; c1 < dim_1_columnas; c1++)
+                        suma = suma + (matriz_1[f1][c1] * matriz_2[c1][c2])
+                    FIN PARA
+                    resultado[f1][c2] = suma
+                FIN PARA
+            FIN PARA
+            
+            IMPRIMIR("Matriz resultado:")
+            PARA(ENTERO fila = 0; fila < resultado.largo; fila++)
+                IMPRIMIR(resultado[fila])
+            FIN PARA
+        FIN SI
+    FIN FUNCION
+
+    // Pruebas de ejecucion: (3x3) * (3x2) = (3x2)
+    ENTERO[][] matriz_1 = [
+        [1,2,3],
+        [3,3,1],
+        [1,1,1]
+    ]
+    ENTERO[][] matriz_2 = [
+        [1,2],
+        [2,4],
+        [2,1]
+    ]
+
+    multiplicar_matrices(matriz_1, matriz_2)
+
+FIN

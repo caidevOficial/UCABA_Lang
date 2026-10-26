@@ -152,10 +152,11 @@ pub enum Statement {
         name: String,
         fields: Vec<(String, DataType)>,
     },
-    /// Envoltorio que asocia una sentencia con su línea de código fuente (1-based).
-    /// Lo usa el depurador (DAP) para breakpoints y avance paso a paso.
+    /// Envoltorio que asocia una sentencia con su línea y columna de código fuente (1-based).
+    /// Lo usa el depurador (DAP) para breakpoints y avance paso a paso, y el runtime para reportes de error precisos.
     Located {
         line: usize,
+        column: usize,
         stmt: Box<Statement>,
     },
 }

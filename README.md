@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.2-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.3-a81a7d?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
   <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
   <img src="https://img.shields.io/badge/Tests-72%20passing-22c55e?style=for-the-badge" alt="Tests" />
@@ -107,10 +107,10 @@ UCABA ofrece paquetes oficiales nativos y universales para entornos Linux:
 Recomendado para **Ubuntu, Debian, Linux Mint, Pop!_OS, Kali Linux** y derivados:
 ```bash
 # Instalación con apt (resuelve dependencias automáticamente)
-sudo apt install ./ucaba_2.0.2_amd64.deb
+sudo apt install ./ucaba_2.0.3_amd64.deb
 
 # O mediante dpkg:
-# sudo dpkg -i ucaba_2.0.2_amd64.deb
+# sudo dpkg -i ucaba_2.0.3_amd64.deb
 ```
 Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIME del archivo `.ucaba`, el icono del lenguaje y la entrada de escritorio para aplicaciones del sistema.
 
@@ -118,8 +118,8 @@ Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIM
 Compatible con cualquier distribución (Arch Linux, Fedora, openSUSE, Gentoo, Alpine, etc.):
 ```bash
 # Descomprimir el paquete
-tar -xzf ucaba-2.0.2-linux-x64.tar.gz
-cd ucaba-2.0.2-linux-x64
+tar -xzf ucaba-2.0.3-linux-x64.tar.gz
+cd ucaba-2.0.3-linux-x64
 
 # Instalación para el usuario actual (~/.local/bin):
 chmod +x install.sh
@@ -212,7 +212,7 @@ ucaba
 
 *Ejemplo de sesión en el REPL:*
 ```text
-UCABA (v2.0.2)
+UCABA (v2.0.3)
 Consola Interactiva REPL. Escribe expresiones o código de pseudocódigo.
 Comandos especiales: :ayuda, :variables, :limpiar, :salir
 
@@ -302,7 +302,7 @@ ucaba tokens mi_algoritmo.ucaba
 
 ## 🎨 Extensión Oficial para Visual Studio Code
 
-El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` (disponible como paquete `ucaba-language-support-2.0.2.vsix`):
+El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` (disponible como paquete `ucaba-language-support-2.0.3.vsix`):
 
 <p align="center">
   <img src="payload/ucaba_logo_header.png" width="64" alt="VS Code Extension" />
@@ -325,7 +325,7 @@ El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` 
 
 #### Instalación Manual de la Extensión:
 ```bash
-code --install-extension extension-vscode/ucaba-language-support-2.0.2.vsix --force
+code --install-extension extension-vscode/ucaba-language-support-2.0.3.vsix --force
 ```
 
 ---

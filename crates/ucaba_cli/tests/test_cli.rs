@@ -10,7 +10,7 @@ fn test_cli_version() {
 
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("UCABA (v2.0.2)"), "Flag {} failed banner version check", flag);
+        assert!(stdout.contains("UCABA (v2.0.3)"), "Flag {} failed banner version check", flag);
         assert!(stdout.contains("Hello from the UCABA community. [Dev: Facu Falcone]"), "Flag {} failed dev check", flag);
     }
 }

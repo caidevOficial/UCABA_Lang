@@ -5,6 +5,21 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [2.0.3] - 2026-10-26
+
+### ⚙️ Motor Nativo Rust (`ucaba_core` / `crates/ucaba_core`)
+- **Trazabilidad Precisa de Errores en Tiempo de Ejecución (Línea y Columna):**
+  - Se extendió el nodo `Statement::Located` del AST para almacenar la columna (`column: usize`) además de la línea de origen del código fuente.
+  - El analizador sintáctico (`parser.rs`) ahora propaga línea y columna exactas para todas las sentencias y sentencias de actualización en bucles `PARA`.
+  - El intérprete (`eval.rs`) ahora mantiene `current_column` y rastrea con precisión la ubicación del error en desbordamientos de índices de vectores/matrices, accesos inválidos a miembros de estructuras, llamadas a métodos o funciones no compatibles, y operaciones aritméticas inválidas o división por cero.
+  - Se añadieron `call_line` y `call_column` al marco de llamadas (`CallFrame`) para preservar y restaurar la ubicación original al retornar o fallar dentro de funciones invocadas.
+  - Se corrigió el reporte que anteriormente mostraba `Error de ejecución en línea 0, columna 0`, mostrando ahora la línea y columna exactas donde se originó el fallo.
+  - Incorporación de test de regresión automatizado `test_runtime_error_line_and_column` en `crates/ucaba_core/tests/test_engine.rs`.
+
+### 🧩 Extensión y Empaquetado Oficial (v2.0.3)
+- Empaquetado y actualización del paquete VSIX oficial: `extension-vscode/ucaba-language-support-2.0.3.vsix`.
+- Sincronización de metadatos de versión `2.0.3` en todo el workspace (`crates/ucaba_core`, `crates/ucaba_cli`, `crates/ucaba_installer`, `extension-vscode/package.json`, instaladores y scripts auxiliares).
+
 ## [2.0.2] - 2026-10-23
 
 ### 📚 Documentación Integral y Mejoras en Estructuras de Datos (`pilas.ucaba` y `colas.ucaba`)

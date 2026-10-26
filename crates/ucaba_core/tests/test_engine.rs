@@ -429,6 +429,24 @@ fn test_lsp_check_valid_and_invalid() {
     assert!(json.contains(r#""source":"ucaba-parser""#));
 }
 
+#[test]
+fn test_runtime_error_line_and_column() {
+    use ucaba_core::UcabaError;
+
+    let code = "INICIO\nENTERO v[2]\nIMPRIMIR(v[5])\nFIN";
+    let res = run_code(code, false);
+    assert!(res.is_err());
+    match res.unwrap_err() {
+        UcabaError::Runtime { line, column, message } => {
+            assert_eq!(line, 3);
+            assert_eq!(column, 1);
+            assert!(message.contains("Índice fuera de límites"));
+        }
+        other => panic!("Se esperaba UcabaError::Runtime, pero fue: {:?}", other),
+    }
+}
+
+
 
 
 

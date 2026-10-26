@@ -119,6 +119,7 @@ impl Parser {
 
     fn parse_statement(&mut self) -> Result<Statement, UcabaError> {
         let line = self.current().line;
+        let column = self.current().column;
         let stmt = self.parse_statement_inner()?;
         // Las definiciones se pre-registran en `Interpreter::run`, no se ejecutan: sin envolver.
         if matches!(stmt, Statement::FunctionDef { .. } | Statement::StructDef { .. }) {
@@ -126,6 +127,7 @@ impl Parser {
         }
         Ok(Statement::Located {
             line,
+            column,
             stmt: Box::new(stmt),
         })
     }
@@ -395,6 +397,8 @@ impl Parser {
             });
         }
 
+        let update_line = self.current().line;
+        let update_column = self.current().column;
         let update_stmt = if self.is_type_start() {
             self.parse_var_decl()?
         } else {
@@ -415,6 +419,11 @@ impl Parser {
             } else {
                 Statement::Expr(expr)
             }
+        };
+        let update_stmt = Statement::Located {
+            line: update_line,
+            column: update_column,
+            stmt: Box::new(update_stmt),
         };
 
         self.consume(&TokenType::ParentesisDer, "Se esperaba ')' tras actualización del bucle 'PARA'")?;
