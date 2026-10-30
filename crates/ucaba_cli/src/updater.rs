@@ -222,51 +222,104 @@ impl BackgroundCheck {
 
 /// `ucaba update --check`: consulta siempre en línea. Devuelve código de salida.
 pub fn run_check(current: &str) -> i32 {
-    println!("Comprobando versiones en GitHub ({current})...");
-    match check_version_status(current, true, Duration::from_secs(5)) {
-        VersionStatus::UpdateAvailable(i) => {
-            println!(
-                "[ACTUALIZACIÓN DISPONIBLE] v{current} -> v{}\nEjecuta 'ucaba update' o visita: {}",
-                i.latest_version, i.html_url
-            );
-            0
+    let no_color = std::env::var("NO_COLOR").is_ok() || std::env::var("UCABA_NO_COLOR").is_ok();
+    if no_color {
+        println!("Comprobando versiones en GitHub ({current})...");
+        match check_version_status(current, true, Duration::from_secs(5)) {
+            VersionStatus::UpdateAvailable(i) => {
+                println!(
+                    "[ACTUALIZACIÓN DISPONIBLE] v{current} -> v{}\nEjecuta 'ucaba update' o visita: {}",
+                    i.latest_version, i.html_url
+                );
+                0
+            }
+            VersionStatus::UpToDate => {
+                println!("[OK] UCABA Rust Engine v{current} está al día.");
+                0
+            }
+            VersionStatus::NetworkError => {
+                eprintln!("[ERROR] No se pudo consultar GitHub Releases. Verifica tu conexión a internet.");
+                1
+            }
         }
-        VersionStatus::UpToDate => {
-            println!("[OK] UCABA Rust Engine v{current} está al día.");
-            0
-        }
-        VersionStatus::NetworkError => {
-            eprintln!("[ERROR] No se pudo consultar GitHub Releases. Verifica tu conexión a internet.");
-            1
+    } else {
+        println!("\x1b[90mComprobando versiones en GitHub ({current})...\x1b[0m");
+        match check_version_status(current, true, Duration::from_secs(5)) {
+            VersionStatus::UpdateAvailable(i) => {
+                println!(
+                    "\x1b[1;33m[ACTUALIZACIÓN DISPONIBLE]\x1b[0m \x1b[31mv{current}\x1b[0m -> \x1b[1;32mv{}\x1b[0m\n\x1b[36mEjecuta \x1b[1;37m'ucaba update'\x1b[0m\x1b[36m o visita:\x1b[0m \x1b[4;34m{}\x1b[0m",
+                    i.latest_version, i.html_url
+                );
+                0
+            }
+            VersionStatus::UpToDate => {
+                println!("\x1b[1;32m[OK]\x1b[0m UCABA Rust Engine \x1b[1;36mv{current}\x1b[0m está al día.");
+                0
+            }
+            VersionStatus::NetworkError => {
+                eprintln!("\x1b[1;31m[ERROR]\x1b[0m No se pudo consultar GitHub Releases. Verifica tu conexión a internet.");
+                1
+            }
         }
     }
 }
 
 /// `ucaba update`: descarga y lanza el instalador oficial del último release.
 pub fn run_update(current: &str) -> i32 {
-    println!("Versión actual instalada: v{current}\nComprobando últimas versiones en GitHub Releases...");
+    let no_color = std::env::var("NO_COLOR").is_ok() || std::env::var("UCABA_NO_COLOR").is_ok();
+    if no_color {
+        println!("Versión actual instalada: v{current}\nComprobando últimas versiones en GitHub Releases...");
+    } else {
+        println!("\x1b[36mVersión actual instalada:\x1b[0m \x1b[1;37mv{current}\x1b[0m\n\x1b[90mComprobando últimas versiones en GitHub Releases...\x1b[0m");
+    }
     let info = match check_version_status(current, true, Duration::from_secs(5)) {
         VersionStatus::NetworkError => {
-            eprintln!("[ERROR] No se pudo conectar con GitHub Releases. Verifica tu conexión a internet.");
+            if no_color {
+                eprintln!("[ERROR] No se pudo conectar con GitHub Releases. Verifica tu conexión a internet.");
+            } else {
+                eprintln!("\x1b[1;31m[ERROR]\x1b[0m No se pudo conectar con GitHub Releases. Verifica tu conexión a internet.");
+            }
             return 1;
         }
         VersionStatus::UpToDate => {
-            println!("[OK] ¡Ya tienes la versión más reciente de UCABA (v{current})!");
+            if no_color {
+                println!("[OK] ¡Ya tienes la versión más reciente de UCABA (v{current})!");
+            } else {
+                println!("\x1b[1;32m[OK]\x1b[0m ¡Ya tienes la versión más reciente de UCABA (\x1b[1;36mv{current}\x1b[0m)!");
+            }
             return 0;
         }
         VersionStatus::UpdateAvailable(i) => i,
     };
-    println!("[ACTUALIZACIÓN DISPONIBLE]: v{current} -> v{}", info.latest_version);
-    if info.installer_url.is_empty() {
-        eprintln!(
-            "[ERROR] El release v{} no incluye 'Instalador_UCABA.exe'. Descárgalo manualmente: {}",
-            info.latest_version, info.html_url
+    if no_color {
+        println!("[ACTUALIZACIÓN DISPONIBLE]: v{current} -> v{}", info.latest_version);
+    } else {
+        println!(
+            "\x1b[1;33m[ACTUALIZACIÓN DISPONIBLE]:\x1b[0m \x1b[31mv{current}\x1b[0m -> \x1b[1;32mv{}\x1b[0m",
+            info.latest_version
         );
+    }
+    if info.installer_url.is_empty() {
+        if no_color {
+            eprintln!(
+                "[ERROR] El release v{} no incluye 'Instalador_UCABA.exe'. Descárgalo manualmente: {}",
+                info.latest_version, info.html_url
+            );
+        } else {
+            eprintln!(
+                "\x1b[1;31m[ERROR]\x1b[0m El release \x1b[1mv{}\x1b[0m no incluye 'Instalador_UCABA.exe'. Descárgalo manualmente: \x1b[4;34m{}\x1b[0m",
+                info.latest_version, info.html_url
+            );
+        }
         return 1;
     }
     let dir = std::env::temp_dir().join(format!("ucaba_update_{}", std::process::id()));
     let path = dir.join("Instalador_UCABA.exe");
-    println!("Descargando instalador desde {} ...", info.installer_url);
+    if no_color {
+        println!("Descargando instalador desde {} ...", info.installer_url);
+    } else {
+        println!("\x1b[36mDescargando instalador desde\x1b[0m \x1b[4;34m{}\x1b[0m \x1b[36m...\x1b[0m", info.installer_url);
+    }
     let result = (|| -> Result<(), String> {
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         let resp = ureq::get(&info.installer_url)
@@ -279,16 +332,28 @@ pub fn run_update(current: &str) -> i32 {
         Ok(())
     })();
     if let Err(e) = result {
-        eprintln!("[ERROR] Falló la descarga del instalador: {e}");
+        if no_color {
+            eprintln!("[ERROR] Falló la descarga del instalador: {e}");
+        } else {
+            eprintln!("\x1b[1;31m[ERROR]\x1b[0m Falló la descarga del instalador: {e}");
+        }
         return 1;
     }
     match std::process::Command::new(&path).spawn() {
         Ok(_) => {
-            println!("[ÉXITO] Asistente de instalación iniciado. Sigue las instrucciones en pantalla.");
+            if no_color {
+                println!("[ÉXITO] Asistente de instalación iniciado. Sigue las instrucciones en pantalla.");
+            } else {
+                println!("\x1b[1;32m[ÉXITO]\x1b[0m Asistente de instalación iniciado. Sigue las instrucciones en pantalla.");
+            }
             0
         }
         Err(e) => {
-            eprintln!("[ERROR] No se pudo ejecutar el instalador: {e}\nEjecútalo manualmente: {}", path.display());
+            if no_color {
+                eprintln!("[ERROR] No se pudo ejecutar el instalador: {e}\nEjecútalo manualmente: {}", path.display());
+            } else {
+                eprintln!("\x1b[1;31m[ERROR]\x1b[0m No se pudo ejecutar el instalador: {e}\nEjecútalo manualmente: \x1b[4;34m{}\x1b[0m", path.display());
+            }
             1
         }
     }

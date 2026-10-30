@@ -130,9 +130,9 @@ fn print_welcome_banner(force: bool) {
         println!("UCABA (v{})", VERSION);
         println!("Hello from the UCABA community. [Dev: Facu Falcone]");
     } else {
-        // Color fucsia oficial UCABA #d946ef
-        println!("\x1b[95m\x1b[1;38;2;217;70;239mUCABA (v{})\x1b[0m", VERSION);
-        println!("\x1b[95m\x1b[1;38;2;217;70;239mHello from the UCABA community. [Dev: Facu Falcone]\x1b[0m");
+        // Identidad oficial UCABA 2.X (Electric Blue #0066FF y Cyan Neón #00D4FF)
+        println!("\x1b[1;38;2;0;212;255mUCABA (v{})\x1b[0m", VERSION);
+        println!("\x1b[38;2;56;189;248mHello from the UCABA community. [Dev: Facu Falcone]\x1b[0m");
     }
 }
 
