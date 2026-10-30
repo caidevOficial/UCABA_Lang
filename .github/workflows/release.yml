@@ -33,9 +33,9 @@ jobs:
       - name: Configurar Node.js (para empaquetar VSIX)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 'latest'
 
-      - name: Empaquetar Extensión de VS Code (VSIX v2.0.2)
+      - name: Empaquetar Extensión de VS Code (VSIX)
         working-directory: ./extension-vscode
         run: |
           npx -y @vscode/vsce package --no-git-tag-version
