@@ -5,6 +5,40 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [2.1.0] - 2026-10-30
+
+### 🐆 Rebranding Mayor: Identidad "Jaguar Gamer" & Electric Blue
+- **Nuevo Isotipo Oficial "Jaguar Gamer":**
+  - Implementación del nuevo isotipo oficial de UCABA con diseño vectorial afilado estilo *esports* / *gaming*, proyectando velocidad, agilidad y alto rendimiento.
+  - Abandono definitivo del magenta institucional clásico en favor de una paleta cibernética de alto impacto: **Electric Blue & Cyber Cyan** (`#0066FF`, `#00D4FF`, `#38BDF8`).
+- **Modernización de Iconos de Windows y Assets de Alta Definición:**
+  - Nuevos binarios `.ico` multirresolución de alta definición (`ucaba_icon.ico` y `ucaba_icon_standard.ico`) con capas optimizadas para pantallas High-DPI desde 16x16 hasta 256x256 píxeles.
+  - Actualización del asset `ucaba_logo_header.png` y cabeceras gráficas con la estética Jaguar Gamer Electric Blue.
+
+### 🖼️ Modernización del Instalador Gráfico (`installer_gui.py`)
+- **Interfaz Gráfica Renovada en Identidad 2.X:**
+  - Rediseño completo de la interfaz visual del instalador gráfico en Python (`installer_gui.py`) y Rust (`crates/ucaba_installer`).
+  - Adopción de la paleta Dark Electric Blue (`#080c14` de fondo base, `#0f172a` en paneles, `#0066ff` en acento primario y `#00d4ff` en detalles neón).
+  - Componentes estéticos modernizados: badges estilizadas para autoría y versión, botones redondeados de alta visibilidad con efectos hover fluidos, y consola de registro integrada con resaltado cyan neón.
+
+### 🧩 Actualización del Tema de Iconos y Extensión de VS Code
+- **Regeneración de Iconos SVG y PNG:**
+  - Regeneración completa de los iconos en `extension-vscode/icons/` (`ucaba-file.svg`, `ucaba-file.png`) adaptados al nuevo isotipo Jaguar Gamer con estética azul eléctrica.
+  - Actualización del tema de iconos `ucaba-icon-theme.json` e icono oficial de la extensión (`extension-vscode/icon.png`).
+- **Empaquetado y Distribución VSIX v2.1.0:**
+  - Generación y empaquetado del nuevo archivo oficial `extension-vscode/ucaba-language-support-2.1.0.vsix`.
+  - Actualización de metadatos, descripciones y configuración de empaquetado en `extension-vscode/package.json`.
+
+### ⚙️ Sincronización Integral de Versiones y Toolchain Rust
+- **Crates de Rust y Binarios Autónomos:**
+  - Sincronización rigurosa de versión `2.1.0` en `crates/ucaba_core/Cargo.toml`, `crates/ucaba_cli/Cargo.toml` y `crates/ucaba_installer/Cargo.toml`.
+  - Actualización de la constante global `VERSION` a `2.1.0` en `crates/ucaba_core/src/lib.rs`.
+  - Actualización de metadatos PE de Windows (FileVersion y ProductVersion a `2.1.0.0`) en `crates/ucaba_cli/build.rs`, `crates/ucaba_installer/build.rs`, `version_info_installer.txt` y `version_info_ucaba.txt`.
+  - Actualización de tests de integración del CLI en `crates/ucaba_cli/tests/test_cli.rs` para validar el nuevo banner `UCABA (v2.1.0)`.
+  - Regeneración y validación de `Cargo.lock` para garantizar compilación y comprobación limpia en todo el workspace.
+- **Herramientas Auxiliares de Empaquetado:**
+  - Sincronización de versión `2.1.0` en scripts de empaquetado y distribución (`build_linux_package.py`, `install_extension.py`, `pseudocode/__init__.py`).
+
 ## [2.0.3] - 2026-10-26
 
 ### ⚙️ Motor Nativo Rust (`ucaba_core` / `crates/ucaba_core`)

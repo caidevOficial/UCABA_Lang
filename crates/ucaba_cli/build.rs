@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-changed=../../ucaba_icon.ico");
     #[cfg(windows)]
     {
         let mut res = winres::WindowsResource::new();
@@ -6,8 +7,8 @@ fn main() {
         res.set("ProductName", "UCABA");
         res.set("FileDescription", "UCABA: Lenguaje de programación de pseudocódigo en español fuertemente tipado (Rust Engine)");
         res.set("LegalCopyright", "Copyright (c) 2026 Facu Falcone");
-        res.set("FileVersion", "2.0.3.0");
-        res.set("ProductVersion", "2.0.3.0");
+        res.set("FileVersion", "2.1.0.0");
+        res.set("ProductVersion", "2.1.0.0");
         if let Err(e) = res.compile() {
             eprintln!("Cargo build warning: could not compile Windows resource: {}", e);
         }

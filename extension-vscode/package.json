@@ -1,8 +1,8 @@
 {
   "name": "ucaba-language-support",
   "displayName": "UCABA",
-  "description": "Soporte oficial para el lenguaje UCABA (.ucaba): coloreado de sintaxis, diagnósticos instantáneos con motor nativo v2.0 en Rust, autocompletado y consola interactiva REPL.",
-  "version": "2.0.3",
+  "description": "Soporte oficial para el lenguaje UCABA (.ucaba): nueva identidad visual Jaguar Gamer & Electric Blue, coloreado de sintaxis, diagnósticos instantáneos con motor nativo Rust, autocompletado y consola interactiva REPL.",
+  "version": "2.1.0",
   "author": "Facu Falcone <a.facundo.falcone@gmail.com>",
   "license": "GPL-3.0-or-later",
   "icon": "icon.png",

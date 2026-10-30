@@ -52,11 +52,11 @@ file_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=
   <polyline points="14 2 14 8 20 8"/>
 </svg>'''
 
-folder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#c02694" fill-opacity="0.25" stroke="#f472b6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+folder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#0066ff" fill-opacity="0.25" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
 </svg>'''
 
-folder_open_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#c02694" fill-opacity="0.35" stroke="#f472b6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+folder_open_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#0066ff" fill-opacity="0.35" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
   <path d="M5 19h14a2 2 0 0 0 2-1.7l1.3-7.3a1 1 0 0 0-.9-1.2l-1.4.2H8.5L6.5 6H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h1"/>
 </svg>'''
 

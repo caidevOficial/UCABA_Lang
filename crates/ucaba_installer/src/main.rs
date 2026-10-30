@@ -40,9 +40,10 @@ fn run_powershell_script(script: &str) -> std::io::Result<std::process::Output> 
 const UCABA_EXE_BYTES: &[u8] = include_bytes!("../../../target/release/ucaba.exe");
 const UCABA_ICON_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.ico");
 const UCABA_ICON_PNG_BYTES: &[u8] = include_bytes!("../../../ucaba_icon.png");
+#[allow(dead_code)]
 const UCABA_LOGO_BYTES: &[u8] = include_bytes!("../../../ucaba_logo_header.png");
-const VSCODE_VSIX_BYTES: &[u8] = include_bytes!("../../../extension-vscode/ucaba-language-support-2.0.3.vsix");
-const UCABA_VERSION: &str = "2.0.3";
+const VSCODE_VSIX_BYTES: &[u8] = include_bytes!("../../../extension-vscode/ucaba-language-support-2.1.0.vsix");
+const UCABA_VERSION: &str = "2.1.0";
 
 fn current_time_str() -> String {
     let dur = std::time::SystemTime::now()
@@ -121,7 +122,7 @@ impl eframe::App for InstallerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Cargar textura del logo en el primer cuadro si aún no está en memoria
         if self.logo_texture.is_none() {
-            if let Ok(img) = image::load_from_memory(UCABA_LOGO_BYTES) {
+            if let Ok(img) = image::load_from_memory(UCABA_ICON_PNG_BYTES) {
                 let rgba = img.to_rgba8();
                 let size = [rgba.width() as usize, rgba.height() as usize];
                 let pixels = rgba.into_raw();
@@ -130,30 +131,30 @@ impl eframe::App for InstallerApp {
             }
         }
 
-        // Configuración de paleta institucional Dark Magenta (#150817 base, #240a26 paneles)
+        // Configuración de paleta oficial Dark Electric Blue & Jaguar Gamer (UCABA 2.X)
         let mut visuals = egui::Visuals::dark();
-        visuals.panel_fill = Color32::from_rgb(21, 8, 23); // #150817
-        visuals.window_fill = Color32::from_rgb(21, 8, 23);
-        visuals.extreme_bg_color = Color32::from_rgb(13, 4, 14); // #0d040e
-        visuals.faint_bg_color = Color32::from_rgb(36, 10, 38); // #240a26
-        visuals.override_text_color = Some(Color32::from_rgb(252, 231, 243)); // #fce7f3
+        visuals.panel_fill = Color32::from_rgb(8, 12, 20); // #080c14 base noche espacial
+        visuals.window_fill = Color32::from_rgb(8, 12, 20);
+        visuals.extreme_bg_color = Color32::from_rgb(5, 8, 15); // #05080f
+        visuals.faint_bg_color = Color32::from_rgb(15, 23, 42); // #0f172a
+        visuals.override_text_color = Some(Color32::from_rgb(224, 242, 254)); // #e0f2fe
 
         // Widgets inactivos y bordes
-        visuals.widgets.inactive.bg_fill = Color32::from_rgb(46, 12, 50); // #2e0c32
-        visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(74, 18, 78)); // #4a124e
-        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(252, 231, 243));
+        visuals.widgets.inactive.bg_fill = Color32::from_rgb(14, 23, 38); // #0e1726
+        visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(30, 58, 138)); // #1e3a8a
+        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(224, 242, 254));
 
         // Hover interactivo
-        visuals.widgets.hovered.bg_fill = Color32::from_rgb(192, 38, 148); // #c02694
-        visuals.widgets.hovered.bg_stroke = Stroke::new(1.5_f32, Color32::from_rgb(244, 114, 182)); // #f472b6
+        visuals.widgets.hovered.bg_fill = Color32::from_rgb(0, 102, 255); // #0066ff
+        visuals.widgets.hovered.bg_stroke = Stroke::new(1.5_f32, Color32::from_rgb(56, 189, 248)); // #38bdf8
         visuals.widgets.hovered.fg_stroke = Stroke::new(1.5_f32, Color32::WHITE);
 
         // Click activo
-        visuals.widgets.active.bg_fill = Color32::from_rgb(147, 21, 109);
-        visuals.widgets.active.bg_stroke = Stroke::new(2.0_f32, Color32::from_rgb(244, 114, 182));
+        visuals.widgets.active.bg_fill = Color32::from_rgb(0, 82, 204); // #0052cc
+        visuals.widgets.active.bg_stroke = Stroke::new(2.0_f32, Color32::from_rgb(0, 212, 255)); // #00d4ff
         visuals.widgets.active.fg_stroke = Stroke::new(2.0_f32, Color32::WHITE);
 
-        visuals.selection.bg_fill = Color32::from_rgb(168, 26, 125); // #a81a7d
+        visuals.selection.bg_fill = Color32::from_rgb(0, 102, 255); // #0066ff
         ctx.set_visuals(visuals);
 
         // Polling de mensajes del hilo de instalación/desinstalación
@@ -199,8 +200,8 @@ impl eframe::App for InstallerApp {
         // 1. PANEL SUPERIOR (CABECERA INSTITUCIONAL)
         // ====================================================================
         let header_frame = egui::Frame::none()
-            .fill(Color32::from_rgb(36, 10, 38)) // #240a26
-            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(74, 18, 78))) // #4a124e
+            .fill(Color32::from_rgb(15, 23, 42)) // #0f172a
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(30, 58, 138))) // #1e3a8a
             .inner_margin(Margin { left: 20.0, right: 20.0, top: 14.0, bottom: 14.0 });
 
         egui::TopBottomPanel::top("header_panel")
@@ -226,16 +227,16 @@ impl eframe::App for InstallerApp {
 
                             // Pill de versión
                             egui::Frame::none()
-                                .fill(Color32::from_rgb(112, 26, 117)) // #701a75
-                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(244, 114, 182))) // #f472b6
+                                .fill(Color32::from_rgb(30, 58, 138)) // #1e3a8a
+                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(56, 189, 248))) // #38bdf8
                                 .rounding(Rounding::same(4.0))
                                 .inner_margin(Margin { left: 8.0, right: 8.0, top: 2.0, bottom: 2.0 })
                                 .show(ui, |ui| {
                                     ui.label(
-                                        RichText::new("v2.0")
+                                        RichText::new("v2.1.0")
                                             .size(11.0)
                                             .strong()
-                                            .color(Color32::from_rgb(253, 244, 255)),
+                                            .color(Color32::from_rgb(224, 242, 254)),
                                     );
                                 });
 
@@ -243,8 +244,8 @@ impl eframe::App for InstallerApp {
 
                             // Pill de motor Rust
                             egui::Frame::none()
-                                .fill(Color32::from_rgb(56, 13, 63)) // #380d3f
-                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(189, 36, 145))) // #bd2491
+                                .fill(Color32::from_rgb(15, 43, 92)) // #0f2b5c
+                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(0, 102, 255))) // #0066ff
                                 .rounding(Rounding::same(4.0))
                                 .inner_margin(Margin { left: 8.0, right: 8.0, top: 2.0, bottom: 2.0 })
                                 .show(ui, |ui| {
@@ -252,7 +253,7 @@ impl eframe::App for InstallerApp {
                                         RichText::new("Rust Engine")
                                             .size(10.0)
                                             .strong()
-                                            .color(Color32::from_rgb(252, 231, 243)),
+                                            .color(Color32::from_rgb(186, 230, 253)),
                                     );
                                 });
                         });
@@ -264,15 +265,15 @@ impl eframe::App for InstallerApp {
                                 UCABA_VERSION
                             ))
                             .size(11.5)
-                            .color(Color32::from_rgb(244, 114, 182)),
+                            .color(Color32::from_rgb(0, 212, 255)), // #00d4ff
                         );
                     });
 
                     // Insignia de Autoría a la derecha
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         egui::Frame::none()
-                            .fill(Color32::from_rgb(56, 13, 63)) // #380d3f
-                            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(168, 26, 125))) // #a81a7d
+                            .fill(Color32::from_rgb(15, 43, 92)) // #0f2b5c
+                            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(2, 132, 199))) // #0284c7
                             .rounding(Rounding::same(6.0))
                             .inner_margin(Margin { left: 14.0, right: 14.0, top: 6.0, bottom: 6.0 })
                             .show(ui, |ui| {
@@ -280,7 +281,7 @@ impl eframe::App for InstallerApp {
                                     RichText::new("Autor: <Facu Falcone>")
                                         .size(11.0)
                                         .strong()
-                                        .color(Color32::from_rgb(252, 231, 243)),
+                                        .color(Color32::from_rgb(125, 211, 252)), // #7dd3fc
                                 );
                             });
                     });
@@ -291,8 +292,8 @@ impl eframe::App for InstallerApp {
         // 2. PANEL INFERIOR (ESTADO Y BOTONERA DE ACCIÓN)
         // ====================================================================
         let footer_frame = egui::Frame::none()
-            .fill(Color32::from_rgb(36, 10, 38)) // #240a26
-            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(74, 18, 78))) // #4a124e
+            .fill(Color32::from_rgb(15, 23, 42)) // #0f172a
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(30, 58, 138))) // #1e3a8a
             .inner_margin(Margin { left: 20.0, right: 20.0, top: 12.0, bottom: 12.0 });
 
         egui::TopBottomPanel::bottom("footer_panel")
@@ -307,7 +308,7 @@ impl eframe::App for InstallerApp {
                     } else if self.status_text.starts_with("Error") {
                         ("✖ ", Color32::from_rgb(248, 113, 113)) // Rojo
                     } else {
-                        ("● ", Color32::from_rgb(244, 114, 182)) // Rosa suave
+                        ("● ", Color32::from_rgb(56, 189, 248)) // Cyan neón
                     };
 
                     ui.label(
@@ -327,14 +328,14 @@ impl eframe::App for InstallerApp {
                                 .strong(),
                         )
                         .fill(if self.is_busy {
-                            Color32::from_rgb(70, 20, 60)
+                            Color32::from_rgb(15, 23, 42) // #0f172a
                         } else {
-                            Color32::from_rgb(168, 26, 125) // #a81a7d
+                            Color32::from_rgb(0, 102, 255) // #0066ff
                         });
 
                         if ui
                             .add_enabled(!self.is_busy, install_btn)
-                            .on_hover_text("Inicia la instalación completa de UCABA 2.0 y su extensión")
+                            .on_hover_text("Inicia la instalación completa de UCABA 2.1.0 y su extensión")
                             .clicked()
                         {
                             self.start_installation();
@@ -348,7 +349,7 @@ impl eframe::App for InstallerApp {
                                 .size(11.5)
                                 .color(Color32::WHITE),
                         )
-                        .fill(Color32::from_rgb(136, 19, 55)); // #881337
+                        .fill(Color32::from_rgb(153, 27, 27)); // #991b1b
 
                         if ui
                             .add_enabled(!self.is_busy, uninstall_btn)
@@ -364,9 +365,9 @@ impl eframe::App for InstallerApp {
                         let exit_btn = egui::Button::new(
                             RichText::new("  Cerrar  ")
                                 .size(11.5)
-                                .color(Color32::from_rgb(252, 231, 243)),
+                                .color(Color32::from_rgb(224, 242, 254)),
                         )
-                        .fill(Color32::from_rgb(59, 21, 62)); // #3b153e
+                        .fill(Color32::from_rgb(30, 41, 59)); // #1e293b
 
                         if ui.add(exit_btn).clicked() {
                             std::process::exit(0);
@@ -379,7 +380,7 @@ impl eframe::App for InstallerApp {
         // 3. PANEL CENTRAL (OPCIONES, PROGRESO Y CONSOLA DE LOGS)
         // ====================================================================
         let central_frame = egui::Frame::none()
-            .fill(Color32::from_rgb(21, 8, 23)) // #150817
+            .fill(Color32::from_rgb(8, 12, 20)) // #080c14
             .inner_margin(Margin { left: 20.0, right: 20.0, top: 14.0, bottom: 14.0 });
 
         egui::CentralPanel::default()
@@ -387,8 +388,8 @@ impl eframe::App for InstallerApp {
             .show(ctx, |ui| {
                 // Tarjeta 1: Opciones de Configuración
                 let card_frame = egui::Frame::none()
-                    .fill(Color32::from_rgb(26, 9, 29))
-                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(61, 12, 64)))
+                    .fill(Color32::from_rgb(14, 23, 38)) // #0e1726
+                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(30, 58, 138))) // #1e3a8a
                     .rounding(Rounding::same(8.0))
                     .inner_margin(Margin { left: 16.0, right: 16.0, top: 12.0, bottom: 12.0 });
 
@@ -396,7 +397,7 @@ impl eframe::App for InstallerApp {
                     ui.label(
                         RichText::new("Componentes y Tareas de Instalación:")
                             .size(13.0)
-                            .color(Color32::from_rgb(250, 232, 255))
+                            .color(Color32::from_rgb(240, 249, 255))
                             .strong(),
                     );
                     ui.add_space(6.0);
@@ -407,7 +408,7 @@ impl eframe::App for InstallerApp {
                             &mut self.opt_install_cli,
                             RichText::new("Instalar ejecutable nativo 'ucaba.exe' en %LOCALAPPDATA%\\Programs\\UCABA\\bin")
                                 .size(11.5)
-                                .color(Color32::from_rgb(252, 231, 243)),
+                                .color(Color32::from_rgb(224, 242, 254)),
                         ),
                     );
                     ui.add_space(3.0);
@@ -418,7 +419,7 @@ impl eframe::App for InstallerApp {
                             &mut self.opt_add_path,
                             RichText::new("Agregar UCABA a la variable de entorno PATH (usar 'ucaba' desde cualquier terminal)")
                                 .size(11.5)
-                                .color(Color32::from_rgb(252, 231, 243)),
+                                .color(Color32::from_rgb(224, 242, 254)),
                         ),
                     );
                     ui.add_space(3.0);
@@ -429,7 +430,7 @@ impl eframe::App for InstallerApp {
                             &mut self.opt_install_vscode,
                             RichText::new("Instalar extensión oficial en Visual Studio Code y Antigravity (coloreado, linter y LSP)")
                                 .size(11.5)
-                                .color(Color32::from_rgb(252, 231, 243)),
+                                .color(Color32::from_rgb(224, 242, 254)),
                         ),
                     );
                     ui.add_space(3.0);
@@ -440,7 +441,7 @@ impl eframe::App for InstallerApp {
                             &mut self.opt_associate_ext,
                             RichText::new("Asociar archivos .ucaba en Windows (icono oficial del lenguaje y comando 'Abrir/Ejecutar')")
                                 .size(11.5)
-                                .color(Color32::from_rgb(252, 231, 243)),
+                                .color(Color32::from_rgb(224, 242, 254)),
                         ),
                     );
 
@@ -453,7 +454,7 @@ impl eframe::App for InstallerApp {
                         ui.label(
                             RichText::new("Directorio de Instalación:")
                                 .size(11.0)
-                                .color(Color32::from_rgb(244, 114, 182))
+                                .color(Color32::from_rgb(56, 189, 248)) // #38bdf8
                                 .strong(),
                         );
                         ui.add_space(4.0);
@@ -472,7 +473,7 @@ impl eframe::App for InstallerApp {
                 let progress_bar = egui::ProgressBar::new(self.progress)
                     .show_percentage()
                     .animate(self.is_busy)
-                    .fill(Color32::from_rgb(168, 26, 125));
+                    .fill(Color32::from_rgb(0, 102, 255)); // #0066ff
                 ui.add_sized([ui.available_width(), 16.0], progress_bar);
 
                 ui.add_space(10.0);
@@ -482,7 +483,7 @@ impl eframe::App for InstallerApp {
                     ui.label(
                         RichText::new("Registro de eventos:")
                             .size(12.0)
-                            .color(Color32::from_rgb(244, 114, 182))
+                            .color(Color32::from_rgb(56, 189, 248)) // #38bdf8
                             .strong(),
                     );
 
@@ -494,13 +495,13 @@ impl eframe::App for InstallerApp {
                                     .color(Color32::WHITE)
                                     .strong(),
                             )
-                            .fill(Color32::from_rgb(37, 99, 235)); // Azul brillante
+                            .fill(Color32::from_rgb(0, 102, 255)); // Azul eléctrico
 
                             if ui.add(open_cmd_btn).clicked() {
                                 let _ = Command::new("powershell.exe")
                                     .arg("-NoExit")
                                     .arg("-Command")
-                                    .arg("ucaba --version; Write-Host ''; Write-Host '¡UCABA 2.0 está listo para ser utilizado!' -ForegroundColor Magenta")
+                                    .arg("ucaba --version; Write-Host ''; Write-Host '¡UCABA 2.1.0 está listo para ser utilizado!' -ForegroundColor Cyan")
                                     .spawn();
                             }
                         });
@@ -511,8 +512,8 @@ impl eframe::App for InstallerApp {
 
                 // Tarjeta 2: Consola de Logs estilo Terminal
                 let log_frame = egui::Frame::none()
-                    .fill(Color32::from_rgb(13, 4, 14)) // #0d040e
-                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(61, 12, 64))) // #3d0c40
+                    .fill(Color32::from_rgb(5, 8, 15)) // #05080f
+                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(30, 58, 138))) // #1e3a8a
                     .rounding(Rounding::same(6.0))
                     .inner_margin(Margin { left: 10.0, right: 10.0, top: 8.0, bottom: 8.0 });
 
@@ -525,7 +526,7 @@ impl eframe::App for InstallerApp {
                             for log in &self.logs {
                                 ui.monospace(
                                     RichText::new(log)
-                                        .color(Color32::from_rgb(245, 208, 254))
+                                        .color(Color32::from_rgb(186, 230, 253)) // #bae6fd
                                         .size(11.0),
                                 );
                             }
@@ -1373,7 +1374,7 @@ fn main() -> eframe::Result<()> {
         .with_inner_size([880.0, 640.0])
         .with_min_inner_size([840.0, 600.0])
         .with_resizable(true)
-        .with_title("Instalador UCABA v2.0 & Extensión para Visual Studio Code");
+        .with_title("Instalador UCABA v2.1 & Extensión para Visual Studio Code");
 
     if let Some(icon) = icon_data {
         viewport = viewport.with_icon(icon);
@@ -1385,7 +1386,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Instalador UCABA v2.0 & Extensión para Visual Studio Code",
+        "Instalador UCABA v2.1 & Extensión para Visual Studio Code",
         options,
         Box::new(|_cc| Ok(Box::new(InstallerApp::default()))),
     )

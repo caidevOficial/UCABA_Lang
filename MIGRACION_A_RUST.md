@@ -1,7 +1,7 @@
 # 🦀 Informe Integral de Migración a Rust: Lenguaje UCABA (v2.0)
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.3-a81a7d?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.1.0-0066ff?style=for-the-badge" alt="Versión" />
   <img src="https://img.shields.io/badge/Motor-Rust_Nativo-dea584?style=for-the-badge&logo=rust" alt="Engine Rust" />
   <img src="https://img.shields.io/badge/GUI-eframe%20%2F%20egui-2563eb?style=for-the-badge" alt="GUI eframe" />
   <img src="https://img.shields.io/badge/Plataforma-Windows_x64_%7C_Linux-0078d4?style=for-the-badge&logo=windows" alt="Plataformas" />

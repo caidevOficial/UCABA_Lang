@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="ucaba_logo_header.png" width="120" alt="UCABA Logo" />
+  <img src="ucaba_icon.png" width="160" alt="UCABA Logo" />
 </p>
 
 <h1 align="center">⚡ UCABA</h1>
@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-881337?style=for-the-badge" alt="Autor" /></a>
-  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.0.3-a81a7d?style=for-the-badge" alt="Versión" />
-  <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-ba288e?style=for-the-badge" alt="Extensión .ucaba" />
-  <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-380d3f?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
-  <img src="https://img.shields.io/badge/Tests-72%20passing-22c55e?style=for-the-badge" alt="Tests" />
+  <a href="#-autoría-y-créditos"><img src="https://img.shields.io/badge/Autor-%3CFacu%20Falcone%3E-0f172a?style=for-the-badge" alt="Autor" /></a>
+  <img src="https://img.shields.io/badge/Versi%C3%B3n-2.1.0-0066ff?style=for-the-badge" alt="Versión" />
+  <img src="https://img.shields.io/badge/Extensi%C3%B3n-.ucaba-38bdf8?style=for-the-badge" alt="Extensión .ucaba" />
+  <img src="https://img.shields.io/badge/VS_Code-Extensi%C3%B3n_Oficial-1e3a8a?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Extension" />
+  <img src="https://img.shields.io/badge/Tests-82%20passing-22c55e?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/Licencia-GPL--3.0-2563eb?style=for-the-badge" alt="Licencia GPL-3.0" />
 </p>
 
@@ -72,8 +72,9 @@ Permite escribir algoritmos estructurados con palabras clave naturales en españ
 - 📁 **Manejo Nativo de Archivos:** Tipo `ARCHIVO` integrado con lectura secuencial (`.LEER_LINEA()`), escritura (`.ESCRIBIR_LINEA()`) y detección de fin de archivo (`.findearchivo`).
 - ⚡ **CLI Nativo y Autónomo:** Binario `ucaba.exe` ultra-compacto (~830 KB) con icono y metadatos Windows PE integrados.
 - 🧠 **Servidor de Diagnóstico LSP en Tiempo Real:** Comando `ucaba lsp-check` con respuesta en <0.2 ms y salida JSON estándar para VS Code e IDEs.
+- 🐆 **Identidad Visual "Jaguar Gamer" (v2.1):** Nuevo isotipo oficial con diseño vectorial afilado estilo esports, paleta cibernética "Electric Blue & Cyber Cyan" (`#0066FF`, `#00D4FF`, `#38BDF8`), iconos High-DPI y tema de iconos renovado para el explorador de VS Code.
 - 🎨 **Herramientas de Desarrollo:** Extensión oficial para VS Code con resaltado sintáctico, autocompletado, diagnósticos visuales instantáneos y ejecución de REPL integrado.
-- 🖼️ **Instalador Todo-en-Uno (Rust GUI):** Asistente gráfico moderno en Rust (`eframe`/`egui`) con tema Dark Magenta, soporte High-DPI, ~4.8 MB (4x más liviano que versiones anteriores) y modo silencioso (`--silent`).
+- 🖼️ **Instalador Todo-en-Uno (Rust & Python GUI):** Asistente gráfico moderno con la nueva identidad Dark Electric Blue, soporte High-DPI, ~4.8 MB (4x más liviano que versiones anteriores) y modo silencioso (`--silent`).
 
 ---
 
@@ -107,10 +108,10 @@ UCABA ofrece paquetes oficiales nativos y universales para entornos Linux:
 Recomendado para **Ubuntu, Debian, Linux Mint, Pop!_OS, Kali Linux** y derivados:
 ```bash
 # Instalación con apt (resuelve dependencias automáticamente)
-sudo apt install ./ucaba_2.0.3_amd64.deb
+sudo apt install ./ucaba_2.1.0_amd64.deb
 
 # O mediante dpkg:
-# sudo dpkg -i ucaba_2.0.3_amd64.deb
+# sudo dpkg -i ucaba_2.1.0_amd64.deb
 ```
 Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIME del archivo `.ucaba`, el icono del lenguaje y la entrada de escritorio para aplicaciones del sistema.
 
@@ -118,8 +119,8 @@ Este paquete instala el binario en `/usr/bin/ucaba`, registra la asociación MIM
 Compatible con cualquier distribución (Arch Linux, Fedora, openSUSE, Gentoo, Alpine, etc.):
 ```bash
 # Descomprimir el paquete
-tar -xzf ucaba-2.0.3-linux-x64.tar.gz
-cd ucaba-2.0.3-linux-x64
+tar -xzf ucaba-2.1.0-linux-x64.tar.gz
+cd ucaba-2.1.0-linux-x64
 
 # Instalación para el usuario actual (~/.local/bin):
 chmod +x install.sh
@@ -212,7 +213,7 @@ ucaba
 
 *Ejemplo de sesión en el REPL:*
 ```text
-UCABA (v2.0.3)
+UCABA (v2.1.0)
 Consola Interactiva REPL. Escribe expresiones o código de pseudocódigo.
 Comandos especiales: :ayuda, :variables, :limpiar, :salir
 
@@ -302,13 +303,14 @@ ucaba tokens mi_algoritmo.ucaba
 
 ## 🎨 Extensión Oficial para Visual Studio Code
 
-El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` (disponible como paquete `ucaba-language-support-2.0.3.vsix`):
+El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` (disponible como paquete `ucaba-language-support-2.1.0.vsix`):
 
 <p align="center">
-  <img src="payload/ucaba_logo_header.png" width="64" alt="VS Code Extension" />
+  <img src="ucaba_icon.png" width="80" alt="VS Code Extension" />
 </p>
 
 ### Funcionalidades:
+- 🐆 **Tema de Iconos Oficial "Jaguar Gamer" (v2.1.0):** Set completo de iconos con la nueva identidad estilizada azul eléctrica en `extension-vscode/icons/` (`ucaba-file.svg`, `ucaba-file.png`).
 - 🌈 **Color de Sintaxis TextMate Avanzado:** Gramática completa para palabras clave, tipos de datos primitivos, cadenas, números y comentarios (`//`, `#` y `/* */`).
 - 🏛️ **Coloreado de Estructuras Personalizadas (v2.0.1):** Resaltado distintivo (verde menta/turquesa) para tipos de estructuras en parámetros (`nodo: Pila`), valores de retorno (`(): NodoCliente`) y arreglos de estructuras (`Pila[]`, `NodoCliente[10]`).
 - 💡 **IntelliSense y Autocompletado Prioritario (v2.0.1):**
@@ -325,7 +327,7 @@ El repositorio incluye la extensión oficial empaquetada en `extension-vscode/` 
 
 #### Instalación Manual de la Extensión:
 ```bash
-code --install-extension extension-vscode/ucaba-language-support-2.0.3.vsix --force
+code --install-extension extension-vscode/ucaba-language-support-2.1.0.vsix --force
 ```
 
 ---

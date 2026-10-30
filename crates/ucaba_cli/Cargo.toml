@@ -1,6 +1,6 @@
 [package]
 name = "ucaba_cli"
-version = "2.0.3"
+version = "2.1.0"
 edition = "2021"
 authors = ["Facu Falcone <a.facundo.falcone@gmail.com>"]
 description = "CLI oficial del lenguaje de pseudocódigo en español UCABA"

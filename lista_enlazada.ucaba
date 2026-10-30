@@ -1,0 +1,37 @@
+INICIO
+    ESTRUCTURA Lista:
+        Nodo cabeza
+        ENTERO cantidad
+    FIN ESTRUCTURA
+
+    ESTRUCTURA Nodo:
+        CADENA producto
+        Nodo siguiente
+    FIN ESTRUCTURA 
+
+    PROCEDIMIENTO Insertar(mi_lista: Lista, posicion: ENTERO, producto: CADENA)
+        Nodo nuevo_nodo
+        nuevo_nodo.producto = producto
+        nuevo_nodo.siguiente = NULO
+
+        SI (posicion == 1)
+            nuevo_nodo.siguiente = mi_lista.cabeza
+            mi_lista.cabeza = nuevo_nodo
+        SINO
+            Nodo actual = mi_lista.cabeza
+            PARA (ENTERO i = 1; i < posicion - 1; i++)
+                actual = actual.siguiente
+            FIN PARA
+            nuevo_nodo.siguiente = actual.siguiente
+            actual.siguiente = nuevo_nodo
+        FIN SI
+    FIN PROCEDIMIENTO
+
+    Lista mi_lista
+    Insertar(mi_lista, 1, "Manzana")
+    Insertar(mi_lista, 2, "Pera")
+    Insertar(mi_lista, 3, "Naranja")
+    IMPRIMIR(mi_lista)
+
+
+FIN

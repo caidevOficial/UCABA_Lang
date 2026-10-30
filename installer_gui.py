@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import threading
 import time
+import json
 import winreg
 import ctypes
 from ctypes import wintypes
@@ -35,8 +36,41 @@ from tkinter import ttk, messagebox
 from tkinter.scrolledtext import ScrolledText
 
 # Versión oficial del instalador y del lenguaje UCABA
-APP_VERSION = "1.11"
-APP_VERSION_FULL = "1.11.6"
+APP_VERSION = "2.1.0"
+APP_VERSION_FULL = "2.1.0"
+
+# ============================================================================
+# Paleta Visual Oficial UCABA 2.X (Dark Electric Blue & Jaguar Gamer)
+# ============================================================================
+COLOR_BG_BASE = "#080c14"          # Fondo base profundo (azul noche espacial)
+COLOR_PANEL_BG = "#0f172a"         # Superficies y paneles de cabecera / pie
+COLOR_PANEL_ALT = "#131f37"        # Paneles alternativos
+COLOR_BORDER = "#1e3a8a"           # Bordes sutiles azul profundo
+COLOR_BORDER_ACCENT = "#2563eb"    # Bordes destacados
+COLOR_PRIMARY = "#0066ff"          # Acento Primario: Azul eléctrico UCABA
+COLOR_PRIMARY_HOVER = "#0052cc"    # Hover botón principal
+COLOR_PRIMARY_ACTIVE = "#0084ff"   # Active / Focus botón principal
+COLOR_CYAN_NEON = "#00d4ff"        # Acento Secundario: Cyan Neón / Glow
+COLOR_CYAN_SOFT = "#38bdf8"        # Cyan suave (subtítulos, status)
+COLOR_BADGE_BG = "#0f2b5c"         # Fondo cápsula insignia autoría
+COLOR_BADGE_FG = "#7dd3fc"         # Texto cápsula insignia autoría
+COLOR_BADGE_BORDER = "#0284c7"     # Borde cápsula insignia autoría
+COLOR_VER_BADGE_BG = "#1e3a8a"     # Fondo badge de versión
+COLOR_VER_BADGE_FG = "#e0f2fe"     # Texto badge de versión
+COLOR_VER_BADGE_BORDER = "#38bdf8" # Borde badge de versión
+COLOR_CONSOLE_BG = "#05080f"       # Fondo consola de logs
+COLOR_CONSOLE_FG = "#bae6fd"       # Texto consola de logs
+COLOR_CONSOLE_CURSOR = "#00d4ff"   # Cursor consola de logs
+COLOR_TEXT_MAIN = "#ffffff"        # Texto blanco puro
+COLOR_TEXT_MUTED = "#94a3b8"       # Texto secundario / atenuado
+COLOR_CHK_FG = "#e0f2fe"           # Texto opciones checkbutton
+COLOR_CHK_SELECT = "#0e1726"       # Fondo selección checkbutton
+COLOR_BTN_SEC_BG = "#1e293b"       # Botón secundario (cerrar)
+COLOR_BTN_SEC_FG = "#e2e8f0"       # Texto botón secundario
+COLOR_BTN_SEC_HOVER = "#334155"    # Hover botón secundario
+COLOR_DANGER_BG = "#991b1b"        # Botón desinstalar
+COLOR_DANGER_FG = "#ffffff"        # Texto botón desinstalar
+COLOR_DANGER_HOVER = "#b91c1c"     # Hover botón desinstalar
 
 
 def setup_console():
@@ -302,7 +336,7 @@ class InstallerApp:
         window_width = 880
         window_height = 640
         self.root.minsize(840, 600)
-        self.root.configure(bg="#150817")
+        self.root.configure(bg=COLOR_BG_BASE)
 
         # Centrar la ventana dinámicamente en la pantalla del usuario
         try:
@@ -333,7 +367,7 @@ class InstallerApp:
 
     def _build_ui(self):
         # 1. Cabecera visual con logo institucional e información (TOP)
-        header_frame = tk.Frame(self.root, bg="#240a26", padx=20, pady=16)
+        header_frame = tk.Frame(self.root, bg=COLOR_PANEL_BG, padx=20, pady=16)
         header_frame.pack(side=tk.TOP, fill=tk.X)
 
         self.logo_img = None
@@ -344,18 +378,18 @@ class InstallerApp:
         if os.path.exists(logo_path):
             try:
                 self.logo_img = tk.PhotoImage(file=logo_path)
-                logo_lbl = tk.Label(header_frame, image=self.logo_img, bg="#240a26")
+                logo_lbl = tk.Label(header_frame, image=self.logo_img, bg=COLOR_PANEL_BG)
                 logo_lbl.pack(side=tk.LEFT, padx=(0, 16))
             except Exception:
                 pass
 
-        # Badge de autor estilizado en la esquina superior derecha
+        # Badge de autor estilizado en la esquina superior derecha (Cápsula Azul/Cyan)
         author_badge = tk.Frame(
             header_frame,
-            bg="#380d3f",
+            bg=COLOR_BADGE_BG,
             padx=14,
             pady=6,
-            highlightbackground="#a81a7d",
+            highlightbackground=COLOR_BADGE_BORDER,
             highlightthickness=1
         )
         author_badge.pack(side=tk.RIGHT, padx=(10, 0), anchor="center")
@@ -364,24 +398,24 @@ class InstallerApp:
             author_badge,
             text="Autor: <Facu Falcone>",
             font=("Segoe UI", 9, "bold"),
-            fg="#fce7f3",
-            bg="#380d3f"
+            fg=COLOR_BADGE_FG,
+            bg=COLOR_BADGE_BG
         )
         author_lbl.pack()
 
-        text_frame = tk.Frame(header_frame, bg="#240a26")
+        text_frame = tk.Frame(header_frame, bg=COLOR_PANEL_BG)
         text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Fila de título principal con badge de versión
-        title_row = tk.Frame(text_frame, bg="#240a26")
+        title_row = tk.Frame(text_frame, bg=COLOR_PANEL_BG)
         title_row.pack(anchor="w", fill=tk.X)
 
         title_lbl = tk.Label(
             title_row,
             text="UCABA",
             font=("Segoe UI", 20, "bold"),
-            fg="#ffffff",
-            bg="#240a26",
+            fg=COLOR_TEXT_MAIN,
+            bg=COLOR_PANEL_BG,
             anchor="w",
             justify=tk.LEFT
         )
@@ -389,10 +423,10 @@ class InstallerApp:
 
         ver_badge = tk.Frame(
             title_row,
-            bg="#701a75",
+            bg=COLOR_VER_BADGE_BG,
             padx=8,
             pady=2,
-            highlightbackground="#f472b6",
+            highlightbackground=COLOR_VER_BADGE_BORDER,
             highlightthickness=1
         )
         ver_badge.pack(side=tk.LEFT, padx=(12, 0), pady=(3, 0))
@@ -401,8 +435,8 @@ class InstallerApp:
             ver_badge,
             text=f"v{APP_VERSION}",
             font=("Segoe UI", 10, "bold"),
-            fg="#fdf4ff",
-            bg="#701a75"
+            fg=COLOR_VER_BADGE_FG,
+            bg=COLOR_VER_BADGE_BG
         )
         ver_lbl.pack()
 
@@ -410,8 +444,8 @@ class InstallerApp:
             text_frame,
             text=f"Instalador del Lenguaje (v{APP_VERSION}) & Extensión para Visual Studio Code",
             font=("Segoe UI", 10),
-            fg="#f472b6",
-            bg="#240a26",
+            fg=COLOR_CYAN_NEON,
+            bg=COLOR_PANEL_BG,
             anchor="w",
             justify=tk.LEFT
         )
@@ -419,15 +453,15 @@ class InstallerApp:
 
         # 2. Pie de página con botones (BOTTOM)
         # REGLA CRÍTICA: Se empaqueta en BOTTOM ANTES del cuerpo para garantizar que nunca sea ocultado o recortado
-        footer_frame = tk.Frame(self.root, bg="#240a26", padx=20, pady=12)
+        footer_frame = tk.Frame(self.root, bg=COLOR_PANEL_BG, padx=20, pady=12)
         footer_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.status_lbl = tk.Label(
             footer_frame,
             text="Listo para instalar.",
             font=("Segoe UI", 9),
-            fg="#f472b6",
-            bg="#240a26"
+            fg=COLOR_CYAN_SOFT,
+            bg=COLOR_PANEL_BG
         )
         self.status_lbl.pack(side=tk.LEFT)
 
@@ -436,9 +470,9 @@ class InstallerApp:
             text="Cerrar",
             command=self.root.quit,
             font=("Segoe UI", 9),
-            bg="#3b153e",
-            fg="#fce7f3",
-            activebackground="#4d1d52",
+            bg=COLOR_BTN_SEC_BG,
+            fg=COLOR_BTN_SEC_FG,
+            activebackground=COLOR_BTN_SEC_HOVER,
             activeforeground="#ffffff",
             relief=tk.FLAT,
             padx=14,
@@ -452,9 +486,9 @@ class InstallerApp:
             text="Desinstalar",
             command=self.start_uninstall,
             font=("Segoe UI", 9),
-            bg="#881337",
-            fg="#ffffff",
-            activebackground="#9f1239",
+            bg=COLOR_DANGER_BG,
+            fg=COLOR_DANGER_FG,
+            activebackground=COLOR_DANGER_HOVER,
             activeforeground="#ffffff",
             relief=tk.FLAT,
             padx=14,
@@ -468,9 +502,9 @@ class InstallerApp:
             text="Instalar Ahora",
             command=self.start_install,
             font=("Segoe UI", 10, "bold"),
-            bg="#a81a7d",
+            bg=COLOR_PRIMARY,
             fg="#ffffff",
-            activebackground="#c02694",
+            activebackground=COLOR_PRIMARY_ACTIVE,
             activeforeground="#ffffff",
             relief=tk.FLAT,
             padx=20,
@@ -479,19 +513,19 @@ class InstallerApp:
         )
         self.btn_install.pack(side=tk.RIGHT)
 
-        # Efectos hover interactivos en botones
-        self.btn_install.bind("<Enter>", lambda e: self.btn_install.config(bg="#c02694") if str(self.btn_install["state"]) != str(tk.DISABLED) else None)
-        self.btn_install.bind("<Leave>", lambda e: self.btn_install.config(bg="#a81a7d") if str(self.btn_install["state"]) != str(tk.DISABLED) else None)
+        # Efectos hover interactivos en botones (Azul Eléctrico & Cyber Gaming)
+        self.btn_install.bind("<Enter>", lambda e: self.btn_install.config(bg=COLOR_PRIMARY_HOVER) if str(self.btn_install["state"]) != str(tk.DISABLED) else None)
+        self.btn_install.bind("<Leave>", lambda e: self.btn_install.config(bg=COLOR_PRIMARY) if str(self.btn_install["state"]) != str(tk.DISABLED) else None)
 
-        self.btn_uninstall.bind("<Enter>", lambda e: self.btn_uninstall.config(bg="#9f1239") if str(self.btn_uninstall["state"]) != str(tk.DISABLED) else None)
-        self.btn_uninstall.bind("<Leave>", lambda e: self.btn_uninstall.config(bg="#881337") if str(self.btn_uninstall["state"]) != str(tk.DISABLED) else None)
+        self.btn_uninstall.bind("<Enter>", lambda e: self.btn_uninstall.config(bg=COLOR_DANGER_HOVER) if str(self.btn_uninstall["state"]) != str(tk.DISABLED) else None)
+        self.btn_uninstall.bind("<Leave>", lambda e: self.btn_uninstall.config(bg=COLOR_DANGER_BG) if str(self.btn_uninstall["state"]) != str(tk.DISABLED) else None)
 
-        self.btn_exit.bind("<Enter>", lambda e: self.btn_exit.config(bg="#4d1d52"))
-        self.btn_exit.bind("<Leave>", lambda e: self.btn_exit.config(bg="#3b153e"))
+        self.btn_exit.bind("<Enter>", lambda e: self.btn_exit.config(bg=COLOR_BTN_SEC_HOVER))
+        self.btn_exit.bind("<Leave>", lambda e: self.btn_exit.config(bg=COLOR_BTN_SEC_BG))
 
         # 3. Contenido principal (CENTER)
         # Se expande en todo el espacio disponible restante entre la cabecera y el pie de página
-        body_frame = tk.Frame(self.root, bg="#150817", padx=20, pady=12)
+        body_frame = tk.Frame(self.root, bg=COLOR_BG_BASE, padx=20, pady=12)
         body_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # Opciones de instalación
@@ -499,17 +533,17 @@ class InstallerApp:
             body_frame,
             text="Componentes y Tareas de Instalación:",
             font=("Segoe UI", 11, "bold"),
-            fg="#fae8ff",
-            bg="#150817"
+            fg="#f0f9ff",
+            bg=COLOR_BG_BASE
         )
         opts_label.pack(anchor="w", pady=(0, 8))
 
         chk_style = {
-            "bg": "#150817",
-            "fg": "#fce7f3",
-            "activebackground": "#150817",
-            "activeforeground": "#f472b6",
-            "selectcolor": "#2e0c32",
+            "bg": COLOR_BG_BASE,
+            "fg": COLOR_CHK_FG,
+            "activebackground": COLOR_BG_BASE,
+            "activeforeground": COLOR_CYAN_SOFT,
+            "selectcolor": COLOR_CHK_SELECT,
             "font": ("Segoe UI", 9)
         }
 
@@ -548,7 +582,7 @@ class InstallerApp:
         # Barra de progreso
         style = ttk.Style()
         style.theme_use('default')
-        style.configure("UCABA.Horizontal.TProgressbar", troughcolor="#240a26", background="#a81a7d")
+        style.configure("UCABA.Horizontal.TProgressbar", troughcolor=COLOR_PANEL_BG, background=COLOR_PRIMARY)
 
         self.progress = ttk.Progressbar(body_frame, orient="horizontal", mode="determinate", style="UCABA.Horizontal.TProgressbar")
         self.progress.pack(fill=tk.X, pady=(14, 8))
@@ -558,17 +592,17 @@ class InstallerApp:
             body_frame,
             text="Registro de eventos:",
             font=("Segoe UI", 9, "bold"),
-            fg="#f472b6",
-            bg="#150817"
+            fg=COLOR_CYAN_SOFT,
+            bg=COLOR_BG_BASE
         )
         log_label.pack(anchor="w", pady=(0, 4))
 
         self.log_text = ScrolledText(
             body_frame,
             height=8,
-            bg="#0d040e",
-            fg="#f5d0fe",
-            insertbackground="#f472b6",
+            bg=COLOR_CONSOLE_BG,
+            fg=COLOR_CONSOLE_FG,
+            insertbackground=COLOR_CONSOLE_CURSOR,
             font=("Consolas", 9),
             relief=tk.FLAT,
             padx=8,
@@ -586,7 +620,7 @@ class InstallerApp:
             self.log_text.see(tk.END)
         self.root.after(0, _append)
 
-    def set_status(self, text: str, fg: str = "#38bdf8"):
+    def set_status(self, text: str, fg: str = COLOR_CYAN_SOFT):
         def _update():
             self.status_lbl.config(text=text, fg=fg)
         self.root.after(0, _update)
@@ -785,7 +819,7 @@ class InstallerApp:
                                     pass
 
             self.set_progress(100)
-            self.set_status("¡Instalación completada exitosamente!", fg="#4ade80")
+            self.set_status("¡Instalación completada exitosamente!", fg=COLOR_CYAN_SOFT)
             self.log("\n>>> ¡PROCESO FINALIZADO CON ÉXITO! <<<")
             self.log("Puede abrir una nueva terminal y escribir: ucaba run <archivo.ucaba>")
             self.log("O abrir cualquier archivo .ucaba en VS Code para editarlo y ejecutarlo.")
@@ -829,6 +863,8 @@ class InstallerApp:
             user_home = os.path.expanduser("~")
             ext_paths = [
                 os.path.join(user_home, ".vscode", "extensions", f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"),
+                os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-2.0.3"),
+                os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.11.6"),
                 os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
                 os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
                 os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
@@ -933,10 +969,13 @@ def run_cli_install():
 
     user_home = os.path.expanduser("~")
     for old_dir in [
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
-        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+        os.path.join(user_home, ".vscode", "extensions", f"ucaba.ucaba-language-support-{APP_VERSION_FULL}"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-2.0.3"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.11.6"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.3.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.2.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.1.0"),
+        os.path.join(user_home, ".vscode", "extensions", "ucaba.ucaba-language-support-1.0.0"),
         os.path.join(user_home, ".vscode", "extensions", "ucaba-language-support"),
     ]:
         if os.path.exists(old_dir):
